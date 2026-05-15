@@ -117,13 +117,18 @@ export async function recoverTxHash(proofId, createdBlock) {
   } catch { return null }
 }
 
-export function buildReceiptObject({ proofData, txHash, proofId, merchantName, description }) {
+export function buildReceiptObject({ proofData, txHash, proofId, merchantName, description, merchantProfile }) {
   const isUsdc = proofData.token?.toLowerCase() === USDC_ADDRESS.toLowerCase()
   return {
     arcpay_version:   'v0.1-testnet',
     receipt_id:       proofId.toString(),
     merchant_wallet:  proofData.payee,
-    merchant_name:    merchantName || 'Not available — frontend-only metadata not stored on-chain',
+    merchant_name:    merchantProfile?.tradingName || merchantName || '—',
+    merchant_legal_name: merchantProfile?.legalName || '—',
+    merchant_country: merchantProfile?.country || '—',
+    merchant_address: merchantProfile?.businessAddress || '—',
+    merchant_vat:     merchantProfile?.vatOrCompanyId || '—',
+    merchant_lei:     merchantProfile?.lei || '—',
     customer_wallet:  proofData.payer,
     token_address:    proofData.token,
     token_symbol:     isUsdc ? USDC_SYMBOL : proofData.token,
