@@ -9,27 +9,32 @@ import { buildPaymentUrl, savePaymentRequest } from '../utils/paymentRequest.js'
 import { generateRef } from '../utils/formatting.js'
 import { shortAddress } from '../utils/wallet.js'
 
+function luxuryRef(prefix) {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const n = String(Math.floor(Math.random() * 9000) + 1000)
+  return `${prefix}-${y}${m}-${n}`
+}
+
 const DEMO_ITEMS = [
   {
-    label: '👗 Boutique purchase',
-    name:  'BS Luxury Boutique',
-    desc:  'Silk Evening Dress — Private Client',
-    ref:   'BOUTIQUE-2026-001',
-    amount: '420',
+    label:  '👗 Boutique purchase',
+    prefix: 'BOUTIQUE',
+    desc:   '',
+    amount: '',
   },
   {
-    label: '🛍️ Temporary shop',
-    name:  'BS Luxury Temporary Shop',
-    desc:  'Limited Edition Collection — Private Sale',
-    ref:   'TEMPSHOP-2026-001',
-    amount: '850',
+    label:  '🛍️ Temporary shop',
+    prefix: 'TEMPSHOP',
+    desc:   '',
+    amount: '',
   },
   {
-    label: '💎 Private sale',
-    name:  'BS Luxury Private sale',
-    desc:  'Custom Order — Exclusive Item',
-    ref:   'PRIVATE-2026-001',
-    amount: '1200',
+    label:  '💎 Private sale',
+    prefix: 'PRIVATE',
+    desc:   '',
+    amount: '',
   },
 ]
 
@@ -40,7 +45,7 @@ export default function LuxuryRetailPage({ account }) {
     name:    '',
     amount:  '',
     desc:    '',
-    ref:     generateRef(),
+    ref:     '',
     note:    '',
   })
   const [paymentUrl, setPaymentUrl] = useState('')
@@ -60,7 +65,7 @@ export default function LuxuryRetailPage({ account }) {
   function handleChange(e) { setForm(prev => ({ ...prev, [e.target.name]: e.target.value })) }
 
   function applyDemo(item) {
-    setForm(prev => ({ ...prev, desc: item.desc, ref: item.ref, amount: item.amount }))
+    setForm(prev => ({ ...prev, desc: item.desc, ref: luxuryRef(item.prefix), amount: item.amount }))
     setPaymentUrl(''); setError('')
   }
 
