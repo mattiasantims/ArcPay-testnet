@@ -7,7 +7,8 @@ import {
 } from '../utils/receipts.js'
 import { getCachedTxHash } from '../utils/paymentRequest.js'
 import { shortAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE, USDC_ADDRESS } from '../config.js'
+import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured } from '../config.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 import ReceiptActions from '../components/ReceiptActions.jsx'
 
 export default function ReceiptPage() {
@@ -17,6 +18,7 @@ export default function ReceiptPage() {
   const [status,   setStatus]  = useState('loading')
   const [txHash,   setTxHash]  = useState(null)
   const [receipt,  setReceipt] = useState(null)
+  const [merchantProfile, setMerchantProfile] = useState(null)
 
   // Optional frontend-only metadata from URL
   const merchantName = params.get('name') ? decodeURIComponent(params.get('name')) : null
@@ -47,14 +49,23 @@ export default function ReceiptPage() {
     load()
   }, [id])
 
+  // Carica profilo merchant dal registry usando l'indirizzo del merchant
+  useEffect(() => {
+    if (!proof?.payee || !isMerchantRegistryConfigured()) return
+    getMerchantByWallet(proof.payee).then(m => {
+      if (m && m.active) setMerchantProfile(m)
+    }).catch(() => {})
+  }, [proof?.payee])
+
   useEffect(() => {
     if (proof && status === 'found') {
       const r = buildReceiptObject({
-        proofData:    proof,
+        proofData:      proof,
         txHash,
-        proofId:      id,
+        proofId:        id,
         merchantName,
         description,
+        merchantProfile,
       })
       setReceipt(r)
     }
@@ -91,10 +102,10 @@ export default function ReceiptPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <span className="badge badge-green">✓ Verified on-chain</span>
           <span className="badge badge-blue">Arc Testnet</span>
-          <span className="badge badge-gray">#{id}</span>
+          <span className="badge badge-gray">on-chain #{id}</span>
         </div>
         <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.5px' }}>
-          Payment Receipt #{id}
+          {proof.paymentRef ? `Payment Receipt · ${proof.paymentRef}` : 'Payment Receipt'}
         </h1>
         <p style={{ color: 'var(--text2)', fontSize: 14, marginTop: 4 }}>
           Verified on Arc · Payment and receipt created in the same transaction.
@@ -130,9 +141,14 @@ export default function ReceiptPage() {
           { k: 'Payment Ref',   v: proof.paymentRef,   mono: true },
           { k: 'Purpose',       v: proof.purposeCode,  mono: true },
           { k: 'Description',   v: description || 'Not available — frontend-only metadata not stored on-chain' },
-          { k: 'Merchant',      v: proof.payee,        mono: true, full: true },
-          { k: 'Merchant name', v: merchantName || 'Not available — frontend-only metadata not stored on-chain' },
-          { k: 'Customer',      v: proof.payer,        mono: true, full: true },
+          { k: 'Merchant wallet', v: proof.payee,        mono: true, full: true },
+          { k: 'Trading name',    v: merchantProfile?.tradingName || merchantName || '—' },
+          { k: 'Legal name',      v: merchantProfile?.legalName || '—' },
+          { k: 'Country',         v: merchantProfile?.country || '—' },
+          { k: 'Registered office', v: merchantProfile?.businessAddress || '—' },
+          { k: 'VAT / Company ID',  v: merchantProfile?.vatOrCompanyId || '—' },
+          { k: 'LEI',             v: merchantProfile?.lei || '—' },
+          { k: 'Customer',        v: proof.payer,        mono: true, full: true },
           { k: 'Token',         v: isUsdc ? 'USDC (Circle)' : proof.token },
           { k: 'Metadata hash', v: proof.metadataHash, mono: true, full: true },
           { k: 'Block',         v: proof.createdBlock?.toString() ?? '—', mono: true },
