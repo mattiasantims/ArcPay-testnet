@@ -17,7 +17,7 @@ export default function TravelCheckoutPage() {
   const [balance,   setBalance]   = useState(null)
   const [step,      setStep]      = useState('idle')
   const [error,     setError]     = useState('')
-  const [payMethod, setPayMethod] = useState(null)   // null | 'card' | 'usdc'
+  const [payMethod, setPayMethod] = useState('usdc')   // always usdc
   const [payMode,   setPayMode]   = useState(null)   // null | 'full' | 'tranche'
   const configured = isTravelContractConfigured()
 
@@ -214,9 +214,6 @@ export default function TravelCheckoutPage() {
               </div>
             )}
           </div>
-          <button onClick={() => setPayMethod(null)} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', marginTop: 12, padding: 0 }}>
-            ← Change payment method
-          </button>
         </div>
       )}
 
