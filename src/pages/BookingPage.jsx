@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { isBookingContractConfigured, isMerchantRegistryConfigured } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
 import { encodeBookingRequest, buildBookingUrl, saveBookingRequest } from '../utils/bookingRequest.js'
@@ -26,7 +27,8 @@ function fromDatetimeLocal(str) {
   return Math.floor(new Date(str).getTime() / 1000)
 }
 
-export default function BookingPage({ account, onConnect, connecting }) {
+export default function BookingPage({ account }) {
+  const { open } = useWeb3Modal()
   const configured = isBookingContractConfigured()
 
   const [form, setForm] = useState({
@@ -118,8 +120,8 @@ export default function BookingPage({ account, onConnect, connecting }) {
     <div className="card fade-up" style={{ textAlign: 'center', padding: 40 }}>
       <div style={{ fontSize: 32, marginBottom: 16 }}>🏨</div>
       <p style={{ color: 'var(--text2)', marginBottom: 20 }}>Connect your wallet to create a booking deposit request</p>
-      <button onClick={onConnect} disabled={connecting} className="btn-primary" style={{ padding: '10px 28px' }}>
-        {connecting ? <><span className="spinner" />Connecting...</> : 'Connect Wallet'}
+      <button onClick={() => open()} className="btn-primary" style={{ padding: '10px 28px' }}>
+        Connect Wallet
       </button>
     </div>
   )
