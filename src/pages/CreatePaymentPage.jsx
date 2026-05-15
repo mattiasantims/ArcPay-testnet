@@ -138,7 +138,7 @@ export default function CreatePaymentPage({ account, balance }) {
 
             <div>
               <label className="label">Description</label>
-              <textarea name="desc" value={form.desc} onChange={handleChange} rows={2} placeholder="e.g. 1 night Deluxe Room, Q3 consulting services..." />
+              <textarea name="desc" value={form.desc} onChange={handleChange} rows={2} placeholder="e.g.Google Pixel 10, IPhone 17..." />
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Shown to customer. Not stored on-chain — only its hash is.</div>
             </div>
 
