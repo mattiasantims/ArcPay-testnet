@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { PURPOSE_CODES } from '../config.js'
 import { buildPaymentUrl, savePaymentRequest } from '../utils/paymentRequest.js'
 import { generateRef } from '../utils/formatting.js'
 import { shortAddress } from '../utils/wallet.js'
 
-export default function CreatePaymentPage({ account, balance, onConnect, connecting }) {
+export default function CreatePaymentPage({ account, balance }) {
+  const { open } = useWeb3Modal()
   const [form, setForm] = useState({
     name:    '',
     amount:  '',
@@ -64,8 +66,8 @@ export default function CreatePaymentPage({ account, balance, onConnect, connect
       <div className="card fade-up" style={{ textAlign: 'center', padding: 40 }}>
         <div style={{ fontSize: 32, marginBottom: 16 }}>💳</div>
         <p style={{ color: 'var(--text2)', marginBottom: 20 }}>Connect your wallet to create a payment request</p>
-        <button onClick={onConnect} disabled={connecting} className="btn-primary btn-full" style={{ maxWidth: 280, margin: '0 auto' }}>
-          {connecting ? <><span className="spinner" />Connecting...</> : 'Connect Wallet'}
+        <button onClick={() => open()} className="btn-primary btn-full" style={{ maxWidth: 280, margin: '0 auto' }}>
+          Connect Wallet
         </button>
       </div>
     )
