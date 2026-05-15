@@ -304,7 +304,7 @@ export default function TravelAgencyPage() {
             <label className="label">Payment schedule</label>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <button onClick={() => applyPreset('demo')} className={form.preset === 'demo' ? 'btn-primary' : 'btn-ghost'} style={{ fontSize: 11, padding: '5px 12px' }}>
-                Demo (2/5/10 min)
+                Demo (5/10/15 min)
               </button>
               <button onClick={() => applyPreset('custom')} className={form.preset === 'custom' ? 'btn-primary' : 'btn-ghost'} style={{ fontSize: 11, padding: '5px 12px' }}>
                 Custom
