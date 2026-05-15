@@ -9,6 +9,8 @@ import { getCachedBookingTxHash } from '../utils/bookingRequest.js'
 import { shortAddress } from '../utils/wallet.js'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useAccount } from 'wagmi'
+import { isMerchantRegistryConfigured } from '../config.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 import { downloadBookingPDF } from '../utils/bookingPdf.js'
 import { ARCSCAN_BASE, isBookingContractConfigured } from '../config.js'
 import BookingStatusBadge from '../components/BookingStatusBadge.jsx'
@@ -23,14 +25,25 @@ export default function BookingDetailsPage() {
   const [booking,  setBooking]  = useState(null)
   const [status,   setStatus]   = useState('loading')
   const [txHash,   setTxHash]   = useState(null)
-  const [account,  setAccount]  = useState(null)
+  const { address: connectedAddress } = useAccount()
+  const { open } = useWeb3Modal()
+  const account = connectedAddress || null
   const [loading,  setLoading]  = useState(false)
+  const [merchantProfile, setMerchantProfile] = useState(null)
   const [error,    setError]    = useState('')
   const [success,  setSuccess]  = useState('')
   const [now,      setNow]      = useState(Math.floor(Date.now()/1000))
   const configured = isBookingContractConfigured()
 
   useEffect(() => { if (configured) load() }, [id, configured])
+
+  // Carica profilo merchant dal registry
+  useEffect(() => {
+    if (!booking?.merchant || !isMerchantRegistryConfigured()) return
+    getMerchantByWallet(booking.merchant).then(m => {
+      if (m && m.active) setMerchantProfile(m)
+    }).catch(() => {})
+  }, [booking?.merchant])
   useEffect(() => {
     const t = setInterval(() => setNow(Math.floor(Date.now()/1000)), 1000)
     return () => clearInterval(t)
@@ -66,7 +79,7 @@ export default function BookingDetailsPage() {
     finally { setLoading(false) }
   }
 
-  const receipt = booking ? buildBookingReceiptObject({ booking, txHash, bookingId: id, merchantName, description }) : null
+  const receipt = booking ? buildBookingReceiptObject({ booking, txHash, bookingId: id, merchantName: merchantProfile?.tradingName || merchantName, description, merchantProfile }) : null
 
   function downloadJSON() {
     if (!receipt) return
@@ -168,7 +181,12 @@ export default function BookingDetailsPage() {
           { k: 'Booking Ref',   v: booking.bookingRef, mono: true },
           { k: 'Description',   v: description || 'Not available — frontend-only metadata not stored on-chain' },
           { k: 'Hotel wallet',  v: booking.merchant, mono: true, full: true },
-          { k: 'Hotel name',    v: merchantName || 'Not available — frontend-only metadata not stored on-chain' },
+          { k: 'Trading name',    v: merchantProfile?.tradingName || merchantName || '—' },
+          { k: 'Legal name',      v: merchantProfile?.legalName || '—' },
+          { k: 'Country',         v: merchantProfile?.country || '—' },
+          { k: 'Registered office', v: merchantProfile?.businessAddress || '—' },
+          { k: 'VAT / Company ID',  v: merchantProfile?.vatOrCompanyId || '—' },
+          { k: 'LEI',             v: merchantProfile?.lei || '—' },
           { k: 'Guest wallet',  v: booking.guest, mono: true, full: true },
           { k: 'Non-refundable', v: `${formatUsdc(booking.nonRefundableAmount)} USDC (${Number(booking.nonRefundableBps)/100}%)` },
           { k: 'Refundable',    v: `${formatUsdc(booking.refundableAmount)} USDC` },
