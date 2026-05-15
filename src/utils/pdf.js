@@ -64,9 +64,9 @@ export function downloadReceiptPDF(receipt) {
   y = 35
 
   // Receipt ID + amount
-  const receiptLabel = receipt.merchant_receipt_number
-    ? `Payment Receipt #${receipt.merchant_receipt_number}`
-    : `Payment Receipt #${receipt.receipt_id}`
+  const receiptLabel = receipt.payment_ref
+    ? `Payment Receipt · ${receipt.payment_ref}`
+    : 'Payment Receipt'
   addLine(receiptLabel, 16, true)
   y += 2
   doc.setFontSize(28)
@@ -83,15 +83,18 @@ export function downloadReceiptPDF(receipt) {
   addDivider()
 
   // Fields
-  addField('Receipt ID',        receipt.merchant_receipt_number
-    ? `#${receipt.merchant_receipt_number} (on-chain proof #${receipt.receipt_id})`
-    : `#${receipt.receipt_id}`)
+  addField('Receipt ID',        `#${receipt.receipt_id} (on-chain)`)
   addField('Payment Ref',       receipt.payment_ref)
   addField('Purpose',           receipt.purpose_code)
   addField('Description',       receipt.description)
   addDivider()
   addField('Merchant Wallet',   receipt.merchant_wallet)
-  addField('Merchant Name',     receipt.merchant_name)
+  addField('Trading Name',      receipt.merchant_name)
+  if (receipt.merchant_legal_name && receipt.merchant_legal_name !== '—') addField('Legal Name', receipt.merchant_legal_name)
+  if (receipt.merchant_country  && receipt.merchant_country  !== '—') addField('Country',    receipt.merchant_country)
+  if (receipt.merchant_address  && receipt.merchant_address  !== '—') addField('Reg. Office', receipt.merchant_address)
+  if (receipt.merchant_vat      && receipt.merchant_vat      !== '—') addField('VAT / Co. ID', receipt.merchant_vat)
+  if (receipt.merchant_lei      && receipt.merchant_lei      !== '—') addField('LEI',          receipt.merchant_lei)
   addField('Customer Wallet',   receipt.customer_wallet)
   addDivider()
   addField('Token',             `${receipt.token_symbol} (Circle)`)
