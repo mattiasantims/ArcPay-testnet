@@ -144,14 +144,19 @@ export async function fetchGuestBookingIds(guest) {
   })
 }
 
-export function buildBookingReceiptObject({ booking, txHash, bookingId, merchantName, description }) {
+export function buildBookingReceiptObject({ booking, txHash, bookingId, merchantName, description, merchantProfile }) {
   return {
     arcpay_version:       'v0.1-testnet',
     booking_id:           bookingId.toString(),
     type:                 'Booking Receipt',
     status:               BOOKING_STATUS_LABEL[booking.status] || 'Unknown',
     merchant_wallet:      booking.merchant,
-    merchant_name:        merchantName || 'Not available — frontend-only metadata not stored on-chain',
+    merchant_name:        merchantProfile?.tradingName || merchantName || '—',
+    merchant_legal_name:  merchantProfile?.legalName || '—',
+    merchant_country:     merchantProfile?.country || '—',
+    merchant_address:     merchantProfile?.businessAddress || '—',
+    merchant_vat:         merchantProfile?.vatOrCompanyId || '—',
+    merchant_lei:         merchantProfile?.lei || '—',
     guest_wallet:         booking.guest,
     total_amount:         formatUsdcFull(booking.totalAmount),
     non_refundable_amount: formatUsdcFull(booking.nonRefundableAmount),
