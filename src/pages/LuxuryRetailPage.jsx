@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import { useWeb3Modal } from '@web3modal/wagmi/react'
+import { useAccount } from 'wagmi'
 import { buildPaymentUrl, savePaymentRequest } from '../utils/paymentRequest.js'
 import { generateRef } from '../utils/formatting.js'
 import { shortAddress } from '../utils/wallet.js'
@@ -29,7 +31,9 @@ const DEMO_ITEMS = [
   },
 ]
 
-export default function LuxuryRetailPage({ account, onConnect, connecting }) {
+export default function LuxuryRetailPage({ account }) {
+  const { open } = useWeb3Modal()
+  const { isConnected } = useAccount()
   const [form, setForm] = useState({
     name:    '',
     amount:  '',
@@ -141,8 +145,8 @@ export default function LuxuryRetailPage({ account, onConnect, connecting }) {
             {error && <div className="error-box">{error}</div>}
 
             {!account ? (
-              <button onClick={onConnect} disabled={connecting} className="btn-primary btn-full">
-                {connecting ? <><span className="spinner" />Connecting...</> : 'Connect Wallet'}
+              <button onClick={() => open()} className="btn-primary btn-full">
+                Connect Wallet
               </button>
             ) : (
               <button onClick={handleCreate} className="btn-primary btn-full" style={{ background: '#1a1530', border: '1px solid #6b44ff', color: '#a78bfa' }}>
