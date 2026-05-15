@@ -286,7 +286,7 @@ export default function MerchantProfilePage() {
             <h2 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16 }}>{merchant.tradingName}</h2>
             {isOwner && <button onClick={() => setMode('editProfile')} className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }}>✏️ Edit profile</button>}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             {[
               { k: 'Trading name',   v: merchant.tradingName },
               { k: 'Legal name',     v: merchant.legalName || '—' },
@@ -299,9 +299,9 @@ export default function MerchantProfilePage() {
               { k: 'LEI',            v: merchant.lei || '—' },
               { k: 'Other ID',       v: merchant.otherPublicIdentifier || '—' },
             ].map(row => (
-              <div key={row.k} className="field-row">
-                <span className="field-key">{row.k}</span>
-                <span className="field-val normal">{row.v}</span>
+              <div key={row.k} className="field-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
+                <span className="field-key" style={{ color: 'var(--text3)', fontSize: 13, minWidth: 140 }}>{row.k}</span>
+                <span className="field-val normal" style={{ color: 'var(--text)', fontSize: 13, textAlign: 'right', wordBreak: 'break-all' }}>{row.v}</span>
               </div>
             ))}
           </div>
