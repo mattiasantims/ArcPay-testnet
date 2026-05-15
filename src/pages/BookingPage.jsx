@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
@@ -45,6 +45,16 @@ export default function BookingPage({ account }) {
   const [bookingUrl, setBookingUrl] = useState('')
   const [copied,     setCopied]     = useState(false)
   const [error,      setError]      = useState('')
+
+  // Auto-compila il nome dal profilo merchant
+  useEffect(() => {
+    if (!account || !isMerchantRegistryConfigured()) return
+    getMerchantByWallet(account).then(m => {
+      if (m && m.tradingName) {
+        setForm(prev => prev.merchantName ? prev : { ...prev, merchantName: m.tradingName })
+      }
+    }).catch(() => {})
+  }, [account])
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
