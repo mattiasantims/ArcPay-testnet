@@ -60,7 +60,7 @@ export default function LuxuryRetailPage({ account }) {
   function handleChange(e) { setForm(prev => ({ ...prev, [e.target.name]: e.target.value })) }
 
   function applyDemo(item) {
-    setForm(prev => ({ ...prev, name: item.name, desc: item.desc, ref: item.ref, amount: item.amount }))
+    setForm(prev => ({ ...prev, desc: item.desc, ref: item.ref, amount: item.amount }))
     setPaymentUrl(''); setError('')
   }
 
