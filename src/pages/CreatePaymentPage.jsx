@@ -113,7 +113,7 @@ export default function CreatePaymentPage({ account, balance }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <label className="label">Your name / business name</label>
-              <input name="name" value={form.name} onChange={handleChange} placeholder="e.g. Hotel Roma, Mattia Santi, Charity Foundation..." />
+              <input name="name" value={form.name} onChange={handleChange} placeholder="e.g. E-Commerce, Online bakery..." />
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Shown to customer on checkout page. Not stored on-chain.</div>
             </div>
 
