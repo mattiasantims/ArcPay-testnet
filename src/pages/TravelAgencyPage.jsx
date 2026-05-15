@@ -26,10 +26,10 @@ export default function TravelAgencyPage() {
     initialPaymentAmount: '',
     nonRefundablePct:     '30',
     trancheAmount:        '',
-    paymentDueDate:       toDatetimeLocal(addMinutes(2)),
-    paymentDeadline:      toDatetimeLocal(addMinutes(5)),
-    cancellationDeadline: toDatetimeLocal(addMinutes(10)),
-    travelStartDate:      toDatetimeLocal(addMinutes(20)),
+    paymentDueDate:       toDatetimeLocal(addMinutes(5)),
+    paymentDeadline:      toDatetimeLocal(addMinutes(10)),
+    cancellationDeadline: toDatetimeLocal(addMinutes(15)),
+    travelStartDate:      toDatetimeLocal(addMinutes(25)),
     travelRef:            generateTravelRef(),
     description:          '',
     note:                 '',
@@ -67,10 +67,10 @@ export default function TravelAgencyPage() {
     if (preset === 'demo') {
       setForm(prev => ({
         ...prev,
-        paymentDueDate:       toDatetimeLocal(addMinutes(2)),
-        paymentDeadline:      toDatetimeLocal(addMinutes(5)),
-        cancellationDeadline: toDatetimeLocal(addMinutes(10)),
-        travelStartDate:      toDatetimeLocal(addMinutes(20)),
+        paymentDueDate:       toDatetimeLocal(addMinutes(5)),
+        paymentDeadline:      toDatetimeLocal(addMinutes(10)),
+        cancellationDeadline: toDatetimeLocal(addMinutes(15)),
+        travelStartDate:      toDatetimeLocal(addMinutes(25)),
         preset: 'demo',
       }))
     } else {
