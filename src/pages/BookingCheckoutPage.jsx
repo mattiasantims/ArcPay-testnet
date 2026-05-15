@@ -130,6 +130,33 @@ export default function BookingCheckoutPage() {
 
       <BookingPolicyCard totalAmount={req.totalAmount} nonRefundableBps={bps} />
 
+      {/* Cancellation & payment terms */}
+      <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Booking terms</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text3)' }}>Non-refundable deposit</span>
+            <span style={{ color: 'var(--text)', fontWeight: 600 }}>{nonRef} USDC ({Math.round(bps/100)}%)</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text3)' }}>Refundable escrow</span>
+            <span style={{ color: 'var(--green)', fontWeight: 600 }}>{ref} USDC</span>
+          </div>
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text3)' }}>Cancel by</span>
+            <span style={{ color: 'var(--text)' }}>{dl}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text3)' }}>Check-in</span>
+            <span style={{ color: 'var(--text)' }}>{ci}</span>
+          </div>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text3)', lineHeight: 1.5 }}>
+          If cancelled before the deadline, the refundable portion is returned to your wallet. Non-refundable deposit is retained by the merchant.
+        </div>
+      </div>
+
       {/* Payment method selector */}
       {!payMethod && (
         <div className="card" style={{ marginBottom: 16 }}>
