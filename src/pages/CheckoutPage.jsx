@@ -19,7 +19,7 @@ export default function CheckoutPage() {
   const [step,     setStep]     = useState('idle')
   const [error,    setError]    = useState('')
   const [connecting, setConnecting] = useState(false)
-  const [payMethod, setPayMethod]   = useState(null) // null | 'usdc'
+  const [payMethod, setPayMethod]   = useState('usdc') // always usdc
 
   useEffect(() => {
     const r = params.get('r')
@@ -194,12 +194,6 @@ export default function CheckoutPage() {
               </p>
             </div>
           )}
-          <button onClick={() => setPayMethod(null)} style={{
-            background: 'none', border: 'none', color: 'var(--text3)',
-            fontSize: 12, cursor: 'pointer', marginBottom: 12, padding: 0,
-          }}>
-            ← Change payment method
-          </button>
         </div>
       )}
 
