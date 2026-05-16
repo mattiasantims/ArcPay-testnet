@@ -55,7 +55,8 @@ function Dropdown({ label, items, isActive }) {
 }
 
 function WalletMenu({ address, balance, open, disconnect, isCustomerPage }) {
-  const [show, setShow] = useState(false)
+  const [show,   setShow]   = useState(false)
+  const [copied, setCopied] = useState(false)
   const ref = useRef(null)
 
   useEffect(() => {
@@ -93,8 +94,8 @@ function WalletMenu({ address, balance, open, disconnect, isCustomerPage }) {
           )}
           <div
             className="nav-dropdown-item"
-            onClick={() => { navigator.clipboard.writeText(address); setShow(false) }}>
-            <span>📋</span><span>Copy address</span>
+            onClick={() => { navigator.clipboard.writeText(address); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
+            <span>📋</span><span>{copied ? '✓ Copied!' : 'Copy address'}</span>
           </div>
           <div
             className="nav-dropdown-item"
