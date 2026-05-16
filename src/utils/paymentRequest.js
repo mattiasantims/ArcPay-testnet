@@ -40,7 +40,7 @@ export function decodePaymentRequest(encoded) {
 
 export function buildPaymentUrl(req) {
   const encoded = encodePaymentRequest(req)
-  const base    = typeof window !== 'undefined' ? window.location.origin : ''
+  const base    = APP_URL
   return `${base}/pay?r=${encoded}`
 }
 
