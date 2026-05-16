@@ -2,12 +2,18 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title ArcTravelEscrow
+ * @title ArcTravelEscrow v2
  * @notice Travel Agency Scheduled Booking Payments for ArcPay on Arc Testnet.
  *
  * This is NOT lending, NOT BNPL, NOT consumer credit.
  * ArcPay does not advance funds. Merchant receives funds only when customer pays.
  * No admin. No fees. No upgradeability. No ETH. USDC only.
+ *
+ * v2 changes vs v1:
+ * - Added: cancellationDeadline must be > paymentDeadline
+ * - Added: releaseAfterCancellationDeadline restricted to merchant only
+ * - Added: travelRef cannot be empty
+ * - Added: paymentDeadline must be < cancellationDeadline (explicit)
  */
 interface IArcTravelERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
@@ -77,7 +83,6 @@ contract ArcTravelEscrow {
     mapping(address => uint256[])     private customerTravelBookings;
     mapping(address => uint256[])     private merchantTravelBookings;
 
-    // Split into two events to avoid stack too deep
     event TravelBookingCreated(
         uint256 indexed travelId,
         address indexed customer,
@@ -168,21 +173,25 @@ contract ArcTravelEscrow {
     }
 
     function _createBooking(CreateBookingParams memory p) internal returns (uint256 travelId) {
-        require(p.merchant != address(0),                         "Invalid merchant address");
-        require(p.merchant != msg.sender,                         "Merchant cannot be customer");
-        require(p.totalPackageAmount > 0,                         "Total package amount required");
-        require(p.initialPaymentAmount > 0,                       "Initial payment required");
-        require(p.initialPaymentAmount <= p.totalPackageAmount,   "Initial exceeds total");
-        require(p.trancheAmount > 0,                              "Tranche amount required");
-        require(p.initialPaymentAmount + p.trancheAmount <= p.totalPackageAmount, "Payments exceed total");
-        require(p.nonRefundableBps <= 10000,                      "Invalid non-refundable bps");
-        require(p.paymentDueDate > block.timestamp,               "Payment due date must be future");
-        require(p.paymentDeadline > p.paymentDueDate,            "Deadline must be after due date");
-        require(p.cancellationDeadline > block.timestamp,         "Cancellation deadline must be future");
-        require(p.travelStartDate > p.cancellationDeadline,      "Travel start must be after cancellation deadline");
-        require(bytes(p.travelRef).length <= 64,                  "Travel ref too long");
+        require(p.merchant != address(0),                                          "Invalid merchant address");
+        require(p.merchant != msg.sender,                                          "Merchant cannot be customer");
+        require(p.totalPackageAmount > 0,                                          "Total package amount required");
+        require(p.initialPaymentAmount > 0,                                        "Initial payment required");
+        require(p.initialPaymentAmount <= p.totalPackageAmount,                    "Initial exceeds total");
+        require(p.trancheAmount > 0,                                               "Tranche amount required");
+        require(p.initialPaymentAmount + p.trancheAmount <= p.totalPackageAmount,  "Payments exceed total");
+        require(p.nonRefundableBps <= 10000,                                       "Invalid non-refundable bps");
+        require(bytes(p.travelRef).length > 0,                                     "Travel ref required");
+        require(bytes(p.travelRef).length <= 64,                                   "Travel ref too long");
+
+        // Date ordering — full chain enforced on-chain
+        require(p.paymentDueDate > block.timestamp,                                "Payment due date must be future");
+        require(p.paymentDeadline > p.paymentDueDate,                             "Payment deadline must be after due date");
+        require(p.cancellationDeadline > p.paymentDeadline,                       "Cancellation deadline must be after payment deadline");
+        require(p.travelStartDate > p.cancellationDeadline,                       "Travel start must be after cancellation deadline");
+
         require(usdc.allowance(msg.sender, address(this)) >= p.initialPaymentAmount, "Insufficient USDC allowance");
-        require(usdc.balanceOf(msg.sender) >= p.initialPaymentAmount, "Insufficient USDC balance");
+        require(usdc.balanceOf(msg.sender) >= p.initialPaymentAmount,              "Insufficient USDC balance");
 
         uint256 nonRefundableAmount    = (p.initialPaymentAmount * p.nonRefundableBps) / 10000;
         uint256 refundableEscrowAmount = p.initialPaymentAmount - nonRefundableAmount;
@@ -329,9 +338,11 @@ contract ArcTravelEscrow {
         );
     }
 
+    // v2: restricted to merchant only
     function releaseAfterCancellationDeadline(uint256 travelId) external {
         TravelBooking storage t = travelBookings[travelId];
-        require(t.travelId != 0, "Travel booking does not exist");
+        require(t.travelId != 0,                     "Travel booking does not exist");
+        require(msg.sender == t.merchant,            "Not merchant");
         require(
             t.status == TravelStatus.Active || t.status == TravelStatus.TranchePaid,
             "Cannot release in current status"
@@ -372,4 +383,3 @@ contract ArcTravelEscrow {
         return travelCounter;
     }
 }
-
