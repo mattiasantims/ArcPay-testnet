@@ -37,7 +37,7 @@ export function decodeBookingRequest(encoded) {
 
 export function buildBookingUrl(req) {
   const encoded = encodeBookingRequest(req)
-  const base    = typeof window !== 'undefined' ? window.location.origin : ''
+  const base    = APP_URL
   return `${base}/booking/pay?r=${encoded}`
 }
 
