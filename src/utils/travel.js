@@ -1,4 +1,5 @@
 // travel.js — ArcTravelEscrow read/write utilities
+import { APP_URL } from '../config.js'
 import { getPublicClient, getWalletClient } from './wallet.js'
 import { ARCTRAVEL_ESCROW_ADDRESS, USDC_ADDRESS, USDC_DECIMALS } from '../config.js'
 import ABI from '../abis/ArcTravelEscrow.json'
@@ -267,7 +268,7 @@ export function decodeTravelRequest(encoded) {
 
 export function buildTravelUrl(req) {
   const encoded = encodeTravelRequest(req)
-  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  const base = APP_URL
   return `${base}/travel/pay?r=${encoded}`
 }
 
