@@ -1,6 +1,7 @@
 // Booking request encoding/decoding — Unicode-safe base64url
 // URL format: /booking/pay?r=<base64url-JSON>
 
+import { APP_URL } from '../config.js'
 function toBase64url(str) {
   const bytes  = new TextEncoder().encode(str)
   const binary = Array.from(bytes, b => String.fromCharCode(b)).join('')
