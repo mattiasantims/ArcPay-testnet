@@ -208,13 +208,13 @@ export default function CheckoutPage() {
               )}
             </div>
           )}
-        </div>
+        </div>}
       )}
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
 
-      {/* QR */}
-      <div className="card" style={{ padding: 20 }}>
+      {/* QR — mostrato solo se wallet non ancora connesso */}
+      {!account && <div className="card" style={{ padding: 20 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#f6851b', marginBottom: 8, textAlign: 'center' }}>
           🦊 Pay from MetaMask mobile
         </div>
