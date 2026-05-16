@@ -3,6 +3,9 @@
 
 // Unicode-safe base64url encoding using TextEncoder/TextDecoder
 // Supports accents, apostrophes, emojis, and non-English characters
+
+import { APP_URL } from '../config.js'
+
 function toBase64url(str) {
   const bytes  = new TextEncoder().encode(str)
   const binary = Array.from(bytes, b => String.fromCharCode(b)).join('')
