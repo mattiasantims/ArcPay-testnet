@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
-import { readContract, getPublicClient } from '@wagmi/core'
+import { readContract } from '@wagmi/core'
 import { wagmiConfig } from '../walletConfig.js'
+import { getPublicClient } from '../utils/wallet.js'
 import { ARCPROOF_ADDRESS, ARCSCAN_BASE } from '../config.js'
 import ArcProofABI from '../abis/ArcProof.json'
 import { formatUsdc, formatTs } from '../utils/receipts.js'
@@ -11,7 +12,7 @@ import { shortAddress } from '../utils/wallet.js'
 
 async function fetchSentProofIds(payerAddress) {
   try {
-    const client = getPublicClient(wagmiConfig)
+    const client = getPublicClient()
     const logs = await client.getLogs({
       address: ARCPROOF_ADDRESS,
       event: {
