@@ -71,7 +71,7 @@ export default function QRPage() {
         </span>
       </div>
 
-      <button onClick={() => navigate(-1)} style={{
+      <button onClick={() => navigate('/create')} style={{
         background: 'transparent', border: '1px solid #333', color: '#666',
         borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontSize: 13,
       }}>
