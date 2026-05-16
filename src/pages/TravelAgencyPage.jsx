@@ -12,11 +12,7 @@ import { shortAddress } from '../utils/wallet.js'
 import { Link } from 'react-router-dom'
 
 function generateTravelRef() {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth()+1).padStart(2,'0')
-  const n = String(Math.floor(Math.random()*9000)+1000)
-  return `TRAVEL-${y}${m}-${n}`
+  return `TRAVEL-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Math.floor(Math.random()*9000)+1000)}`
 }
 
 export default function TravelAgencyPage() {
@@ -37,12 +33,12 @@ export default function TravelAgencyPage() {
     travelRef:            generateTravelRef(),
     description:          '',
     note:                 '',
+    preset:               'custom',
   })
   const [travelUrl, setTravelUrl] = useState('')
   const [copied,    setCopied]    = useState(false)
   const [error,     setError]     = useState('')
   const [allowScheduledTranche, setAllowScheduledTranche] = useState(false)
-  const [policyLoaded, setPolicyLoaded] = useState(false)
 
   useEffect(() => {
     if (!address || !isMerchantRegistryConfigured()) return
@@ -55,13 +51,17 @@ export default function TravelAgencyPage() {
       }
       if (p) {
         setAllowScheduledTranche(p.allowScheduledTranche)
-        // Policy usa minuti come offset (workaround testnet)
-        const MIN = 60 // secondi in un minuto
-        const nowSec = Math.floor(Date.now() / 1000)
-        const dueSec      = nowSec + Number(p.paymentDueOffsetDays)      * MIN
-        const deadlineSec = nowSec + Number(p.paymentDeadlineOffsetDays) * MIN
-        const cancelSec   = nowSec + Number(p.cancellationCutoffDays)    * MIN
-        const startSec    = cancelSec + 5 * MIN
+        // Calcola le date dagli offset in giorni della policy
+        // Per la demo usiamo minuti, ma i valori reali sono in giorni
+        // Gli offset sono: paymentDueOffsetDays prima del viaggio,
+        // paymentDeadlineOffsetDays prima del due date
+        // cancellationCutoffDays prima del viaggio
+        const nowSec   = Math.floor(Date.now() / 1000)
+        const DAY      = 86400 // secondi in un giorno
+        const dueSec        = nowSec + Number(p.paymentDueOffsetDays)      * DAY
+        const deadlineSec   = nowSec + Number(p.paymentDeadlineOffsetDays) * DAY
+        const cancelSec     = nowSec + Number(p.cancellationCutoffDays)    * DAY
+        const startSec      = cancelSec + 5 * DAY
 
         setForm(prev => ({
           ...prev,
@@ -71,7 +71,6 @@ export default function TravelAgencyPage() {
           cancellationDeadline: toDatetimeLocal(cancelSec),
           travelStartDate:      toDatetimeLocal(startSec),
         }))
-        setPolicyLoaded(true)
       }
     }).catch(() => {})
   }, [address])
@@ -80,27 +79,43 @@ export default function TravelAgencyPage() {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
+  function applyPreset(preset) {
+    if (preset === 'demo') {
+      setForm(prev => ({
+        ...prev,
+        paymentDueDate:       toDatetimeLocal(addMinutes(5)),
+        paymentDeadline:      toDatetimeLocal(addMinutes(10)),
+        cancellationDeadline: toDatetimeLocal(addMinutes(15)),
+        travelStartDate:      toDatetimeLocal(addMinutes(25)),
+        preset: 'demo',
+      }))
+    } else {
+      setForm(prev => ({ ...prev, preset: 'custom' }))
+    }
+  }
+
   function validate() {
     if (!isConnected) return 'Connect your wallet first'
     const total   = parseFloat(form.totalPackageAmount)
     const initial = parseFloat(form.initialPaymentAmount)
     const tranche = parseFloat(form.trancheAmount)
-    if (!total || total <= 0)   return 'Total package amount required'
-    if (!form.travelRef.trim()) return 'Travel reference required'
-    const now      = Math.floor(Date.now() / 1000)
+    if (!total || total <= 0)           return 'Total package amount required'
+    if (!form.travelRef.trim())         return 'Travel reference required'
+    const now = Math.floor(Date.now() / 1000)
     const due      = fromDatetimeLocal(form.paymentDueDate)
     const deadline = fromDatetimeLocal(form.paymentDeadline)
     const cancel   = fromDatetimeLocal(form.cancellationDeadline)
     const start    = fromDatetimeLocal(form.travelStartDate)
     if (allowScheduledTranche) {
-      if (!initial || initial <= 0)  return 'Initial payment required'
-      if (initial > total)           return 'Initial payment exceeds total'
-      if (!tranche || tranche <= 0)  return 'Tranche amount required'
-      if (initial + tranche > total) return 'Initial + tranche exceeds total'
-      if (due <= now)      return 'Payment due date must be in the future'
-      if (deadline <= due) return 'Payment deadline must be after due date'
-      if (cancel <= now)   return 'Cancellation deadline must be in the future'
-      if (start <= cancel) return 'Travel start must be after cancellation deadline'
+      if (!initial || initial <= 0)       return 'Initial payment required'
+      if (initial > total)                return 'Initial payment exceeds total'
+      if (!tranche || tranche <= 0)       return 'Tranche amount required'
+      if (initial + tranche > total)      return 'Initial + tranche exceeds total package amount'
+      if (due <= now)         return 'Payment due date must be in the future'
+      if (deadline <= due)    return 'Payment deadline must be after due date'
+      if (cancel <= deadline) return 'Cancellation deadline must be after payment deadline'
+      if (cancel <= now)      return 'Cancellation deadline must be in the future'
+      if (start <= cancel)    return 'Travel start must be after cancellation deadline'
     } else if (start <= now) {
       return 'Travel start date must be in the future'
     }
@@ -112,8 +127,8 @@ export default function TravelAgencyPage() {
     const err = validate()
     if (err) { setError(err); return }
 
-    const bps  = Math.round(parseFloat(form.nonRefundablePct) * 100)
-    const hash = computeTravelMetadataHash(form.agencyName, form.description, form.note, form.travelRef)
+    const bps     = Math.round(parseFloat(form.nonRefundablePct) * 100)
+    const hash    = computeTravelMetadataHash(form.agencyName, form.description, form.note, form.travelRef)
 
     const req = {
       merchant:             address,
@@ -131,7 +146,7 @@ export default function TravelAgencyPage() {
       note:                 form.note.trim(),
       metadataHash:         hash,
       createdAt:            new Date().toISOString(),
-      allowScheduledTranche,
+      allowScheduledTranche: allowScheduledTranche,
     }
 
     const url = buildTravelUrl(req)
@@ -189,6 +204,7 @@ export default function TravelAgencyPage() {
         </div>
       </div>
 
+      {/* Policy summary */}
       <div className="card" style={{ marginBottom: 16, padding: 20 }}>
         <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Payment schedule</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
@@ -238,7 +254,7 @@ export default function TravelAgencyPage() {
           Create Travel Booking Request
         </h1>
         <p style={{ color: 'var(--text2)', fontSize: 14 }}>
-          Generate a payment link. Dates and terms auto-fill from your merchant policy.
+          Generate a scheduled payment booking link. Customer pays an initial amount today and one future tranche on the scheduled date.
         </p>
       </div>
 
@@ -248,39 +264,115 @@ export default function TravelAgencyPage() {
           <div style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{shortAddress(address)}</div>
         </div>
 
-        {policyLoaded && (
-          <div style={{ marginBottom: 16, padding: '8px 12px', background: 'var(--green-bg)', border: '1px solid var(--green-bdr)', borderRadius: 8, fontSize: 11, color: 'var(--green)' }}>
-            ✓ Dates and terms pre-filled from your merchant policy
-          </div>
-        )}
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Agency name */}
           <div>
             <label className="label">Travel Agency / Company Name</label>
             <input name="agencyName" value={form.agencyName} onChange={handleChange} placeholder="e.g. Demo Travel Agency" />
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Shown to customer on checkout. Not stored on-chain.</div>
           </div>
 
-          {/* Total package only — initial and tranche auto-calculated from policy if tranche enabled */}
-          <div>
-            <label className="label">Total package amount (USDC) *</label>
-            <input name="totalPackageAmount" value={form.totalPackageAmount} onChange={handleChange} type="number" min="0.01" step="0.01" placeholder="e.g. 10000.00" />
+          {/* Amounts */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div>
+              <label className="label">Total package (USDC) *</label>
+              <input name="totalPackageAmount" value={form.totalPackageAmount} onChange={handleChange} type="number" min="0.01" step="0.01" placeholder="10000.00" />
+            </div>
+            <div>
+              <label className="label">Initial payment today (USDC) *</label>
+              <input name="initialPaymentAmount" value={form.initialPaymentAmount} onChange={handleChange} type="number" min="0.01" step="0.01" placeholder="1000.00" />
+            </div>
+            <div>
+              <label className="label">Scheduled tranche (USDC) *</label>
+              <input name="trancheAmount" value={form.trancheAmount} onChange={handleChange} type="number" min="0.01" step="0.01" placeholder="3000.00" />
+            </div>
           </div>
 
-          {/* Travel ref + description */}
+          {/* Package breakdown */}
+          {total > 0 && initial > 0 && tranche > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              {[
+                { label: 'Non-refundable', value: `${nonRef} USDC`, color: '#f04f4f', bg: '#1a0808', border: '#5a1c1c' },
+                { label: 'Refundable escrow', value: `${refund} USDC`, color: 'var(--green)', bg: 'var(--green-bg)', border: 'var(--green-bdr)' },
+                { label: 'Scheduled tranche', value: `${tranche.toFixed(2)} USDC`, color: 'var(--usdc)', bg: '#0a1628', border: 'var(--usdc)' },
+                { label: 'Remaining off-chain', value: `${remaining} USDC`, color: 'var(--text3)', bg: 'var(--surface2)', border: 'var(--border)' },
+              ].map(s => (
+                <div key={s.label} style={{ padding: 10, background: s.bg, border: `1px solid ${s.border}`, borderRadius: 8, textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: s.color, marginBottom: 4 }}>{s.label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <label className="label">Non-refundable percentage *</label>
+            <input name="nonRefundablePct" value={form.nonRefundablePct} onChange={handleChange} type="number" min="0" max="100" step="1" placeholder="30" />
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Applied to initial payment only. Default: 30%</div>
+          </div>
+
           <div>
             <label className="label">Travel reference *</label>
-            <input name="travelRef" value={form.travelRef} onChange={handleChange} placeholder="TRAVEL-202605-0001" maxLength={64} />
+            <input name="travelRef" value={form.travelRef} onChange={handleChange} placeholder="TRAVEL-2026-001" maxLength={64} />
           </div>
 
+          {/* Date presets */}
           <div>
-            <label className="label">Description</label>
-            <textarea name="description" value={form.description} onChange={handleChange} rows={2} placeholder="e.g. Maldives 7 nights · Deluxe Villa · All inclusive · Jun 20-27 2026" />
+            <label className="label">Payment schedule</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button onClick={() => applyPreset('demo')} className={form.preset === 'demo' ? 'btn-primary' : 'btn-ghost'} style={{ fontSize: 11, padding: '5px 12px' }}>
+                Demo (2/5/10 min)
+              </button>
+              <button onClick={() => applyPreset('custom')} className={form.preset === 'custom' ? 'btn-primary' : 'btn-ghost'} style={{ fontSize: 11, padding: '5px 12px' }}>
+                Custom
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label className="label">Tranche due date *</label>
+                <input name="paymentDueDate" value={form.paymentDueDate} onChange={handleChange} type="datetime-local" />
+              </div>
+              <div>
+                <label className="label">Tranche payment deadline *</label>
+                <input name="paymentDeadline" value={form.paymentDeadline} onChange={handleChange} type="datetime-local" />
+              </div>
+              <div>
+                <label className="label">Cancellation deadline *</label>
+                <input name="cancellationDeadline" value={form.cancellationDeadline} onChange={handleChange} type="datetime-local" />
+              </div>
+              <div>
+                <label className="label">Travel start date *</label>
+                <input name="travelStartDate" value={form.travelStartDate} onChange={handleChange} type="datetime-local" />
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 6 }}>⚠️ Use Demo preset for testnet demo — all dates in minutes</div>
           </div>
 
-          {/* Payment method */}
+          {/* Scheduled tranche toggle */}
+          <div>
+            <label className="label">Allow scheduled tranche payment for this booking</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: allowScheduledTranche ? 'var(--green)' : 'var(--text2)' }}>
+                  {allowScheduledTranche ? '✓ Scheduled tranche enabled for this booking' : 'Disabled — customer pays full amount only'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                  If enabled, the customer checkout will offer both "Pay full now" and "Pay initial + tranche" options.
+                </div>
+              </div>
+              <button
+                onClick={() => setAllowScheduledTranche(s => !s)}
+                style={{
+                  padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
+                  background: allowScheduledTranche ? 'var(--green)' : 'var(--surface3)',
+                  color: allowScheduledTranche ? '#000' : 'var(--text3)',
+                }}>
+                {allowScheduledTranche ? 'On' : 'Off'}
+              </button>
+            </div>
+          </div>
+
+          {/* Payment method display */}
           <div>
             <label className="label">Payment method</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -288,102 +380,16 @@ export default function TravelAgencyPage() {
                 <span style={{ fontSize: 18 }}>💳</span>
                 <span style={{ fontSize: 13, color: 'var(--text3)', fontWeight: 500 }}>Credit / Debit Card</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 14px', borderRadius: 10, background: '#0a1628', border: '2px solid var(--usdc)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>◆</span>
-                  <span style={{ fontSize: 13, color: 'var(--usdc)', fontWeight: 600 }}>USDC on Arc Network</span>
-                </div>
-                {/* Scheduled tranche toggle — sotto USDC */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #1a2a3a' }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: allowScheduledTranche ? 'var(--green)' : 'var(--text3)' }}>
-                      {allowScheduledTranche ? '✓ Scheduled tranche enabled for this booking' : 'Scheduled tranche — disabled'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      If enabled, customer can choose initial + future tranche payment
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setAllowScheduledTranche(s => !s)}
-                    style={{
-                      padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-                      cursor: 'pointer', border: 'none', flexShrink: 0, marginLeft: 12,
-                      background: allowScheduledTranche ? 'var(--green)' : 'var(--surface3)',
-                      color: allowScheduledTranche ? '#000' : 'var(--text3)',
-                    }}>
-                    {allowScheduledTranche ? 'On' : 'Off'}
-                  </button>
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, background: '#0a1628', border: '2px solid var(--usdc)' }}>
+                <span style={{ fontSize: 18 }}>◆</span>
+                <span style={{ fontSize: 13, color: 'var(--usdc)', fontWeight: 600 }}>USDC on Arc Network</span>
               </div>
             </div>
           </div>
 
-          {/* Campi aggiuntivi se tranche abilitata */}
-          {allowScheduledTranche && (
-            <div style={{ padding: '14px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Scheduled tranche details — pre-filled from policy
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-                <div>
-                  <label className="label">Initial payment today (USDC) *</label>
-                  <input name="initialPaymentAmount" value={form.initialPaymentAmount} onChange={handleChange} type="number" min="0.01" step="0.01" placeholder="1000.00" />
-                </div>
-                <div>
-                  <label className="label">Scheduled tranche (USDC) *</label>
-                  <input name="trancheAmount" value={form.trancheAmount} onChange={handleChange} type="number" min="0.01" step="0.01" placeholder="3000.00" />
-                </div>
-                <div>
-                  <label className="label">Non-refundable % *</label>
-                  <input name="nonRefundablePct" value={form.nonRefundablePct} onChange={handleChange} type="number" min="0" max="100" step="1" placeholder="30" />
-                </div>
-              </div>
-
-              {/* Breakdown */}
-              {total > 0 && initial > 0 && tranche > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
-                  {[
-                    { label: 'Non-refundable', value: `${nonRef} USDC`, color: '#f04f4f', bg: '#1a0808', border: '#5a1c1c' },
-                    { label: 'Refundable escrow', value: `${refund} USDC`, color: 'var(--green)', bg: 'var(--green-bg)', border: 'var(--green-bdr)' },
-                    { label: 'Scheduled tranche', value: `${tranche.toFixed(2)} USDC`, color: 'var(--usdc)', bg: '#071828', border: 'var(--usdc)' },
-                    { label: 'Remaining off-chain', value: `${remaining} USDC`, color: 'var(--text3)', bg: 'var(--surface)', border: 'var(--border)' },
-                  ].map(s => (
-                    <div key={s.label} style={{ padding: 10, background: s.bg, border: `1px solid ${s.border}`, borderRadius: 8, textAlign: 'center' }}>
-                      <div style={{ fontSize: 10, color: s.color, marginBottom: 4 }}>{s.label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Date */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="label">Tranche due date *</label>
-                  <input name="paymentDueDate" value={form.paymentDueDate} onChange={handleChange} type="datetime-local" />
-                </div>
-                <div>
-                  <label className="label">Tranche payment deadline *</label>
-                  <input name="paymentDeadline" value={form.paymentDeadline} onChange={handleChange} type="datetime-local" />
-                </div>
-                <div>
-                  <label className="label">Cancellation deadline *</label>
-                  <input name="cancellationDeadline" value={form.cancellationDeadline} onChange={handleChange} type="datetime-local" />
-                </div>
-                <div>
-                  <label className="label">Travel start date *</label>
-                  <input name="travelStartDate" value={form.travelStartDate} onChange={handleChange} type="datetime-local" />
-                </div>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 8 }}>
-                ⚠️ Testnet demo: policy offset fields are in minutes, not days
-              </div>
-            </div>
-          )}
-
           <div>
-            <label className="label">Private note (optional)</label>
-            <input name="note" value={form.note} onChange={handleChange} placeholder="e.g. Client ref #12345" />
+            <label className="label">Description</label>
+            <textarea name="description" value={form.description} onChange={handleChange} rows={2} placeholder="e.g. Maldives 7 nights · Deluxe Villa · All inclusive · Jun 20-27 2026" />
           </div>
 
           {error && <div className="error-box">{error}</div>}
