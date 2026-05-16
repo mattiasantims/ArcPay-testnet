@@ -197,8 +197,8 @@ export default function TravelDetailsPage() {
               </button>
             )}
 
-            {/* Anyone: release after cancellation deadline */}
-            {(isActive || isTranchePaid) && afterCancelDl && (
+            {/* Merchant only: release escrow after cancellation deadline — solo se tranche pagata o booking attivo senza tranche mancata */}
+            {isMerchant && afterCancelDl && (isActive || isTranchePaid) && (travel.tranchePaid || !afterDeadline) && (
               <button onClick={() => act(() => executeReleaseAfterDeadline(address, travel.travelId), 'release')}
                 disabled={acting === 'release'} className="btn-green" style={{ fontSize: 12, padding: '8px 16px' }}>
                 {acting === 'release' ? <><span className="spinner" />Releasing...</> : '✈️ Release escrow to agency'}
