@@ -1,4 +1,5 @@
 // ArcPay Configuration — Arc Testnet
+export const APP_URL = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 // Chain ID: 5042002 (hex: 0x4cef52)
 
 export const ARC_TESTNET = {
@@ -36,13 +37,13 @@ export const PURPOSE_CODES = [
   { value: 'OTHER',     label: 'Other'           },
 ]
 
-export const ARCMERCHANT_REGISTRY_ADDRESS = '0xaDDde5C9866C1BF870B393379fFdCF1Ef7f9Fb49'
+export const ARCMERCHANT_REGISTRY_ADDRESS = 'DEPLOY_ARCMERCHANT_REGISTRY_CONTRACT'
 
 export function isMerchantRegistryConfigured() {
   return ARCMERCHANT_REGISTRY_ADDRESS && !ARCMERCHANT_REGISTRY_ADDRESS.startsWith('DEPLOY')
 }
 
-export const ARCTRAVEL_ESCROW_ADDRESS = '0x924dE5cD60c730c03764Ec2cB7D9500B030Cb3Df'
+export const ARCTRAVEL_ESCROW_ADDRESS = 'DEPLOY_ARCTRAVEL_ESCROW_CONTRACT'
 
 export function isTravelContractConfigured() {
   return ARCTRAVEL_ESCROW_ADDRESS && !ARCTRAVEL_ESCROW_ADDRESS.startsWith('DEPLOY')
