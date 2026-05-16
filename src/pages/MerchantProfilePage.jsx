@@ -340,9 +340,9 @@ export default function MerchantProfilePage() {
               { label: 'Non-refundable',        value: `${pct(policy.defaultNonRefundableBps)}%` },
               { label: 'Initial payment',       value: `${pct(policy.defaultInitialPaymentBps)}%` },
               { label: 'Tranche payment',       value: `${pct(policy.defaultTrancheBps)}%` },
-              { label: 'Payment due offset',    value: `${policy.paymentDueOffsetDays}d before travel` },
-              { label: 'Payment deadline',      value: `${policy.paymentDeadlineOffsetDays}d before travel` },
-              { label: 'Cancel cutoff',         value: `${policy.cancellationCutoffDays}d before travel` },
+              { label: 'Payment due offset',    value: `${policy.paymentDueOffsetDays} min` },
+              { label: 'Payment deadline',      value: `${policy.paymentDeadlineOffsetDays} min` },
+              { label: 'Cancel cutoff',         value: `${policy.cancellationCutoffDays} min` },
               { label: 'Refund before cutoff',  value: `${pct(policy.refundBpsBeforeCutoff)}%` },
               { label: 'Refund after cutoff',   value: `${pct(policy.refundBpsAfterCutoff)}%` },
             ].map(s => (
@@ -393,9 +393,9 @@ export default function MerchantProfilePage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               {[
-                { label: 'Payment due offset (days before travel)',      name: 'paymentDueOffsetDays' },
-                { label: 'Payment deadline offset (days before travel)', name: 'paymentDeadlineOffsetDays' },
-                { label: 'Cancellation cutoff (days before travel)',     name: 'cancellationCutoffDays' },
+                { label: 'Payment due offset (minutes — testnet workaround)', name: 'paymentDueOffsetDays' },
+                { label: 'Payment deadline offset (minutes — testnet workaround)', name: 'paymentDeadlineOffsetDays' },
+                { label: 'Cancellation cutoff (minutes — testnet workaround)', name: 'cancellationCutoffDays' },
               ].map(f => (
                 <div key={f.name}>
                   <label className="label">{f.label}</label>
