@@ -27,6 +27,7 @@ import MyBookingsPage       from './pages/MyBookingsPage.jsx'
 import MyTravelPage         from './pages/MyTravelPage.jsx'
 import PaymentSuccessPage   from './pages/PaymentSuccessPage.jsx'
 import NotFoundPage         from './pages/NotFoundPage.jsx'
+import { getMerchantIdByWallet } from './utils/merchant.js'
 import ErrorBoundary        from './components/ErrorBoundary.jsx'
 import { getUsdcBalance } from './utils/receipts.js'
 
@@ -90,6 +91,18 @@ export default function App() {
   }
 
   const account = isConnected ? address : null
+  const [showProfilePrompt, setShowProfilePrompt] = useState(false)
+
+  // Controlla se il merchant ha già un profilo
+  useEffect(() => {
+    if (!account || !isMerchantRegistryConfigured()) return
+    getMerchantIdByWallet(account).then(id => {
+      if (!id || id === 0n || id.toString() === '0') {
+        setShowProfilePrompt(true)
+      }
+    }).catch(() => {})
+  }, [account])
+
   const shared = { account, balance, onConnect: handleConnect, connecting }
 
   if (isQRPage) return (
@@ -100,7 +113,34 @@ export default function App() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header {...shared} />
       <main style={{ flex: 1, maxWidth: 'var(--max-width)', margin: '0 auto', width: '100%', padding: '28px 24px 48px' }}>
-        <ErrorBoundary>
+        {/* Popup profilo merchant per nuovi wallet */}
+      {showProfilePrompt && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+          background: 'var(--surface)', border: '1px solid var(--usdc)',
+          borderRadius: 12, padding: '16px 20px', maxWidth: 320,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>🏪 Complete your profile</div>
+            <button onClick={() => setShowProfilePrompt(false)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>✕</button>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.5 }}>
+            Register your merchant profile to start accepting USDC payments on Arc.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a href="/merchant-profile" style={{ flex: 1, textDecoration: 'none' }}>
+              <button className="btn-primary" style={{ width: '100%', padding: '8px', fontSize: 12 }} onClick={() => setShowProfilePrompt(false)}>
+                Set up profile
+              </button>
+            </a>
+            <button onClick={() => setShowProfilePrompt(false)} className="btn-ghost" style={{ padding: '8px 14px', fontSize: 12 }}>
+              Later
+            </button>
+          </div>
+        </div>
+      )}
+      <ErrorBoundary>
       <Routes>
           <Route path="/"                   element={<HomePage             {...shared} />} />
           <Route path="/create"             element={<CreatePaymentPage    {...shared} />} />
