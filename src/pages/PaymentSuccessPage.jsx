@@ -19,6 +19,15 @@ export default function PaymentSuccessPage() {
 
   const isMerchant = mode === 'merchant'
 
+  // Costruisce URL receipt con params
+  function getReceiptUrl() {
+    if (!receiptPath) return null
+    const params = new URLSearchParams()
+    if (merchant) params.set('name', merchant)
+    if (ref) params.set('ref', ref)
+    return `${receiptPath}?${params.toString()}`
+  }
+
   const typeLabels = {
     payment:  { icon: '✅', title: isMerchant ? 'Payment Received' : 'Payment Complete',      badge: 'Online Payment'   },
     booking:  { icon: '🏨', title: isMerchant ? 'Booking Received' : 'Booking Confirmed',     badge: 'Hotel Booking'    },
@@ -117,8 +126,16 @@ export default function PaymentSuccessPage() {
       {/* Actions */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {receiptPath && (
-          <button onClick={() => navigate(receiptPath)} className="btn-primary btn-full" style={{ padding: '13px' }}>
-            📄 View {type === 'booking' ? 'Booking' : type === 'travel' || type === 'tranche' ? 'Travel Booking' : 'Receipt'}
+          <button onClick={() => navigate(getReceiptUrl() || receiptPath)} className="btn-primary btn-full" style={{ padding: '13px' }}>
+            📄 View {type === 'booking' ? 'Booking Receipt' : type === 'travel' || type === 'tranche' ? 'Travel Booking' : 'Payment Receipt'}
+          </button>
+        )}
+        {receiptPath && (
+          <button
+            onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${receiptPath}`); }}
+            className="btn-ghost btn-full" style={{ padding: '11px', fontSize: 13 }}
+          >
+            🔗 Copy Receipt Link
           </button>
         )}
         {txHash && (
