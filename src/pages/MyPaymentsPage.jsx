@@ -5,6 +5,8 @@ import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { readContract } from '@wagmi/core'
 import { wagmiConfig } from '../walletConfig.js'
 import { getPublicClient } from '../utils/wallet.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
+import { isMerchantRegistryConfigured } from '../config.js'
 import { ARCPROOF_ADDRESS, ARCSCAN_BASE } from '../config.js'
 import ArcProofABI from '../abis/ArcProof.json'
 import { getCachedTxHash } from '../utils/paymentRequest.js'
@@ -47,10 +49,17 @@ export default function MyPaymentsPage() {
     fetchSentProofIds(address).then(async ids => {
       const proofs = await Promise.all(ids.map(fetchProof))
       const valid = proofs.filter(Boolean).sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
-      // Recupera txHash da createdBlock per ogni proof
+      // Recupera txHash e nome merchant per ogni proof
       const withTx = await Promise.all(valid.map(async p => {
         const txHash = getCachedTxHash(p.proofId) || await recoverTxHash(p.proofId, p.createdBlock)
-        return { ...p, txHash }
+        let merchantName = ''
+        if (isMerchantRegistryConfigured()) {
+          try {
+            const m = await getMerchantByWallet(p.payee)
+            if (m && m.tradingName) merchantName = m.tradingName
+          } catch {}
+        }
+        return { ...p, txHash, merchantName }
       }))
       setPayments(withTx)
     }).finally(() => setLoading(false))
@@ -61,7 +70,7 @@ export default function MyPaymentsPage() {
       ['timestamp','merchantName','merchantWallet','customerWallet','amount','token','network','chainId','paymentRef','purposeCode','description','txHash','arcscanUrl','receiptUrl','status','testnetDisclaimer'],
       ...payments.map(p => [
         formatTs(Number(p.timestamp)),
-        p.payee,
+        p.merchantName || p.payee,
         p.payee,
         p.payer,
         formatUsdc(p.amount),
@@ -70,7 +79,7 @@ export default function MyPaymentsPage() {
         '5042002',
         p.paymentRef || '',
         p.purposeCode || '',
-        '',
+        p.description || '',
         p.txHash || '',
         p.txHash ? `https://testnet.arcscan.app/tx/${p.txHash}` : '',
         `https://arc-pay-testnet.vercel.app/receipt/${p.proofId}`,
