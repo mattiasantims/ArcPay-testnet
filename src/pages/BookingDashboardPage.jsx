@@ -205,7 +205,6 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
                   <div>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                       <BookingStatusBadge status={booking.status} />
-                      <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--accent)' }}>#{id}</span>
                     </div>
                     <div style={{ fontSize: 13, fontFamily: 'var(--mono)', marginBottom: 4 }}>{booking.bookingRef}</div>
                     <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>
@@ -289,7 +288,6 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
                       <span style={{ fontSize: 11, color: 'var(--yellow)', background: '#f0c04011', border: '1px solid #f0c04044', borderRadius: 20, padding: '2px 8px' }}>
                         Deadline passed
                       </span>
-                      <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--accent)' }}>#{id}</span>
                     </div>
                     <div style={{ fontSize: 13, fontFamily: 'var(--mono)', marginBottom: 2 }}>{booking.bookingRef}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>Cancellation window closed</div>
@@ -341,7 +339,6 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <BookingStatusBadge status={booking.status} />
                   <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{booking.bookingRef}</span>
-                  <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>#{id}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
