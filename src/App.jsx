@@ -37,8 +37,10 @@ export default function App() {
   const [showProfilePrompt, setShowProfilePrompt] = useState(false)
   const location = useLocation()
   const isQRPage = location.pathname === '/qr'
-  const customerPaths = ['/pay', '/booking/pay', '/travel/pay', '/my-payments', '/my-bookings', '/my-travel', '/payment-success']
-  const isCustomerPage = customerPaths.some(p => location.pathname.startsWith(p))
+  const searchParams = new URLSearchParams(location.search)
+  const isMerchantMode = searchParams.get('mode') === 'merchant'
+  const customerPaths = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/payment-success']
+  const isCustomerPage = customerPaths.some(p => location.pathname.startsWith(p)) && !isMerchantMode
 
   // Load balance when wallet connects
   useEffect(() => {
