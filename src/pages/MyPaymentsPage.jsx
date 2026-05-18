@@ -51,7 +51,7 @@ export default function MyPaymentsPage() {
 
   function exportCSV() {
     const rows = [
-      ['timestamp','merchantName','merchantWallet','customerWallet','amount','token','network','chainId','paymentRef','purposeCode','description','txHash','arcscanUrl','receiptUrl'],
+      ['timestamp','merchantName','merchantWallet','customerWallet','amount','token','network','chainId','paymentRef','purposeCode','description','txHash','arcscanUrl','receiptUrl','status','testnetDisclaimer'],
       ...payments.map(p => [
         formatTs(Number(p.timestamp)),
         p.payee,
@@ -67,6 +67,8 @@ export default function MyPaymentsPage() {
         p.txHash || '',
         p.txHash ? `https://testnet.arcscan.app/tx/${p.txHash}` : '',
         `https://arc-pay-testnet.vercel.app/receipt/${p.proofId}`,
+        'Confirmed',
+        'TESTNET ONLY. Testnet tokens have no real economic value.',
       ])
     ]
     const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
