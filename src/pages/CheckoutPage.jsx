@@ -223,7 +223,7 @@ export default function CheckoutPage() {
           <span style={{ fontSize: 11, color: 'var(--text3)' }}>Other wallets not supported in this demo.</span>
         </div>
         <QRCodeBox url={pageUrl} size={160} label="" />
-      </div>
+      </div>}
 
       <div style={{ marginTop: 16, padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
         <strong style={{ color: 'var(--text2)' }}>TESTNET ONLY.</strong> Testnet tokens have no real economic value.
