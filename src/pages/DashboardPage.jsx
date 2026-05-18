@@ -189,7 +189,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Link to={`/receipt/${r.receipt_id}`} style={{ textDecoration: 'none' }}>
+                  <Link to={`/receipt/${r.receipt_id}?mode=merchant`} style={{ textDecoration: 'none' }}>
                     <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>View receipt</button>
                   </Link>
                   {r.transaction_hash && (
