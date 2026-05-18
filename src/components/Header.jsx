@@ -98,11 +98,6 @@ function WalletMenu({ address, balance, open, disconnect, isCustomerPage }) {
           </div>
           <div
             className="nav-dropdown-item"
-            onClick={() => { open(); setShow(false) }}>
-            <span>🔗</span><span>Switch wallet</span>
-          </div>
-          <div
-            className="nav-dropdown-item"
             onClick={() => { disconnect(); setShow(false) }}
             style={{ color: '#f08080' }}>
             <span>✕</span><span>Disconnect</span>
