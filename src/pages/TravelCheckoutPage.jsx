@@ -55,6 +55,7 @@ export default function TravelCheckoutPage() {
         amountHuman: req.totalPackageAmount,
         paymentRef:  req.travelRef,
         purposeCode: 'SERVICE',
+        description: req.description || '',
         metadataHash,
       })
       navigate(`/receipt/${proofId}?name=${encodeURIComponent(req.agencyName || '')}&desc=${encodeURIComponent(req.description || '')}`)
