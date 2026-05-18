@@ -8,7 +8,7 @@ import {
   TRAVEL_STATUS_LABEL, TRAVEL_STATUS_COLOR,
 } from '../utils/travel.js'
 import { isValidAddress, shortAddress } from '../utils/wallet.js'
-import { isTravelContractConfigured } from '../config.js'
+import { isTravelContractConfigured, isMerchantRegistryConfigured } from '../config.js'
 
 export default function TravelDashboardPage({ account }) {
   const { address, isConnected } = useAccount()
@@ -20,6 +20,7 @@ export default function TravelDashboardPage({ account }) {
   const [addr,     setAddr]     = useState('')
   const [bookings, setBookings] = useState([])
   const [loading,  setLoading]  = useState(false)
+  const [linkedWallets, setLinkedWallets] = useState([])
   const [error,    setError]    = useState('')
   const [now,      setNow]      = useState(Math.floor(Date.now() / 1000))
 
@@ -29,7 +30,22 @@ export default function TravelDashboardPage({ account }) {
   }, [])
 
   useEffect(() => {
-    if (isConnected && address && !addr) { setAddr(address); setAddrInput(address) }
+    if (!isConnected || !address) return
+    if (isMerchantRegistryConfigured()) {
+      getMerchantIdByWallet(address).then(async id => {
+        if (id && id.toString() !== '0') {
+          const wallets = await getMerchantWallets(id)
+          if (wallets && wallets.length > 0) {
+            setLinkedWallets(wallets.map(w => w.toLowerCase()))
+          }
+        }
+        if (!addr) { setAddr(address); setAddrInput(address) }
+      }).catch(() => {
+        if (!addr) { setAddr(address); setAddrInput(address) }
+      })
+    } else {
+      if (!addr) { setAddr(address); setAddrInput(address) }
+    }
   }, [address, isConnected])
 
   useEffect(() => { if (addr) load() }, [addr, role])
@@ -38,9 +54,17 @@ export default function TravelDashboardPage({ account }) {
     if (!isValidAddress(addr)) { setError('Invalid wallet address'); return }
     setLoading(true); setError('')
     try {
-      const ids = role === 'merchant'
-        ? await fetchMerchantTravelIds(addr)
-        : await fetchCustomerTravelIds(addr)
+      let ids = []
+      if (role === 'merchant') {
+        const walletsToLoad = linkedWallets.length > 0 ? linkedWallets : [addr]
+        for (const w of walletsToLoad) {
+          const wIds = await fetchMerchantTravelIds(w)
+          ids.push(...wIds)
+        }
+        ids = [...new Set(ids.map(id => id.toString()))].map(id => BigInt(id))
+      } else {
+        ids = await fetchCustomerTravelIds(addr)
+      }
       const fetched = []
       for (const id of [...ids].reverse()) {
         try {
