@@ -102,7 +102,6 @@ export default function ReceiptPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <span className="badge badge-green">✓ Verified on-chain</span>
           <span className="badge badge-blue">Arc Testnet</span>
-          <span className="badge badge-gray">on-chain #{id}</span>
         </div>
         <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.5px' }}>
           {proof.paymentRef ? `Payment Receipt · ${proof.paymentRef}` : 'Payment Receipt'}
@@ -137,7 +136,6 @@ export default function ReceiptPage() {
       {/* Details */}
       <div className="card" style={{ marginBottom: 16 }}>
         {[
-          { k: 'Receipt ID',    v: `#${id}` },
           { k: 'Payment Ref',   v: proof.paymentRef,   mono: true },
           { k: 'Purpose',       v: proof.purposeCode,  mono: true },
           { k: 'Description',   v: description || 'Not available — frontend-only metadata not stored on-chain' },
