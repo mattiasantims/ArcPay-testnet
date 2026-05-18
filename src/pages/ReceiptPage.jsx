@@ -138,7 +138,7 @@ export default function ReceiptPage() {
         {[
           { k: 'Payment Ref',   v: proof.paymentRef,   mono: true },
           { k: 'Purpose',       v: proof.purposeCode,  mono: true },
-          { k: 'Description',   v: description || 'Not available — frontend-only metadata not stored on-chain' },
+          { k: 'Description',   v: proof?.description || description || '—' },
           { k: 'Merchant wallet', v: proof.payee,        mono: true, full: true },
           { k: 'Trading name',    v: merchantProfile?.tradingName || merchantName || '—' },
           { k: 'Legal name',      v: merchantProfile?.legalName || '—' },
