@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title ArcProof
+/// @title ArcProof v2
 /// @notice TESTNET ONLY — payment + business-readable proof primitive for ArcPay.
-/// @dev This contract is the ArcProof receipt engine already deployed at
-///      0x9A284a4af4476Dddb353793A79C1a8BfC09e8334 on Arc Testnet.
-///      Standard ArcPay and Luxury Retail flows reuse that deployed contract.
-///      Do not redeploy unless intentionally creating a new ArcProof instance.
+/// @dev v2 adds `description` field to Proof struct and payAndCreateProof function.
+///      This is NOT lending, NOT BNPL, NOT consumer credit.
+///      No admin. No fees. No upgradeability. USDC only.
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 }
@@ -18,8 +17,9 @@ contract ArcProof {
         address payee;
         address token;
         uint256 amount;
-        string paymentRef;
-        string purposeCode;
+        string  paymentRef;
+        string  purposeCode;
+        string  description;
         bytes32 metadataHash;
         uint256 timestamp;
         uint256 createdBlock;
@@ -27,7 +27,7 @@ contract ArcProof {
 
     uint256 private proofCounter;
 
-    mapping(uint256 => Proof) private proofs;
+    mapping(uint256 => Proof)     private proofs;
     mapping(address => uint256[]) private proofsSent;
     mapping(address => uint256[]) private proofsReceived;
 
@@ -37,8 +37,9 @@ contract ArcProof {
         address indexed payee,
         address token,
         uint256 amount,
-        string paymentRef,
-        string purposeCode,
+        string  paymentRef,
+        string  purposeCode,
+        string  description,
         bytes32 metadataHash,
         uint256 timestamp,
         uint256 createdBlock
@@ -52,14 +53,16 @@ contract ArcProof {
         uint256 amount,
         string calldata paymentRef,
         string calldata purposeCode,
+        string calldata description,
         bytes32 metadataHash
     ) external returns (uint256 proofId) {
-        require(token != address(0), "Invalid token");
-        require(payee != address(0), "Invalid payee");
-        require(payee != msg.sender, "Cannot pay self");
-        require(amount > 0, "Amount must be > 0");
-        require(bytes(paymentRef).length <= 64, "Payment ref too long");
-        require(bytes(purposeCode).length <= 32, "Purpose code too long");
+        require(token  != address(0),           "Invalid token");
+        require(payee  != address(0),           "Invalid payee");
+        require(payee  != msg.sender,           "Cannot pay self");
+        require(amount > 0,                     "Amount must be > 0");
+        require(bytes(paymentRef).length  <= 64,  "Payment ref too long");
+        require(bytes(purposeCode).length <= 32,  "Purpose code too long");
+        require(bytes(description).length <= 256, "Description too long");
 
         bool ok = IERC20(token).transferFrom(msg.sender, payee, amount);
         require(ok, "Token transfer failed");
@@ -68,15 +71,16 @@ contract ArcProof {
         proofId = proofCounter;
 
         proofs[proofId] = Proof({
-            proofId: proofId,
-            payer: msg.sender,
-            payee: payee,
-            token: token,
-            amount: amount,
-            paymentRef: paymentRef,
-            purposeCode: purposeCode,
+            proofId:      proofId,
+            payer:        msg.sender,
+            payee:        payee,
+            token:        token,
+            amount:       amount,
+            paymentRef:   paymentRef,
+            purposeCode:  purposeCode,
+            description:  description,
             metadataHash: metadataHash,
-            timestamp: block.timestamp,
+            timestamp:    block.timestamp,
             createdBlock: block.number
         });
 
@@ -91,6 +95,7 @@ contract ArcProof {
             amount,
             paymentRef,
             purposeCode,
+            description,
             metadataHash,
             block.timestamp,
             block.number
