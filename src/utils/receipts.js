@@ -52,14 +52,14 @@ export async function approveUsdc(account, amountHuman) {
   return tx
 }
 
-export async function executePayment({ account, payee, amountHuman, paymentRef, purposeCode, metadataHash }) {
+export async function executePayment({ account, payee, amountHuman, paymentRef, purposeCode, description, metadataHash }) {
   const pc  = getPublicClient()
   const wc  = getWalletClient()
   const amt = parseUnits(amountHuman.toString(), USDC_DECIMALS)
   const { request } = await pc.simulateContract({
     address: ARCPROOF_ADDRESS, abi: ArcProofABI,
     functionName: 'payAndCreateProof',
-    args: [USDC_ADDRESS, payee, amt, paymentRef, purposeCode, metadataHash],
+    args: [USDC_ADDRESS, payee, amt, paymentRef, purposeCode, description || '', metadataHash],
     account,
   })
   const txHash  = await wc.writeContract(request)
@@ -135,6 +135,7 @@ export function buildReceiptObject({ proofData, txHash, proofId, merchantName, d
     amount:           formatUsdcFull(proofData.amount),
     payment_ref:      proofData.paymentRef,
     purpose_code:     proofData.purposeCode,
+    description:      proofData.description || '',
     description:      description || 'Not available — frontend-only metadata not stored on-chain',
     metadata_hash:    proofData.metadataHash,
     timestamp_utc:    formatTs(proofData.timestamp),
