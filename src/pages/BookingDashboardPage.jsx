@@ -233,7 +233,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
                 )}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Link to={`/booking/${id}`} style={{ textDecoration: 'none' }}>
+                  <Link to={`/booking/${id}?mode=merchant`} style={{ textDecoration: 'none' }}>
                     <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 12px' }}>View details</button>
                   </Link>
                   {/* Hotel: process guest cancellation */}
@@ -312,7 +312,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
                       ? <><span className="spinner" />Releasing...</>
                       : '🏨 Release escrow to hotel'}
                   </button>
-                  <Link to={`/booking/${id}`} style={{ textDecoration: 'none' }}>
+                  <Link to={`/booking/${id}?mode=merchant`} style={{ textDecoration: 'none' }}>
                     <button className="btn-ghost" style={{ fontSize: 11, padding: '8px 12px' }}>View details</button>
                   </Link>
                 </div>
@@ -342,7 +342,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
-                  <Link to={`/booking/${id}`} style={{ textDecoration: 'none' }}>
+                  <Link to={`/booking/${id}?mode=merchant`} style={{ textDecoration: 'none' }}>
                     <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View</button>
                   </Link>
                 </div>
