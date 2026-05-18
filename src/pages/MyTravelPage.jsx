@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
-import { fetchCustomerTravelIds, fetchTravelBooking, formatUsdc, formatTs, formatDeadlineCountdown } from '../utils/travel.js'
+import { fetchCustomerTravelIds, fetchTravelBooking } from '../utils/travel.js'
+import { formatUsdc, formatTs } from '../utils/booking.js'
 import { shortAddress } from '../utils/wallet.js'
 import { isTravelContractConfigured } from '../config.js'
 
@@ -87,7 +88,7 @@ export default function MyTravelPage() {
                 {/* Alert tranche */}
                 {trancheDue && (
                   <div style={{ background: '#0a1628', border: '1px solid var(--usdc)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: 'var(--usdc)' }}>
-                    ⚡ Tranche payment due — {formatUsdc(b.trancheAmount)} USDC · Deadline: {formatDeadlineCountdown(Number(b.paymentDeadline))}
+                    ⚡ Tranche payment due — {formatUsdc(b.trancheAmount)} USDC · Deadline: {new Date(Number(b.paymentDeadline)*1000).toLocaleString()}
                   </div>
                 )}
                 {trancheOverdue && (
