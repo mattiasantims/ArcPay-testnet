@@ -2,14 +2,13 @@ export function downloadCSV(receipts, merchantWallet) {
   if (!receipts || receipts.length === 0) return
 
   const headers = [
-    'receiptId','timestamp','merchantName','merchantWallet','customerWallet',
+    'timestamp','merchantName','merchantWallet','customerWallet',
     'amount','token','network','chainId','paymentRef','purposeCode',
     'description','metadataHash','txHash','arcscanUrl','receiptUrl',
     'status','testnetDisclaimer',
   ]
 
   const rows = receipts.map(r => [
-    r.receipt_id       ?? '',
     r.timestamp_utc    ?? '',
     r.merchant_name    ?? '',
     r.merchant_wallet  ?? '',
