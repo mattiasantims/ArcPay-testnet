@@ -7,7 +7,8 @@ import {
 } from '../utils/receipts.js'
 import { getCachedTxHash, getPaymentRequests } from '../utils/paymentRequest.js'
 import { shortAddress, isValidAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE } from '../config.js'
+import { ARCSCAN_BASE, isMerchantRegistryConfigured } from '../config.js'
+import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
 import { downloadCSV } from '../utils/csv.js'
 import { downloadReceiptPDF } from '../utils/pdf.js'
 
@@ -18,10 +19,32 @@ export default function DashboardPage({ account, onConnect, connecting }) {
   const [receipts,      setReceipts]      = useState([])
   const [loading,       setLoading]       = useState(false)
   const [error,         setError]         = useState('')
+  const [linkedWallets, setLinkedWallets] = useState([])
 
-  // Auto-load when wallet connects
+  // Auto-load when wallet connects — carica tutti i wallet del merchant
   useEffect(() => {
-    if (account && !merchantAddr) {
+    if (!account) return
+    if (isMerchantRegistryConfigured()) {
+      getMerchantIdByWallet(account).then(async id => {
+        if (id && id.toString() !== '0') {
+          // Merchant registrato — carica tutti i wallet collegati
+          const wallets = await getMerchantWallets(id)
+          if (wallets && wallets.length > 0) {
+            // Usa il wallet principale (ownerWallet) come indirizzo display
+            setMerchantAddr(account)
+            setMerchantInput(account)
+            // Salva lista wallets per caricare pagamenti aggregati
+            setLinkedWallets(wallets.map(w => w.toLowerCase()))
+            return
+          }
+        }
+        setMerchantAddr(account)
+        setMerchantInput(account)
+      }).catch(() => {
+        setMerchantAddr(account)
+        setMerchantInput(account)
+      })
+    } else {
       setMerchantAddr(account)
       setMerchantInput(account)
     }
@@ -36,7 +59,15 @@ export default function DashboardPage({ account, onConnect, connecting }) {
     setLoading(true)
     setError('')
     try {
-      const ids      = await fetchReceivedProofIds(addr)
+      // Aggrega pagamenti di tutti i wallet collegati
+      const walletsToLoad = linkedWallets.length > 0 ? linkedWallets : [addr]
+      const allIds = []
+      for (const w of walletsToLoad) {
+        const wIds = await fetchReceivedProofIds(w)
+        allIds.push(...wIds)
+      }
+      // Deduplica
+      const ids = [...new Set(allIds.map(id => id.toString()))].map(id => BigInt(id))
       const reversed = [...ids].reverse()
       const fetched  = []
       for (const id of reversed) {
