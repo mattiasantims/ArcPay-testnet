@@ -100,7 +100,7 @@ export default function TravelDashboardPage({ account }) {
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{fromUsdc(b.totalPackageAmount).toFixed(2)} USDC</div>
               <div style={{ fontSize: 11, color: 'var(--text3)' }}>Tranche: {fromUsdc(b.trancheAmount).toFixed(2)}</div>
             </div>
-            <Link to={`/travel/${b.travelId}`} style={{ textDecoration: 'none' }}>
+            <Link to={`/travel/${b.travelId}?mode=merchant`} style={{ textDecoration: 'none' }}>
               <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
             </Link>
           </div>
