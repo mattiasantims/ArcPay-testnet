@@ -191,11 +191,7 @@ export default function LuxuryRetailPage({ account }) {
                 style={{ padding: '10px 24px', background: '#1a1530', border: '1px solid #6b44ff', color: '#a78bfa', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
                 {copied ? '✓ Copied!' : '🔗 Copy payment link'}
               </button>
-              <a href={paymentUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                <button style={{ padding: '10px 20px', background: '#7c3aed', border: 'none', color: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
-                  Open checkout →
-                </button>
-              </a>
+
             </div>
           </div>
 
