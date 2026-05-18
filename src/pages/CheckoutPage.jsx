@@ -208,7 +208,7 @@ export default function CheckoutPage() {
               )}
             </div>
           )}
-        </div>}
+        </div>
       )}
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
