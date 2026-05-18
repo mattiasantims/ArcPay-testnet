@@ -3,6 +3,8 @@ import { Routes, Route, useLocation } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import Header from './components/Header.jsx'
+import { isMerchantRegistryConfigured } from './config.js'
+import { getMerchantIdByWallet } from './utils/merchant.js'
 import Footer from './components/Footer.jsx'
 import HomePage              from './pages/HomePage.jsx'
 import CreatePaymentPage     from './pages/CreatePaymentPage.jsx'
@@ -29,6 +31,7 @@ export default function App() {
   const { open } = useWeb3Modal()
   const [balance,    setBalance]    = useState(null)
   const [connecting, setConnecting] = useState(false)
+  const [showProfilePrompt, setShowProfilePrompt] = useState(false)
   const location = useLocation()
   const isQRPage = location.pathname === '/qr'
 
@@ -40,6 +43,19 @@ export default function App() {
       setBalance(null)
     }
   }, [address, isConnected])
+
+  // Mostra popup se wallet connesso e non registrato nel registry
+  useEffect(() => {
+    if (!isConnected || !address || !isMerchantRegistryConfigured()) return
+    getMerchantIdByWallet(address).then(id => {
+      if (!id || id === 0n || id.toString() === '0') {
+        setShowProfilePrompt(true)
+      } else {
+        setShowProfilePrompt(false)
+      }
+    }).catch(() => {})
+  }, [address, isConnected])
+
 
   // For legacy pages that call connectWallet() directly,
   // we still support window.ethereum. WalletConnect is handled
@@ -116,6 +132,33 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      {/* Popup profilo merchant per nuovi wallet */}
+      {showProfilePrompt && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+          background: 'var(--surface)', border: '1px solid var(--usdc)',
+          borderRadius: 12, padding: '16px 20px', maxWidth: 300,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>🏪 Set up your merchant profile</div>
+            <button onClick={() => setShowProfilePrompt(false)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1, marginLeft: 8 }}>✕</button>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.5 }}>
+            Register your merchant profile to start accepting USDC payments on Arc.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a href="/merchant-profile" style={{ flex: 1, textDecoration: 'none' }} onClick={() => setShowProfilePrompt(false)}>
+              <button className="btn-primary" style={{ width: '100%', padding: '8px', fontSize: 12 }}>
+                Set up profile
+              </button>
+            </a>
+            <button onClick={() => setShowProfilePrompt(false)} className="btn-ghost" style={{ padding: '8px 14px', fontSize: 12 }}>
+              Later
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
