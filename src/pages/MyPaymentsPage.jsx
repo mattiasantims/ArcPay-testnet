@@ -12,30 +12,14 @@ import { shortAddress } from '../utils/wallet.js'
 
 async function fetchSentProofIds(payerAddress) {
   try {
-    const client = getPublicClient()
-    const logs = await client.getLogs({
+    // Usa getProofsSent dal contratto — più veloce di getLogs
+    const result = await readContract(wagmiConfig, {
       address: ARCPROOF_ADDRESS,
-      event: {
-        type: 'event',
-        name: 'ProofCreated',
-        inputs: [
-          { name: 'proofId', type: 'uint256', indexed: true },
-          { name: 'payer',   type: 'address', indexed: true },
-          { name: 'payee',   type: 'address', indexed: true },
-          { name: 'token',        type: 'address',  indexed: false },
-          { name: 'amount',       type: 'uint256',  indexed: false },
-          { name: 'paymentRef',   type: 'string',   indexed: false },
-          { name: 'purposeCode',  type: 'string',   indexed: false },
-          { name: 'metadataHash', type: 'bytes32',  indexed: false },
-          { name: 'timestamp',    type: 'uint256',  indexed: false },
-          { name: 'createdBlock', type: 'uint256',  indexed: false },
-        ],
-      },
-      args: { payer: payerAddress },
-      fromBlock: 0n,
-      toBlock: 'latest',
+      abi: ArcProofABI,
+      functionName: 'getProofsSent',
+      args: [payerAddress],
     })
-    return logs.map(l => l.args.proofId)
+    return result || []
   } catch { return [] }
 }
 
