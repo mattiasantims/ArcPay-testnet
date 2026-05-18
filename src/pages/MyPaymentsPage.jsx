@@ -51,21 +51,29 @@ export default function MyPaymentsPage() {
 
   function exportCSV() {
     const rows = [
-      ['Receipt ID', 'Date', 'Amount (USDC)', 'Merchant', 'Payment Ref', 'Purpose'],
+      ['timestamp','merchantName','merchantWallet','customerWallet','amount','token','network','chainId','paymentRef','purposeCode','description','txHash','arcscanUrl','receiptUrl'],
       ...payments.map(p => [
-        p.proofId.toString(),
         formatTs(Number(p.timestamp)),
-        formatUsdc(p.amount),
         p.payee,
+        p.payee,
+        p.payer,
+        formatUsdc(p.amount),
+        'USDC',
+        'Arc Testnet',
+        '5042002',
         p.paymentRef,
         p.purposeCode,
+        p.description || '',
+        p.txHash || '',
+        p.txHash ? `https://testnet.arcscan.app/tx/${p.txHash}` : '',
+        `https://arc-pay-testnet.vercel.app/receipt/${p.proofId}`,
       ])
     ]
-    const csv  = rows.map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
-    a.href = url; a.download = 'my-payments.csv'
+    a.href = url; a.download = `arcpay_mypayments_${new Date().toISOString().slice(0,10)}.csv`
     document.body.appendChild(a); a.click()
     document.body.removeChild(a); URL.revokeObjectURL(url)
   }
