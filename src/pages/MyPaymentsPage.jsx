@@ -7,7 +7,8 @@ import { wagmiConfig } from '../walletConfig.js'
 import { getPublicClient } from '../utils/wallet.js'
 import { ARCPROOF_ADDRESS, ARCSCAN_BASE } from '../config.js'
 import ArcProofABI from '../abis/ArcProof.json'
-import { formatUsdc, formatTs } from '../utils/receipts.js'
+import { getCachedTxHash } from '../utils/paymentRequest.js'
+import { formatUsdc, formatTs, recoverTxHash } from '../utils/receipts.js'
 import { shortAddress } from '../utils/wallet.js'
 
 async function fetchSentProofIds(payerAddress) {
@@ -45,7 +46,13 @@ export default function MyPaymentsPage() {
     setLoading(true)
     fetchSentProofIds(address).then(async ids => {
       const proofs = await Promise.all(ids.map(fetchProof))
-      setPayments(proofs.filter(Boolean).sort((a, b) => Number(b.timestamp) - Number(a.timestamp)))
+      const valid = proofs.filter(Boolean).sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
+      // Recupera txHash da createdBlock per ogni proof
+      const withTx = await Promise.all(valid.map(async p => {
+        const txHash = getCachedTxHash(p.proofId) || await recoverTxHash(p.proofId, p.createdBlock)
+        return { ...p, txHash }
+      }))
+      setPayments(withTx)
     }).finally(() => setLoading(false))
   }, [address, isConnected])
 
@@ -61,9 +68,9 @@ export default function MyPaymentsPage() {
         'USDC',
         'Arc Testnet',
         '5042002',
-        p.paymentRef,
-        p.purposeCode,
-        p.description || '',
+        p.paymentRef || '',
+        p.purposeCode || '',
+        '',
         p.txHash || '',
         p.txHash ? `https://testnet.arcscan.app/tx/${p.txHash}` : '',
         `https://arc-pay-testnet.vercel.app/receipt/${p.proofId}`,
@@ -138,7 +145,6 @@ export default function MyPaymentsPage() {
             }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text3)' }}>#{p.proofId.toString()}</span>
                   <span className="badge badge-gray" style={{ fontSize: 10 }}>{p.purposeCode}</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{p.paymentRef}</div>
