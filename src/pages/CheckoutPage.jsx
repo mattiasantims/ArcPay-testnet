@@ -64,6 +64,7 @@ export default function CheckoutPage() {
         amountHuman: req.amount,
         paymentRef:  req.ref,
         purposeCode: req.purpose,
+        description: req.desc || '',
         metadataHash,
       })
       navigate(`/receipt/${proofId}?name=${encodeURIComponent(req.name || '')}&desc=${encodeURIComponent(req.desc || '')}`)
