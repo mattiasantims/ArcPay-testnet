@@ -9,6 +9,8 @@ import {
 import { getCachedBookingTxHash, getBookingRequests } from '../utils/bookingRequest.js'
 import { isValidAddress } from '../utils/wallet.js'
 import { downloadBookingCSV } from '../utils/bookingCsv.js'
+import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
+import { isMerchantRegistryConfigured } from '../config.js'
 import { isBookingContractConfigured } from '../config.js'
 import BookingStatusBadge from '../components/BookingStatusBadge.jsx'
 
@@ -19,6 +21,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
   const [bookings,   setBookings]   = useState([])
   const [receipts,   setReceipts]   = useState([])
   const [loading,    setLoading]    = useState(false)
+  const [linkedWallets, setLinkedWallets] = useState([])
   const [error,      setError]      = useState('')
   const [releasing,  setReleasing]  = useState(null)
   const [cancelling, setCancelling] = useState(null)
@@ -26,7 +29,22 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
   const configured = isBookingContractConfigured()
 
   useEffect(() => {
-    if (account && !addr) { setAddr(account); setAddrInput(account) }
+    if (!account) return
+    if (isMerchantRegistryConfigured()) {
+      getMerchantIdByWallet(account).then(async id => {
+        if (id && id.toString() !== '0') {
+          const wallets = await getMerchantWallets(id)
+          if (wallets && wallets.length > 0) {
+            setLinkedWallets(wallets.map(w => w.toLowerCase()))
+          }
+        }
+        if (!addr) { setAddr(account); setAddrInput(account) }
+      }).catch(() => {
+        if (!addr) { setAddr(account); setAddrInput(account) }
+      })
+    } else {
+      if (!addr) { setAddr(account); setAddrInput(account) }
+    }
   }, [account])
 
   useEffect(() => { if (addr) load(addr) }, [addr, role])
@@ -40,9 +58,17 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
     if (!isValidAddress(a)) { setError('Invalid wallet address'); return }
     setLoading(true); setError('')
     try {
-      const ids = role === 'merchant'
-        ? await fetchMerchantBookingIds(a)
-        : await fetchGuestBookingIds(a)
+      let ids = []
+      if (role === 'merchant') {
+        const walletsToLoad = linkedWallets.length > 0 ? linkedWallets : [a]
+        for (const w of walletsToLoad) {
+          const wIds = await fetchMerchantBookingIds(w)
+          ids.push(...wIds)
+        }
+        ids = [...new Set(ids.map(id => id.toString()))].map(id => BigInt(id))
+      } else {
+        ids = await fetchGuestBookingIds(a)
+      }
       const reversed = [...ids].reverse()
       const fetched  = []
       for (const id of reversed) {
