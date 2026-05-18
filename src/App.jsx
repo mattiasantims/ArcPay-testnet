@@ -20,6 +20,9 @@ import BookingDetailsPage    from './pages/BookingDetailsPage.jsx'
 import BookingDashboardPage  from './pages/BookingDashboardPage.jsx'
 import AnalyticsPage         from './pages/AnalyticsPage.jsx'
 import MerchantProfilePage   from './pages/MerchantProfilePage.jsx'
+import MyPaymentsPage        from './pages/MyPaymentsPage.jsx'
+import MyBookingsPage        from './pages/MyBookingsPage.jsx'
+import MyTravelPage          from './pages/MyTravelPage.jsx'
 import TravelAgencyPage      from './pages/TravelAgencyPage.jsx'
 import TravelCheckoutPage    from './pages/TravelCheckoutPage.jsx'
 import TravelDetailsPage     from './pages/TravelDetailsPage.jsx'
@@ -34,6 +37,8 @@ export default function App() {
   const [showProfilePrompt, setShowProfilePrompt] = useState(false)
   const location = useLocation()
   const isQRPage = location.pathname === '/qr'
+  const customerPaths = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/payment-success']
+  const isCustomerPage = customerPaths.some(p => location.pathname.startsWith(p))
 
   // Load balance when wallet connects
   useEffect(() => {
@@ -124,6 +129,9 @@ export default function App() {
           <Route path="/booking-dashboard"  element={<BookingDashboardPage {...shared} />} />
           <Route path="/analytics"          element={<AnalyticsPage        {...shared} />} />
           <Route path="/merchant-profile"   element={<MerchantProfilePage />} />
+          <Route path="/my-payments"       element={<MyPaymentsPage />} />
+          <Route path="/my-bookings"       element={<MyBookingsPage />} />
+          <Route path="/my-travel"         element={<MyTravelPage />} />
           <Route path="/travel"             element={<TravelAgencyPage     {...shared} />} />
           <Route path="/travel/pay"         element={<TravelCheckoutPage />} />
           <Route path="/travel/:id"         element={<TravelDetailsPage />} />
@@ -133,7 +141,7 @@ export default function App() {
       </main>
       <Footer />
       {/* Popup profilo merchant per nuovi wallet */}
-      {showProfilePrompt && (
+      {showProfilePrompt && !isCustomerPage && (
         <div style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
           background: 'var(--surface)', border: '1px solid var(--usdc)',
