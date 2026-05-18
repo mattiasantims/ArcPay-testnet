@@ -77,7 +77,6 @@ export default function MyBookingsPage() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                       <span className={`badge ${st.badge}`}>{st.label}</span>
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>#{b.bookingId.toString()}</span>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{shortAddress(b.merchant)}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Created {formatTs(Number(b.createdAt))}</div>
