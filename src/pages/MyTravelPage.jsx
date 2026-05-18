@@ -5,7 +5,8 @@ import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { fetchCustomerTravelIds, fetchTravelBooking } from '../utils/travel.js'
 import { formatUsdc, formatTs } from '../utils/booking.js'
 import { shortAddress } from '../utils/wallet.js'
-import { isTravelContractConfigured } from '../config.js'
+import { isTravelContractConfigured, isMerchantRegistryConfigured } from '../config.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 
 const STATUS_LABELS = {
   0: { label: 'Active',                  badge: 'badge-green' },
@@ -27,7 +28,18 @@ export default function MyTravelPage() {
     setLoading(true)
     fetchCustomerTravelIds(address).then(async ids => {
       const all = await Promise.all(ids.map(id => fetchTravelBooking(id).catch(() => null)))
-      setBookings(all.filter(Boolean).sort((a, b) => Number(b.createdAt) - Number(a.createdAt)))
+      const valid = all.filter(Boolean).sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
+      const withNames = await Promise.all(valid.map(async b => {
+        let merchantName = shortAddress(b.merchant)
+        if (isMerchantRegistryConfigured()) {
+          try {
+            const m = await getMerchantByWallet(b.merchant)
+            if (m && m.tradingName) merchantName = m.tradingName
+          } catch {}
+        }
+        return { ...b, merchantName }
+      }))
+      setBookings(withNames)
     }).finally(() => setLoading(false))
   }, [address, isConnected])
 
@@ -107,7 +119,7 @@ export default function MyTravelPage() {
                       <span className={`badge ${st.badge}`}>{st.label}</span>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{b.travelRef}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Agency: {shortAddress(b.merchant)} · {formatTs(Number(b.createdAt))}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Agency: {b.merchantName || shortAddress(b.merchant)} · {formatTs(Number(b.createdAt))}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 700, color: 'var(--usdc)' }}>
