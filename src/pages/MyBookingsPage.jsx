@@ -5,12 +5,13 @@ import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { fetchGuestBookingIds, fetchBooking, formatUsdc, formatTs } from '../utils/booking.js'
 import { shortAddress } from '../utils/wallet.js'
 import { isBookingContractConfigured } from '../config.js'
+import { downloadBookingCSV } from '../utils/bookingCsv.js'
+import { buildBookingReceiptObject } from '../utils/booking.js'
 
 const STATUS_LABELS = {
-  0: { label: 'Active',             color: 'var(--green)',  badge: 'badge-green' },
-  1: { label: 'Released',           color: 'var(--text2)',  badge: 'badge-gray'  },
-  2: { label: 'Cancelled',          color: '#f08080',       badge: 'badge-red'   },
-  3: { label: 'Cancelled',          color: '#f08080',       badge: 'badge-red'   },
+  0: { label: 'Active',             badge: 'badge-green' },
+  1: { label: 'Cancelled',          badge: 'badge-red'   },
+  2: { label: 'Released',           badge: 'badge-gray'  },
 }
 
 export default function MyBookingsPage() {
@@ -37,6 +38,15 @@ export default function MyBookingsPage() {
     </div>
   )
 
+  function exportCSV() {
+    if (!bookings.length) return
+    const rows = bookings.map(b => buildBookingReceiptObject({
+      booking: b, txHash: null, bookingId: b.bookingId,
+      merchantName: shortAddress(b.merchant), description: ''
+    }))
+    downloadBookingCSV(rows, address)
+  }
+
   return (
     <div className="fade-up">
       <div style={{ marginBottom: 24 }}>
@@ -44,7 +54,10 @@ export default function MyBookingsPage() {
           <span className="badge badge-blue">Customer</span>
           <span className="badge badge-gray">Hotel Bookings</span>
         </div>
-        <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.5px', marginBottom: 4 }}>My Bookings</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.5px', marginBottom: 4 }}>My Bookings</h1>
+          {bookings.length > 0 && <button onClick={exportCSV} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>⬇ Export CSV</button>}
+        </div>
         <p style={{ color: 'var(--text2)', fontSize: 13 }}>Hotel bookings for {shortAddress(address)}</p>
       </div>
 
@@ -74,7 +87,7 @@ export default function MyBookingsPage() {
                       {formatUsdc(b.totalAmount)} USDC
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      Escrow: {formatUsdc(b.refundableEscrowAmount)} USDC
+                      Escrow: {formatUsdc(b.refundableAmount)} USDC
                     </div>
                   </div>
                 </div>
