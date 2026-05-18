@@ -121,7 +121,7 @@ export default function Header({ balance }) {
   const p = loc.pathname
 
   // Customer routes — pagine dove il wallet è il pagatore
-  const customerRoutes = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/payment-success']
+  const customerRoutes = ['/pay', '/booking/pay', '/travel/pay', '/my-payments', '/my-bookings', '/my-travel', '/payment-success']
   const isCustomerRoute = customerRoutes.some(r => p.startsWith(r))
 
   const acceptActive  = ['/create', '/luxury', '/booking', '/travel'].some(r => p === r || p.startsWith(r + '/'))
