@@ -4,7 +4,8 @@ import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { fetchGuestBookingIds, fetchBooking, formatUsdc, formatTs } from '../utils/booking.js'
 import { shortAddress } from '../utils/wallet.js'
-import { isBookingContractConfigured } from '../config.js'
+import { isBookingContractConfigured, isMerchantRegistryConfigured } from '../config.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 import { downloadBookingCSV } from '../utils/bookingCsv.js'
 import { buildBookingReceiptObject } from '../utils/booking.js'
 
@@ -26,7 +27,19 @@ export default function MyBookingsPage() {
     setLoading(true)
     fetchGuestBookingIds(address).then(async ids => {
       const all = await Promise.all(ids.map(id => fetchBooking(id).catch(() => null)))
-      setBookings(all.filter(Boolean).sort((a, b) => Number(b.createdAt) - Number(a.createdAt)))
+      const valid = all.filter(Boolean).sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
+      // Recupera nome merchant dal registry
+      const withNames = await Promise.all(valid.map(async b => {
+        let merchantName = shortAddress(b.merchant)
+        if (isMerchantRegistryConfigured()) {
+          try {
+            const m = await getMerchantByWallet(b.merchant)
+            if (m && m.tradingName) merchantName = m.tradingName
+          } catch {}
+        }
+        return { ...b, merchantName }
+      }))
+      setBookings(withNames)
     }).finally(() => setLoading(false))
   }, [address, isConnected])
 
@@ -42,7 +55,7 @@ export default function MyBookingsPage() {
     if (!bookings.length) return
     const rows = bookings.map(b => buildBookingReceiptObject({
       booking: b, txHash: null, bookingId: b.bookingId,
-      merchantName: shortAddress(b.merchant), description: ''
+      merchantName: b.merchantName || shortAddress(b.merchant), description: ''
     }))
     downloadBookingCSV(rows, address)
   }
@@ -78,7 +91,7 @@ export default function MyBookingsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                       <span className={`badge ${st.badge}`}>{st.label}</span>
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{shortAddress(b.merchant)}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{b.merchantName || shortAddress(b.merchant)}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Created {formatTs(Number(b.createdAt))}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
