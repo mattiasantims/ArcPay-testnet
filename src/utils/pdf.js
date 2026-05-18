@@ -83,7 +83,6 @@ export function downloadReceiptPDF(receipt) {
   addDivider()
 
   // Fields
-  addField('Receipt ID',        `#${receipt.receipt_id} (on-chain)`)
   addField('Payment Ref',       receipt.payment_ref)
   addField('Purpose',           receipt.purpose_code)
   addField('Description',       receipt.description)
