@@ -1,7 +1,7 @@
 import { parseUnits, formatUnits, keccak256, toHex, decodeEventLog } from 'viem'
 import {
   ARCPROOF_ADDRESS, USDC_ADDRESS, USDC_DECIMALS,
-  USDC_SYMBOL, ARCSCAN_BASE,
+  USDC_SYMBOL, ARCSCAN_BASE, APP_URL,
 } from '../config.js'
 import ArcProofABI from '../abis/ArcProof.json'
 import ERC20ABI    from '../abis/ERC20.json'
