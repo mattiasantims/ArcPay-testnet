@@ -171,9 +171,6 @@ export default function DashboardPage({ account, onConnect, connecting }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--accent)', background: '#4f7cff11', border: '1px solid #4f7cff33', borderRadius: 6, padding: '2px 7px' }}>
-                        #{r.receipt_id}
-                      </span>
                       <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{r.purpose_code}</span>
                     </div>
                     <div style={{ fontSize: 13, fontFamily: 'var(--mono)', marginBottom: 4 }}>{r.payment_ref}</div>
