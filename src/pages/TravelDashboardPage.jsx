@@ -94,7 +94,6 @@ export default function TravelDashboardPage({ account }) {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <StatusBadge status={b.status} />
             <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{b.travelRef}</span>
-            <span style={{ fontSize: 11, color: 'var(--text3)' }}>#{b.travelId}</span>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <div style={{ textAlign: 'right' }}>
