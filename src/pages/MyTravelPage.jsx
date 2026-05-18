@@ -39,6 +39,38 @@ export default function MyTravelPage() {
     </div>
   )
 
+  function exportCSV() {
+    if (!bookings.length) return
+    const headers = ['travelId','status','travelRef','agencyWallet','customerWallet','totalPackage','initialPayment','nonRefundable','refundableEscrow','trancheAmount','paymentDueDate','paymentDeadline','cancellationDeadline','travelStartDate','tranchePaid','createdAt','network','testnetDisclaimer']
+    const rows = bookings.map(b => [
+      b.travelId?.toString() ?? '',
+      ['Active','TranchePaid','CancelledBeforeDeadline','CancelledForMissedPayment','ReleasedToMerchant'][Number(b.status)] ?? '',
+      b.travelRef ?? '',
+      b.merchant ?? '',
+      b.customer ?? '',
+      b.totalPackageAmount ? (Number(b.totalPackageAmount)/1e6).toFixed(2) + ' USDC' : '',
+      b.initialPaymentAmount ? (Number(b.initialPaymentAmount)/1e6).toFixed(2) + ' USDC' : '',
+      b.nonRefundableAmount ? (Number(b.nonRefundableAmount)/1e6).toFixed(2) + ' USDC' : '',
+      b.refundableEscrowAmount ? (Number(b.refundableEscrowAmount)/1e6).toFixed(2) + ' USDC' : '',
+      b.trancheAmount ? (Number(b.trancheAmount)/1e6).toFixed(2) + ' USDC' : '',
+      b.paymentDueDate ? new Date(Number(b.paymentDueDate)*1000).toISOString() : '',
+      b.paymentDeadline ? new Date(Number(b.paymentDeadline)*1000).toISOString() : '',
+      b.cancellationDeadline ? new Date(Number(b.cancellationDeadline)*1000).toISOString() : '',
+      b.travelStartDate ? new Date(Number(b.travelStartDate)*1000).toISOString() : '',
+      b.tranchePaid ? 'Yes' : 'No',
+      b.createdAt ? new Date(Number(b.createdAt)*1000).toISOString() : '',
+      'Arc Testnet (Chain ID: 5042002)',
+      'TESTNET ONLY. Testnet tokens have no real economic value.',
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `arcpay_mytravel_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="fade-up">
       <div style={{ marginBottom: 24 }}>
@@ -46,7 +78,10 @@ export default function MyTravelPage() {
           <span className="badge badge-blue">Customer</span>
           <span className="badge badge-gray">Travel</span>
         </div>
-        <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.5px', marginBottom: 4 }}>My Travel</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.5px', marginBottom: 4 }}>My Travel</h1>
+          {bookings.length > 0 && <button onClick={exportCSV} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>⬇ Export CSV</button>}
+        </div>
         <p style={{ color: 'var(--text2)', fontSize: 13 }}>Travel bookings for {shortAddress(address)}</p>
       </div>
 
