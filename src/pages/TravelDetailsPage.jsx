@@ -108,7 +108,7 @@ export default function TravelDetailsPage() {
           </span>
         </div>
         <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.5px', marginBottom: 4 }}>
-          Travel Booking #{travel.travelId}
+          Travel Booking · {travel.travelRef || `#${travel.travelId}`}
         </h1>
         {agencyName && <div style={{ fontSize: 14, color: 'var(--text2)' }}>{agencyName}</div>}
         {description && <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>{description}</div>}
@@ -258,7 +258,6 @@ export default function TravelDetailsPage() {
       <div className="card" style={{ padding: 20, marginBottom: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Booking details</div>
         {[
-          { k: 'Travel ID',      v: `#${travel.travelId}` },
           { k: 'Travel Ref',     v: travel.travelRef },
           { k: 'Customer',       v: travel.customer },
           { k: 'Agency',         v: travel.merchant },
@@ -272,6 +271,17 @@ export default function TravelDetailsPage() {
             <span className="field-val" style={{ fontSize: 11 }}>{row.v}</span>
           </div>
         ))}
+        {/* ArcScan + Copy Link */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          {getCachedTravelTxHash && getCachedTravelTxHash(travel.travelId) && (
+            <a href={`${ARCSCAN_BASE}/tx/${getCachedTravelTxHash(travel.travelId)}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+              <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }}>🔍 ArcScan ↗</button>
+            </a>
+          )}
+          <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => navigator.clipboard.writeText(window.location.href)}>
+            🔗 Copy link
+          </button>
+        </div>
       </div>
 
       <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.6, padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
