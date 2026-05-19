@@ -57,7 +57,7 @@ export async function approveUsdcForBooking(account, amountHuman) {
 
 export async function executeCreateBooking({
   account, merchant, totalAmountHuman, nonRefundableBps,
-  cancellationDeadline, checkInDate, bookingRef, metadataHash,
+  cancellationDeadline, checkInDate, bookingRef, description, metadataHash,
 }) {
   const pc  = getPublicClient()
   const wc  = getWalletClient()
@@ -69,7 +69,7 @@ export async function executeCreateBooking({
     args: [
       merchant, amt, BigInt(nonRefundableBps),
       BigInt(cancellationDeadline), BigInt(checkInDate),
-      bookingRef, metadataHash,
+      bookingRef, description || '', metadataHash,
     ],
     account,
   })
@@ -166,6 +166,7 @@ export function buildBookingReceiptObject({ booking, txHash, bookingId, merchant
     cancellation_deadline: formatTs(booking.cancellationDeadline),
     check_in_date:        formatTs(booking.checkInDate),
     booking_ref:          booking.bookingRef,
+    description:          booking.description || '',
     description:          description || 'Not available — frontend-only metadata not stored on-chain',
     metadata_hash:        booking.metadataHash,
     created_at:           formatTs(booking.createdAt),
