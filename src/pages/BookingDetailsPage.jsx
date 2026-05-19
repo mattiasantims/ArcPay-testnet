@@ -130,10 +130,9 @@ export default function BookingDetailsPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <BookingStatusBadge status={booking.status} />
           <span className="badge badge-blue">Arc Testnet</span>
-          <span className="badge badge-gray">#{id}</span>
         </div>
         <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.5px' }}>
-          Booking Receipt #{id}
+          Booking Receipt · {booking?.bookingRef || `#${id}`}
         </h1>
         {merchantName && <p style={{ color: 'var(--text2)', fontSize: 14, marginTop: 4 }}>{merchantName}</p>}
       </div>
@@ -177,7 +176,6 @@ export default function BookingDetailsPage() {
       {/* Details */}
       <div className="card" style={{ marginBottom: 16 }}>
         {[
-          { k: 'Booking ID',    v: `#${id}` },
           { k: 'Booking Ref',   v: booking.bookingRef, mono: true },
           { k: 'Description',   v: booking?.description || description || '—' },
           { k: 'Hotel wallet',  v: booking.merchant, mono: true, full: true },
