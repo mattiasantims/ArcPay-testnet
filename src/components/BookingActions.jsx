@@ -29,7 +29,7 @@ export default function BookingActions({
     </div>
   )
 
-  if (afterDL) return (
+  if (afterDL && isMerchant) return (
     <div>
       <button onClick={onRelease} disabled={loading} className="btn-primary btn-full">
         {loading ? <><span className="spinner" />Processing...</> : '🏨 Release escrow to hotel'}
@@ -37,6 +37,12 @@ export default function BookingActions({
       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
         Cancellation deadline has passed. The escrow can now be released to the hotel.
       </div>
+    </div>
+  )
+
+  if (afterDL && isGuest) return (
+    <div style={{ fontSize: 13, color: 'var(--text2)', padding: 12, background: 'var(--surface2)', borderRadius: 8 }}>
+      Cancellation deadline has passed. The hotel will process the escrow release.
     </div>
   )
 
