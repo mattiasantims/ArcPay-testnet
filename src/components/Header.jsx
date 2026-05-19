@@ -118,8 +118,10 @@ export default function Header({ balance }) {
   // Customer routes — pagine dove il wallet è il pagatore
   const searchParams = new URLSearchParams(location.search)
   const isMerchantMode = searchParams.get('mode') === 'merchant'
-  const customerRoutes = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/payment-success']
-  const isCustomerRoute = customerRoutes.some(r => p.startsWith(r)) && !isMerchantMode
+  const landingRoutes = ['/']
+  const isLandingPage = p === '/'
+  const customerRoutes = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/payment-success', '/customer']
+  const isCustomerRoute = (customerRoutes.some(r => p.startsWith(r)) && !isMerchantMode) || isLandingPage
 
   const acceptActive  = ['/create', '/luxury', '/booking', '/travel'].some(r => p === r || p.startsWith(r + '/'))
   const reportsActive = ['/dashboard', '/booking-dashboard', '/analytics', '/merchant-profile', '/travel-dashboard', '/my-payments', '/my-bookings', '/my-travel'].some(r => p.startsWith(r))
@@ -176,35 +178,33 @@ export default function Header({ balance }) {
             </div>
           </Link>
 
-          {/* Merchant / Customer switcher */}
-          <div style={{ display: 'flex', gap: 6, marginRight: 8 }}>
-            <button
-              onClick={() => navigate('/merchant')}
-              style={{
+          {/* Merchant / Customer switcher — centrato */}
+          <div style={{ display: 'flex', gap: 6, position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+            <Link to="/merchant" style={{ textDecoration: 'none' }}>
+              <button style={{
                 padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', border: '1px solid var(--border)',
-                background: p.startsWith('/merchant') || p === '/' ? 'var(--surface2)' : 'transparent',
-                color: p.startsWith('/merchant') || p === '/' ? 'var(--text)' : 'var(--text3)',
-              }}
-            >
-              🏪 Merchant
-            </button>
-            <button
-              onClick={() => navigate('/customer')}
-              style={{
+                background: p.startsWith('/merchant') ? 'var(--surface2)' : 'transparent',
+                color: p.startsWith('/merchant') ? 'var(--text)' : 'var(--text3)',
+              }}>
+                🏪 Merchant
+              </button>
+            </Link>
+            <Link to="/customer" style={{ textDecoration: 'none' }}>
+              <button style={{
                 padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', border: '1px solid var(--border)',
-                background: p === '/customer' ? 'var(--surface2)' : 'transparent',
-                color: p === '/customer' ? 'var(--text)' : 'var(--text3)',
-              }}
-            >
-              💳 Customer
-            </button>
+                background: p.startsWith('/customer') ? 'var(--surface2)' : 'transparent',
+                color: p.startsWith('/customer') ? 'var(--text)' : 'var(--text3)',
+              }}>
+                💳 Customer
+              </button>
+            </Link>
           </div>
 
           {/* Nav */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {!isCustomerRoute && (
+            {!isCustomerRoute && !isLandingPage && (
               <Link to="/" style={{
                 fontSize: 13, fontWeight: 500, padding: '5px 10px', borderRadius: 7,
                 color: p === '/' ? 'var(--text)' : 'var(--text2)',
@@ -213,8 +213,8 @@ export default function Header({ balance }) {
                 textDecoration: 'none', transition: 'all 0.15s',
               }}>Home</Link>
             )}
-            {!isCustomerRoute && <Dropdown label="Accept USDC" items={acceptItems} isActive={acceptActive} />}
-            <Dropdown label="Reports" items={reportsItems} isActive={reportsActive} />
+            {!isCustomerRoute && !isLandingPage && <Dropdown label="Accept USDC" items={acceptItems} isActive={acceptActive} />}
+{!isLandingPage && <Dropdown label="Reports" items={reportsItems} isActive={reportsActive} />}
           </nav>
 
           {/* Wallet */}
