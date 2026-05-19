@@ -101,7 +101,7 @@ export function downloadTravelReceiptPDF(receipt) {
   y = 38
   doc.setTextColor(30, 30, 30)
 
-  addLine(`Travel Booking Receipt #${receipt.travel_id}`, 16, true)
+  addLine(`Travel Booking Receipt · ${receipt.travel_ref || receipt.travel_id}`, 16, true)
   addLine(`${receipt.initial_payment_amount} USDC (initial payment)`, 13)
   addLine(receipt.created_at, 9)
 
@@ -109,12 +109,11 @@ export function downloadTravelReceiptPDF(receipt) {
   doc.setDrawColor(220, 220, 220)
   doc.line(margin, y, 192, y); y += 6
 
-  addField('Travel ID',           `#${receipt.travel_id}`)
   addField('Status',              receipt.status)
   addField('Travel Ref',          receipt.travel_ref)
   addField('Description',         receipt.description)
   addField('Agency / Merchant',   receipt.merchant_wallet)
-  addField('Agency Name',         receipt.agency_name)
+  addField('Agency',              receipt.agency_name !== receipt.merchant_wallet ? receipt.agency_name : receipt.merchant_wallet)
   addField('Customer',            receipt.customer_wallet)
 
   y += 2; doc.line(margin, y, 192, y); y += 4
