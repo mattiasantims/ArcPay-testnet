@@ -179,7 +179,7 @@ export default function BookingDetailsPage() {
         {[
           { k: 'Booking ID',    v: `#${id}` },
           { k: 'Booking Ref',   v: booking.bookingRef, mono: true },
-          { k: 'Description',   v: description || 'Not available — frontend-only metadata not stored on-chain' },
+          { k: 'Description',   v: booking?.description || description || '—' },
           { k: 'Hotel wallet',  v: booking.merchant, mono: true, full: true },
           { k: 'Trading name',    v: merchantProfile?.tradingName || merchantName || '—' },
           { k: 'Legal name',      v: merchantProfile?.legalName || '—' },
