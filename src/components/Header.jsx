@@ -202,30 +202,31 @@ export default function Header({ balance }) {
             </Link>
           </div>
           {/* Nav */}
-          {!isLandingPage && <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {isCustomerRoute && !isLandingPage && (
-              <Link to="/" style={{
-                fontSize: 13, fontWeight: 500, padding: '5px 10px', borderRadius: 7,
-                color: p === '/' ? 'var(--text)' : 'var(--text2)',
-                background: 'transparent', border: '1px solid transparent',
-                textDecoration: 'none', transition: 'all 0.15s',
-              }}>Home</Link>
-            )}
-            {!isCustomerRoute && !isLandingPage && (
-              <Link to="/" style={{
-                fontSize: 13, fontWeight: 500, padding: '5px 10px', borderRadius: 7,
-                color: p === '/' ? 'var(--text)' : 'var(--text2)',
-                background: p === '/' ? 'var(--surface2)' : 'transparent',
-                border: p === '/' ? '1px solid var(--border)' : '1px solid transparent',
-                textDecoration: 'none', transition: 'all 0.15s',
-              }}>Home</Link>
-            )}
-            {!isCustomerRoute && !isLandingPage && <Dropdown label="Accept USDC" items={acceptItems} isActive={acceptActive} />}
-{!isLandingPage && <Dropdown label="Reports" items={reportsItems} isActive={reportsActive} />}
-          </nav>
+          {!isLandingPage && (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {isCustomerRoute && (
+                <Link to="/" style={{
+                  fontSize: 13, fontWeight: 500, padding: '5px 10px', borderRadius: 7,
+                  color: 'var(--text2)', background: 'transparent',
+                  border: '1px solid transparent', textDecoration: 'none', transition: 'all 0.15s',
+                }}>Home</Link>
+              )}
+              {!isCustomerRoute && (
+                <Link to="/" style={{
+                  fontSize: 13, fontWeight: 500, padding: '5px 10px', borderRadius: 7,
+                  color: p === '/' ? 'var(--text)' : 'var(--text2)',
+                  background: p === '/' ? 'var(--surface2)' : 'transparent',
+                  border: p === '/' ? '1px solid var(--border)' : '1px solid transparent',
+                  textDecoration: 'none', transition: 'all 0.15s',
+                }}>Home</Link>
+              )}
+              {!isCustomerRoute && <Dropdown label="Accept USDC" items={acceptItems} isActive={acceptActive} />}
+              <Dropdown label="Reports" items={reportsItems} isActive={reportsActive} />
+            </nav>
+          )}
 
           {/* Wallet */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 'auto' }}>
+          {!isLandingPage && <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 'auto' }}>
             {isConnected && balance && (
               <span style={{ fontSize: 11, color: 'var(--usdc)', fontFamily: 'var(--mono)', fontWeight: 500 }}>
                 {balance} USDC
