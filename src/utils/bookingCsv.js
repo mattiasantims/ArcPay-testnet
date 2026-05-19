@@ -1,7 +1,7 @@
 export function downloadBookingCSV(bookings, walletAddress) {
   if (!bookings || bookings.length === 0) return
   const headers = [
-    'bookingId','status','role','guestWallet','merchantWallet','merchantName',
+    'status','guestWallet','merchantWallet','merchantName',
     'totalAmount','nonRefundableAmount','refundableAmount','nonRefundablePct',
     'bookingRef','description','cancellationDeadline','checkInDate',
     'metadataHash','createdAt','closedAt','txHash','arcscanUrl','bookingUrl',
@@ -10,7 +10,6 @@ export function downloadBookingCSV(bookings, walletAddress) {
   const rows = bookings.map(b => [
     b.booking_id           ?? '',
     b.status               ?? '',
-    b.role                 ?? '',
     b.guest_wallet         ?? '',
     b.merchant_wallet      ?? '',
     b.merchant_name        ?? '',
