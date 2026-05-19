@@ -61,6 +61,7 @@ export default function BookingCheckoutPage() {
         cancellationDeadline: req.cancellationDeadline,
         checkInDate:          req.checkInDate,
         bookingRef:           req.bookingRef,
+        description:          req.description || '',
         metadataHash,
       })
       navigate(`/booking/${bookingId}?name=${encodeURIComponent(req.merchantName||'')}&desc=${encodeURIComponent(req.description||'')}`)
