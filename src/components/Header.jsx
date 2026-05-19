@@ -164,10 +164,10 @@ export default function Header({ balance }) {
       <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 24px' }}>
         <div style={{
           maxWidth: 'var(--max-width)', margin: '0 auto', display: 'flex',
-          alignItems: 'center', justifyContent: 'space-between', height: 54,
+          alignItems: 'center', height: 54, position: 'relative',
         }}>
           {/* Logo */}
-          <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <div style={{
               width: 28, height: 28, background: 'var(--usdc)',
               borderRadius: 7, display: 'flex', alignItems: 'center',
@@ -201,7 +201,6 @@ export default function Header({ balance }) {
               </button>
             </Link>
           </div>
-
           {/* Nav */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {!isCustomerRoute && !isLandingPage && (
@@ -218,7 +217,7 @@ export default function Header({ balance }) {
           </nav>
 
           {/* Wallet */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 'auto' }}>
             {isConnected && balance && (
               <span style={{ fontSize: 11, color: 'var(--usdc)', fontFamily: 'var(--mono)', fontWeight: 500 }}>
                 {balance} USDC
