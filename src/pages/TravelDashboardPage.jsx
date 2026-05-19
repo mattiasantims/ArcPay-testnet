@@ -9,6 +9,7 @@ import {
 } from '../utils/travel.js'
 import { isValidAddress, shortAddress } from '../utils/wallet.js'
 import { isTravelContractConfigured, isMerchantRegistryConfigured } from '../config.js'
+import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
 
 export default function TravelDashboardPage({ account }) {
   const { address, isConnected } = useAccount()
