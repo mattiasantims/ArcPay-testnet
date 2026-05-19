@@ -202,7 +202,15 @@ export default function Header({ balance }) {
             </Link>
           </div>
           {/* Nav */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {!isLandingPage && <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {isCustomerRoute && !isLandingPage && (
+              <Link to="/" style={{
+                fontSize: 13, fontWeight: 500, padding: '5px 10px', borderRadius: 7,
+                color: p === '/' ? 'var(--text)' : 'var(--text2)',
+                background: 'transparent', border: '1px solid transparent',
+                textDecoration: 'none', transition: 'all 0.15s',
+              }}>Home</Link>
+            )}
             {!isCustomerRoute && !isLandingPage && (
               <Link to="/" style={{
                 fontSize: 13, fontWeight: 500, padding: '5px 10px', borderRadius: 7,
@@ -234,7 +242,7 @@ export default function Header({ balance }) {
                 Connect
               </button>
             )}
-          </div>
+          </div>}
         </div>
       </header>
     </>
