@@ -51,17 +51,13 @@ export default function TravelAgencyPage() {
       }
       if (p) {
         setAllowScheduledTranche(p.allowScheduledTranche)
-        // Calcola le date dagli offset in giorni della policy
-        // Per la demo usiamo minuti, ma i valori reali sono in giorni
-        // Gli offset sono: paymentDueOffsetDays prima del viaggio,
-        // paymentDeadlineOffsetDays prima del due date
-        // cancellationCutoffDays prima del viaggio
+        // Testnet: offset sono in minuti (workaround testnet)
         const nowSec   = Math.floor(Date.now() / 1000)
-        const DAY      = 86400 // secondi in un giorno
-        const dueSec        = nowSec + Number(p.paymentDueOffsetDays)      * DAY
-        const deadlineSec   = nowSec + Number(p.paymentDeadlineOffsetDays) * DAY
-        const cancelSec     = nowSec + Number(p.cancellationCutoffDays)    * DAY
-        const startSec      = cancelSec + 5 * DAY
+        const MIN      = 60 // secondi in un minuto
+        const dueSec        = nowSec + Number(p.paymentDueOffsetDays)      * MIN
+        const deadlineSec   = nowSec + Number(p.paymentDeadlineOffsetDays) * MIN
+        const cancelSec     = nowSec + Number(p.cancellationCutoffDays)    * MIN
+        const startSec      = cancelSec + 5 * MIN
 
         setForm(prev => ({
           ...prev,
@@ -198,9 +194,7 @@ export default function TravelAgencyPage() {
             className="btn-green" style={{ padding: '10px 24px' }}>
             {copied ? '✓ Copied!' : '🔗 Copy Booking Link'}
           </button>
-          <a href={travelUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-            <button className="btn-ghost" style={{ padding: '10px 20px' }}>Open Checkout →</button>
-          </a>
+
         </div>
       </div>
 
@@ -348,30 +342,6 @@ export default function TravelAgencyPage() {
             <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 6 }}>⚠️ Use Demo preset for testnet demo — all dates in minutes</div>
           </div>
 
-          {/* Scheduled tranche toggle */}
-          <div>
-            <label className="label">Allow scheduled tranche payment for this booking</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: allowScheduledTranche ? 'var(--green)' : 'var(--text2)' }}>
-                  {allowScheduledTranche ? '✓ Scheduled tranche enabled for this booking' : 'Disabled — customer pays full amount only'}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
-                  If enabled, the customer checkout will offer both "Pay full now" and "Pay initial + tranche" options.
-                </div>
-              </div>
-              <button
-                onClick={() => setAllowScheduledTranche(s => !s)}
-                style={{
-                  padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
-                  background: allowScheduledTranche ? 'var(--green)' : 'var(--surface3)',
-                  color: allowScheduledTranche ? '#000' : 'var(--text3)',
-                }}>
-                {allowScheduledTranche ? 'On' : 'Off'}
-              </button>
-            </div>
-          </div>
-
           {/* Payment method display */}
           <div>
             <label className="label">Payment method</label>
@@ -383,6 +353,21 @@ export default function TravelAgencyPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, background: '#0a1628', border: '2px solid var(--usdc)' }}>
                 <span style={{ fontSize: 18 }}>◆</span>
                 <span style={{ fontSize: 13, color: 'var(--usdc)', fontWeight: 600 }}>USDC on Arc Network</span>
+              </div>
+              {/* Scheduled tranche — ArcPay exclusive feature */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, background: allowScheduledTranche ? '#0a1a0a' : 'var(--surface2)', border: `2px solid ${allowScheduledTranche ? 'var(--green)' : 'var(--border)'}`, cursor: 'pointer' }} onClick={() => setAllowScheduledTranche(s => !s)}>
+                <span style={{ fontSize: 18 }}>⚡</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: allowScheduledTranche ? 'var(--green)' : 'var(--text2)' }}>
+                    Scheduled Tranche <span style={{ fontSize: 10, background: 'var(--usdc)', color: '#fff', borderRadius: 4, padding: '1px 6px', marginLeft: 6, fontWeight: 700 }}>ArcPay</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                    Customer pays initial deposit today + scheduled tranche on agreed date. Escrow protected.
+                  </div>
+                </div>
+                <button style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none', background: allowScheduledTranche ? 'var(--green)' : 'var(--surface3)', color: allowScheduledTranche ? '#000' : 'var(--text3)' }}>
+                  {allowScheduledTranche ? 'On' : 'Off'}
+                </button>
               </div>
             </div>
           </div>
