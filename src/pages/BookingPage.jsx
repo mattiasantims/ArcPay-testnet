@@ -283,9 +283,7 @@ export default function BookingPage({ account }) {
                 className="btn-green" style={{ padding: '10px 24px' }}>
                 {copied ? '✓ Copied!' : '🔗 Copy Booking Link'}
               </button>
-              <a href={bookingUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                <button className="btn-ghost" style={{ padding: '10px 20px' }}>Open Checkout →</button>
-              </a>
+
             </div>
           </div>
 
