@@ -8,7 +8,6 @@ export function downloadBookingCSV(bookings, walletAddress) {
     'network','contractAddress','testnetDisclaimer',
   ]
   const rows = bookings.map(b => [
-    b.booking_id           ?? '',
     b.status               ?? '',
     b.guest_wallet         ?? '',
     b.merchant_wallet      ?? '',
