@@ -7,6 +7,9 @@ import { isMerchantRegistryConfigured } from './config.js'
 import { getMerchantIdByWallet } from './utils/merchant.js'
 import Footer from './components/Footer.jsx'
 import HomePage              from './pages/HomePage.jsx'
+import LandingPage           from './pages/LandingPage.jsx'
+import MerchantHomePage      from './pages/MerchantHomePage.jsx'
+import CustomerHomePage      from './pages/CustomerHomePage.jsx'
 import CreatePaymentPage     from './pages/CreatePaymentPage.jsx'
 import CheckoutPage          from './pages/CheckoutPage.jsx'
 import ReceiptPage           from './pages/ReceiptPage.jsx'
@@ -118,7 +121,8 @@ export default function App() {
       <Header {...shared} />
       <main style={{ flex: 1, maxWidth: 'var(--max-width)', margin: '0 auto', width: '100%', padding: '28px 24px 48px' }}>
         <Routes>
-          <Route path="/"                   element={<HomePage             {...shared} />} />
+          <Route path="/"                   element={<LandingPage />} />
+          <Route path="/home"                element={<HomePage             {...shared} />} />
           <Route path="/create"             element={<CreatePaymentPage    {...shared} />} />
           <Route path="/pay"                element={<CheckoutPage />} />
           <Route path="/receipt/:id"        element={<ReceiptPage />} />
@@ -130,6 +134,8 @@ export default function App() {
           <Route path="/booking/:id"        element={<BookingDetailsPage />} />
           <Route path="/booking-dashboard"  element={<BookingDashboardPage {...shared} />} />
           <Route path="/analytics"          element={<AnalyticsPage        {...shared} />} />
+          <Route path="/merchant"          element={<MerchantHomePage />} />
+          <Route path="/customer"           element={<CustomerHomePage />} />
           <Route path="/merchant-profile"   element={<MerchantProfilePage />} />
           <Route path="/my-payments"       element={<MyPaymentsPage />} />
           <Route path="/my-bookings"       element={<MyBookingsPage />} />
