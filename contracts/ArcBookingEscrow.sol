@@ -2,11 +2,9 @@
 pragma solidity ^0.8.20;
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  ArcBookingEscrow.sol  v0.1
+//  ArcBookingEscrow.sol  v2
 //  ERC-8183-inspired booking deposit escrow on Arc Network.
-//
-//  "The refundable escrow is locked until the cancellation deadline.
-//   The non-refundable portion is released immediately to the merchant."
+//  v2: adds `description` field to Booking struct.
 //
 //  TESTNET ONLY — Arc Testnet (Chain ID: 5042002)
 //  USDC ERC20:  0x3600000000000000000000000000000000000000
@@ -23,14 +21,11 @@ interface IERC20 {
 
 contract ArcBookingEscrow {
 
-    // ── Constants ─────────────────────────────────────────────────────────────
     address public constant USDC = 0x3600000000000000000000000000000000000000;
     uint256 public constant BPS_DENOMINATOR = 10000;
 
-    // ── Enums ─────────────────────────────────────────────────────────────────
     enum BookingStatus { Active, CancelledBeforeDeadline, ReleasedToMerchant }
 
-    // ── Structs ───────────────────────────────────────────────────────────────
     struct Booking {
         uint256 bookingId;
         address guest;
@@ -42,6 +37,7 @@ contract ArcBookingEscrow {
         uint256 cancellationDeadline;
         uint256 checkInDate;
         string  bookingRef;
+        string  description;
         bytes32 metadataHash;
         BookingStatus status;
         uint256 createdAt;
@@ -49,13 +45,11 @@ contract ArcBookingEscrow {
         uint256 createdBlock;
     }
 
-    // ── State ─────────────────────────────────────────────────────────────────
     uint256 public bookingCounter;
     mapping(uint256 => Booking)     private bookings;
     mapping(address => uint256[])   private guestBookings;
     mapping(address => uint256[])   private merchantBookings;
 
-    // ── Reentrancy guard ──────────────────────────────────────────────────────
     bool private _locked;
     modifier nonReentrant() {
         require(!_locked, "ArcBookingEscrow: reentrant call");
@@ -64,7 +58,6 @@ contract ArcBookingEscrow {
         _locked = false;
     }
 
-    // ── Events ────────────────────────────────────────────────────────────────
     event BookingCreated(
         uint256 indexed bookingId,
         address indexed guest,
@@ -75,6 +68,7 @@ contract ArcBookingEscrow {
         uint256 cancellationDeadline,
         uint256 checkInDate,
         string  bookingRef,
+        string  description,
         bytes32 metadataHash,
         uint256 timestamp
     );
@@ -94,12 +88,6 @@ contract ArcBookingEscrow {
         uint256 timestamp
     );
 
-    // ── Core Functions ────────────────────────────────────────────────────────
-
-    /**
-     * @notice Create a booking deposit. The non-refundable portion is transferred
-     *         immediately to the merchant. The refundable portion is held in escrow.
-     */
     function createBookingPayment(
         address merchant,
         uint256 totalAmount,
@@ -107,6 +95,7 @@ contract ArcBookingEscrow {
         uint256 cancellationDeadline,
         uint256 checkInDate,
         string  calldata bookingRef,
+        string  calldata description,
         bytes32 metadataHash
     ) external nonReentrant returns (uint256 bookingId) {
 
@@ -118,6 +107,7 @@ contract ArcBookingEscrow {
         require(checkInDate > cancellationDeadline,         "ArcBookingEscrow: check-in must be after deadline");
         require(bytes(bookingRef).length > 0,               "ArcBookingEscrow: bookingRef required");
         require(bytes(bookingRef).length <= 64,             "ArcBookingEscrow: bookingRef too long");
+        require(bytes(description).length <= 256,           "ArcBookingEscrow: description too long");
         require(
             IERC20(USDC).allowance(msg.sender, address(this)) >= totalAmount,
             "ArcBookingEscrow: insufficient USDC allowance"
@@ -130,13 +120,11 @@ contract ArcBookingEscrow {
         uint256 nonRefundableAmount = (totalAmount * nonRefundableBps) / BPS_DENOMINATOR;
         uint256 refundableAmount    = totalAmount - nonRefundableAmount;
 
-        // Transfer non-refundable portion directly to merchant
         if (nonRefundableAmount > 0) {
             bool ok1 = IERC20(USDC).transferFrom(msg.sender, merchant, nonRefundableAmount);
             require(ok1, "ArcBookingEscrow: non-refundable transfer failed");
         }
 
-        // Transfer refundable portion to this contract (escrow)
         if (refundableAmount > 0) {
             bool ok2 = IERC20(USDC).transferFrom(msg.sender, address(this), refundableAmount);
             require(ok2, "ArcBookingEscrow: escrow transfer failed");
@@ -155,6 +143,7 @@ contract ArcBookingEscrow {
             cancellationDeadline: cancellationDeadline,
             checkInDate:          checkInDate,
             bookingRef:           bookingRef,
+            description:          description,
             metadataHash:         metadataHash,
             status:               BookingStatus.Active,
             createdAt:            block.timestamp,
@@ -168,17 +157,13 @@ contract ArcBookingEscrow {
         emit BookingCreated(
             bookingId, msg.sender, merchant,
             totalAmount, nonRefundableAmount, refundableAmount,
-            cancellationDeadline, checkInDate, bookingRef, metadataHash,
+            cancellationDeadline, checkInDate, bookingRef, description, metadataHash,
             block.timestamp
         );
 
         return bookingId;
     }
 
-    /**
-     * @notice Cancel a booking before the deadline.
-     *         Callable by guest directly, or by merchant processing an off-chain request.
-     */
     function cancelBeforeDeadline(uint256 bookingId) external nonReentrant {
         require(bookingExists(bookingId),                           "ArcBookingEscrow: booking not found");
         Booking storage b = bookings[bookingId];
@@ -199,15 +184,12 @@ contract ArcBookingEscrow {
         );
     }
 
-    /**
-     * @notice Release escrow to merchant after the cancellation deadline.
-     *         Permissionless — callable by anyone once deadline has passed.
-     */
     function releaseAfterDeadline(uint256 bookingId) external nonReentrant {
         require(bookingExists(bookingId),                   "ArcBookingEscrow: booking not found");
         Booking storage b = bookings[bookingId];
         require(b.status == BookingStatus.Active,           "ArcBookingEscrow: booking not active");
         require(block.timestamp >= b.cancellationDeadline,  "ArcBookingEscrow: deadline not reached yet");
+        require(msg.sender == b.merchant,                   "ArcBookingEscrow: only merchant can release");
 
         b.status   = BookingStatus.ReleasedToMerchant;
         b.closedAt = block.timestamp;
@@ -221,8 +203,6 @@ contract ArcBookingEscrow {
             bookingId, b.merchant, b.refundableAmount, block.timestamp
         );
     }
-
-    // ── View Functions ────────────────────────────────────────────────────────
 
     function getBooking(uint256 bookingId) external view returns (Booking memory) {
         require(bookingExists(bookingId), "ArcBookingEscrow: booking not found");
