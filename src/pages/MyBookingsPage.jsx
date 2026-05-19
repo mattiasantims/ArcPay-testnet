@@ -6,8 +6,6 @@ import { fetchGuestBookingIds, fetchBooking, formatUsdc, formatTs } from '../uti
 import { shortAddress } from '../utils/wallet.js'
 import { isBookingContractConfigured, isMerchantRegistryConfigured } from '../config.js'
 import { getMerchantByWallet } from '../utils/merchant.js'
-import { downloadBookingCSV } from '../utils/bookingCsv.js'
-import { buildBookingReceiptObject } from '../utils/booking.js'
 
 const STATUS_LABELS = {
   0: { label: 'Active',             badge: 'badge-green' },
@@ -53,11 +51,33 @@ export default function MyBookingsPage() {
 
   function exportCSV() {
     if (!bookings.length) return
-    const rows = bookings.map(b => buildBookingReceiptObject({
-      booking: b, txHash: null, bookingId: b.bookingId,
-      merchantName: b.merchantName || shortAddress(b.merchant), description: ''
-    }))
-    downloadBookingCSV(rows, address)
+    const headers = ['status','guestWallet','merchantWallet','merchantName','totalAmount','nonRefundable','refundable','nonRefundablePct','bookingRef','cancellationDeadline','checkInDate','createdAt','txHash','arcscanUrl','bookingUrl','network','testnetDisclaimer']
+    const rows = bookings.map(b => [
+      ['Active','Cancelled','Released to Hotel'][Number(b.status)] ?? '',
+      address ?? '',
+      b.merchant ?? '',
+      b.merchantName || shortAddress(b.merchant),
+      b.totalAmount ? (Number(b.totalAmount)/1e6).toFixed(2) + ' USDC' : '',
+      b.nonRefundableAmount ? (Number(b.nonRefundableAmount)/1e6).toFixed(2) + ' USDC' : '',
+      b.refundableAmount ? (Number(b.refundableAmount)/1e6).toFixed(2) + ' USDC' : '',
+      b.nonRefundableBps ? (Number(b.nonRefundableBps)/100).toFixed(0) + '%' : '',
+      b.bookingRef ?? '',
+      b.cancellationDeadline ? new Date(Number(b.cancellationDeadline)*1000).toISOString() : '',
+      b.checkInDate ? new Date(Number(b.checkInDate)*1000).toISOString() : '',
+      b.createdAt ? new Date(Number(b.createdAt)*1000).toISOString() : '',
+      '',
+      `https://testnet.arcscan.app/address/${b.merchant}`,
+      `https://arc-pay-testnet.vercel.app/booking/${b.bookingId}`,
+      'Arc Testnet (Chain ID: 5042002)',
+      'TESTNET ONLY. Testnet tokens have no real economic value.',
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `arcpay_mybookings_${new Date().toISOString().slice(0,10)}.csv`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   return (
