@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useAccount, useDisconnect } from 'wagmi'
 import { shortAddress } from '../utils/wallet.js'
@@ -175,6 +175,32 @@ export default function Header({ balance }) {
               ArcPay
             </div>
           </Link>
+
+          {/* Merchant / Customer switcher */}
+          <div style={{ display: 'flex', gap: 6, marginRight: 8 }}>
+            <button
+              onClick={() => navigate('/merchant')}
+              style={{
+                padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', border: '1px solid var(--border)',
+                background: p.startsWith('/merchant') || p === '/' ? 'var(--surface2)' : 'transparent',
+                color: p.startsWith('/merchant') || p === '/' ? 'var(--text)' : 'var(--text3)',
+              }}
+            >
+              🏪 Merchant
+            </button>
+            <button
+              onClick={() => navigate('/customer')}
+              style={{
+                padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', border: '1px solid var(--border)',
+                background: p === '/customer' ? 'var(--surface2)' : 'transparent',
+                color: p === '/customer' ? 'var(--text)' : 'var(--text3)',
+              }}
+            >
+              💳 Customer
+            </button>
+          </div>
 
           {/* Nav */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
