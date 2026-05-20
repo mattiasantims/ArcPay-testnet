@@ -1,7 +1,7 @@
 export default function BookingActions({
   booking, account, now,
   onGuestCancel, onMerchantCancel, onRelease,
-  loading,
+  loading, allowRefund = true,
 }) {
   if (!booking || booking.status !== 0) return null
 
