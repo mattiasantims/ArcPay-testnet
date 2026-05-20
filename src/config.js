@@ -43,7 +43,7 @@ export function isMerchantRegistryConfigured() {
   return ARCMERCHANT_REGISTRY_ADDRESS && !ARCMERCHANT_REGISTRY_ADDRESS.startsWith('DEPLOY')
 }
 
-export const ARCTRAVEL_ESCROW_ADDRESS = '0x924dE5cD60c730c03764Ec2cB7D9500B030Cb3Df'
+export const ARCTRAVEL_ESCROW_ADDRESS = '0xF998338B10F819a11Fa625985E3a451B356549c8'
 
 export function isTravelContractConfigured() {
   return ARCTRAVEL_ESCROW_ADDRESS && !ARCTRAVEL_ESCROW_ADDRESS.startsWith('DEPLOY')
