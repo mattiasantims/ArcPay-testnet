@@ -111,14 +111,14 @@ export default function MerchantProfilePage() {
     try {
       await updateMerchantPolicy(address, {
         allowScheduledTranche:     policyForm.allowScheduledTranche,
-        defaultNonRefundableBps:   bps(policyForm.defaultNonRefundableBps > 100 ? pct(policyForm.defaultNonRefundableBps) : policyForm.defaultNonRefundableBps),
-        defaultInitialPaymentBps:  bps(policyForm.defaultInitialPaymentBps > 100 ? pct(policyForm.defaultInitialPaymentBps) : policyForm.defaultInitialPaymentBps),
-        defaultTrancheBps:         bps(policyForm.defaultTrancheBps > 100 ? pct(policyForm.defaultTrancheBps) : policyForm.defaultTrancheBps),
+        defaultNonRefundableBps:   bps(policyForm.defaultNonRefundableBps),
+        defaultInitialPaymentBps:  bps(policyForm.defaultInitialPaymentBps),
+        defaultTrancheBps:         bps(policyForm.defaultTrancheBps),
         paymentDueOffsetDays:      parseInt(policyForm.paymentDueOffsetDays || 90),
         paymentDeadlineOffsetDays: parseInt(policyForm.paymentDeadlineOffsetDays || 75),
         cancellationCutoffDays:    parseInt(policyForm.cancellationCutoffDays || 30),
-        refundBpsBeforeCutoff:     bps(policyForm.refundBpsBeforeCutoff > 100 ? pct(policyForm.refundBpsBeforeCutoff) : policyForm.refundBpsBeforeCutoff),
-        refundBpsAfterCutoff:      bps(policyForm.refundBpsAfterCutoff > 100 ? pct(policyForm.refundBpsAfterCutoff) : policyForm.refundBpsAfterCutoff),
+        refundBpsBeforeCutoff:     bps(policyForm.refundBpsBeforeCutoff),
+        refundBpsAfterCutoff:      bps(policyForm.refundBpsAfterCutoff),
       })
       setSuccess('Policy updated on-chain.')
       await new Promise(r => setTimeout(r, 2000)) // wait for RPC to update
@@ -387,7 +387,7 @@ export default function MerchantProfilePage() {
                 <div key={f.name}>
                   <label className="label">{f.label}</label>
                   <input type="number" min="0" max="100" step="1" name={f.name}
-                    value={policyForm[f.name] > 100 ? pct(policyForm[f.name]) : policyForm[f.name]}
+                    value={policyForm[f.name]}
                     onChange={e => setPolicyForm(p => ({ ...p, [e.target.name]: parseFloat(e.target.value || 0) }))} />
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>{f.hint}</div>
                 </div>
@@ -415,7 +415,7 @@ export default function MerchantProfilePage() {
                 <div key={f.name}>
                   <label className="label">{f.label}</label>
                   <input type="number" min="0" max="100" step="1" name={f.name}
-                    value={policyForm[f.name] > 100 ? pct(policyForm[f.name]) : policyForm[f.name]}
+                    value={policyForm[f.name]}
                     onChange={e => setPolicyForm(p => ({ ...p, [e.target.name]: parseFloat(e.target.value || 0) }))} />
                 </div>
               ))}
