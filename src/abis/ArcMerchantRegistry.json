@@ -641,10 +641,6 @@
         "type": "bool"
       },
       {
-        "name": "allowRefund",
-        "type": "bool"
-      },
-      {
         "internalType": "uint256",
         "name": "defaultNonRefundableBps",
         "type": "uint256"
