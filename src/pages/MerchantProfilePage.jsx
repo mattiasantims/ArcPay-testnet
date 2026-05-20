@@ -7,7 +7,7 @@ import {
   getMerchantByWallet, getMerchantWallets, getMerchantPolicyByWallet,
   registerMerchant, updateMerchantProfile, updateMerchantPolicy,
   addWallet, removeWallet, deactivateMerchant,
-  defaultPolicy, BUSINESS_CATEGORIES,
+  defaultPolicy, defaultPolicyForm, BUSINESS_CATEGORIES,
 } from '../utils/merchant.js'
 import { Link } from 'react-router-dom'
 
