@@ -92,7 +92,6 @@ export async function updateMerchantPolicy(account, policy) {
     functionName: 'updateMerchantPolicy',
     args: [
       policy.allowScheduledTranche ?? false,
-      policy.allowRefund ?? true,
       BigInt(policy.defaultNonRefundableBps   ?? 3000),
       BigInt(policy.defaultInitialPaymentBps  ?? 1000),
       BigInt(policy.defaultTrancheBps         ?? 3000),
