@@ -100,6 +100,7 @@ export default function MerchantProfilePage() {
     try {
       await updateMerchantProfile(address, form)
       setSuccess('Profile updated on-chain.')
+      await new Promise(r => setTimeout(r, 2000))
       await load(); setMode('view')
     } catch (e) { setError(e.message || 'Update failed.') }
     finally { setSaving(false) }
@@ -120,6 +121,7 @@ export default function MerchantProfilePage() {
         refundBpsAfterCutoff:      bps(policyForm.refundBpsAfterCutoff > 100 ? pct(policyForm.refundBpsAfterCutoff) : policyForm.refundBpsAfterCutoff),
       })
       setSuccess('Policy updated on-chain.')
+      await new Promise(r => setTimeout(r, 2000)) // wait for RPC to update
       await load(); setMode('view')
     } catch (e) { setError(e.message || 'Policy update failed.') }
     finally { setSavingPol(false) }
