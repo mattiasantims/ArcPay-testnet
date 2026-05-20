@@ -49,7 +49,7 @@ export default function QRCodeBox({ url, size = 200, label = 'Scan to pay' }) {
       {/* Banner MetaMask */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f6851b22', border: '1px solid #f6851b', borderRadius: 8, marginBottom: 12, maxWidth: 280, margin: '0 auto 12px' }}>
         <span style={{ fontSize: 18 }}>🦊</span>
-        <span style={{ fontSize: 11, color: '#f6851b', fontWeight: 600, textAlign: 'left', lineHeight: 1.4 }}>
+        <span style={{ fontSize: 11, color: '#f6851b', fontWeight: 600, textAlign: 'center', lineHeight: 1.4 }}>
           Scan with MetaMask to pay directly inside the app
         </span>
       </div>
