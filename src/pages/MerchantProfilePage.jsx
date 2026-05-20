@@ -368,7 +368,6 @@ export default function MerchantProfilePage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
             {[
               { label: 'Scheduled tranche',    value: policy.allowScheduledTranche ? '✓ Enabled' : '✗ Disabled', color: policy.allowScheduledTranche ? 'var(--green)' : 'var(--text3)' },
-              { label: 'Allow refund',          value: policy.allowRefund ? '✓ Enabled' : '✗ Disabled', color: policy.allowRefund ? 'var(--green)' : 'var(--text3)' },
               { label: 'Non-refundable',        value: `${pct(policy.defaultNonRefundableBps)}%` },
               { label: 'Initial payment',       value: `${pct(policy.defaultInitialPaymentBps)}%` },
               { label: 'Tranche payment',       value: `${pct(policy.defaultTrancheBps)}%` },
@@ -398,24 +397,14 @@ export default function MerchantProfilePage() {
             These defaults pre-fill new Hotel and Travel payment request forms. They do not modify existing bookings.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* allowRefund — read-only after registration */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, opacity: 0.7 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Allow customer refund/cancellation</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>Set at merchant registration — cannot be changed on-chain after registering</div>
-              </div>
-              <span style={{ padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: policyForm.allowRefund ? 'var(--green)' : 'var(--surface3)', color: policyForm.allowRefund ? '#000' : 'var(--text3)' }}>
-                {policyForm.allowRefund ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
             {/* Scheduled tranche toggle */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Allow scheduled tranche by default</div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>Travel Agency forms will default to scheduled tranche mode when enabled</div>
               </div>
-              <button onClick={toggleScheduledTranche} style={{ padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none', background: policyForm.allowScheduledTranche ? 'var(--green)' : 'var(--surface3)', color: policyForm.allowScheduledTranche ? '#000' : 'var(--text3)' }}>
-                {policyForm.allowScheduledTranche ? 'Enabled' : 'Disabled'}
+              <button onClick={toggleScheduledTranche} style={{ padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: policyForm.allowScheduledTranche ? 'none' : '1px solid var(--text3)', background: policyForm.allowScheduledTranche ? 'var(--green)' : 'transparent', color: policyForm.allowScheduledTranche ? '#000' : 'var(--text)' }}>
+                {policyForm.allowScheduledTranche ? 'Enabled' : 'Enable'}
               </button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
