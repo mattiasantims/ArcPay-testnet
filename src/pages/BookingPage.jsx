@@ -271,6 +271,22 @@ export default function BookingPage({ account }) {
         </div>
       ) : (
         <div className="fade-up">
+          {/* Hero recap */}
+          <div className="card" style={{
+            background: 'linear-gradient(135deg, #0a1a0a 0%, #0d2210 100%)',
+            border: '1px solid #1a4a20', textAlign: 'center', padding: '28px 24px', marginBottom: 16,
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🏨</div>
+            <div style={{ fontFamily: 'var(--display)', fontSize: 36, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-1px', marginBottom: 4 }}>
+              {parseFloat(form.amount).toFixed(2)} USDC
+            </div>
+            {form.name && <div style={{ fontSize: 15, color: 'var(--text2)', marginBottom: 8 }}>{form.name}</div>}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 20, fontSize: 13 }}>
+              <div><span style={{ color: 'var(--text3)' }}>Non-refundable </span><span style={{ color: '#f08080', fontWeight: 600 }}>{((parseFloat(form.amount) * parseFloat(form.nonRefundablePct)) / 100).toFixed(2)} USDC</span></div>
+              <div><span style={{ color: 'var(--text3)' }}>Escrow </span><span style={{ color: 'var(--green)', fontWeight: 600 }}>{(parseFloat(form.amount) - (parseFloat(form.amount) * parseFloat(form.nonRefundablePct)) / 100).toFixed(2)} USDC</span></div>
+            </div>
+          </div>
+
           <div className="card" style={{ borderColor: 'var(--green-bdr)', background: 'var(--green-bg)', textAlign: 'center', padding: '28px 24px', marginBottom: 16 }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
             <h2 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, color: 'var(--green)', marginBottom: 8 }}>
