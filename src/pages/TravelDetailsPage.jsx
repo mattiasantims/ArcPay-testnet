@@ -111,7 +111,7 @@ export default function TravelDetailsPage() {
           Travel Booking · {travel.travelRef || `#${travel.travelId}`}
         </h1>
         {agencyName && <div style={{ fontSize: 14, color: 'var(--text2)' }}>{agencyName}</div>}
-        {description && <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>{description}</div>}
+        {(travel?.description || description) && <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>{travel?.description || description}</div>}
       </div>
 
       {/* Financial summary */}
