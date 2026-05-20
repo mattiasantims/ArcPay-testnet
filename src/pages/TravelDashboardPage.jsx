@@ -6,10 +6,13 @@ import {
   fetchMerchantTravelIds, fetchCustomerTravelIds,
   fetchTravelBooking, fromUsdc,
   TRAVEL_STATUS_LABEL, TRAVEL_STATUS_COLOR,
+  getCachedTravelTxHash,
 } from '../utils/travel.js'
 import { isValidAddress, shortAddress } from '../utils/wallet.js'
-import { isTravelContractConfigured, isMerchantRegistryConfigured } from '../config.js'
+import { isTravelContractConfigured, isMerchantRegistryConfigured, ARCSCAN_BASE } from '../config.js'
+import { downloadTravelPDF } from '../utils/travelPdf.js'
 import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
+import { downloadTravelCSV } from '../utils/travelCsv.js'
 
 export default function TravelDashboardPage({ account }) {
   const { address, isConnected } = useAccount()
@@ -125,9 +128,16 @@ export default function TravelDashboardPage({ account }) {
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{fromUsdc(b.totalPackageAmount).toFixed(2)} USDC</div>
               <div style={{ fontSize: 11, color: 'var(--text3)' }}>Tranche: {fromUsdc(b.trancheAmount).toFixed(2)}</div>
             </div>
-            <Link to={`/travel/${b.travelId}?mode=merchant`} style={{ textDecoration: 'none' }}>
-              <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
-            </Link>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <Link to={`/travel/${b.travelId}?mode=${role}`} style={{ textDecoration: 'none' }}>
+                <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
+              </Link>
+              {b.txHash && (
+                <a href={`${ARCSCAN_BASE}/tx/${b.txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                  <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>ArcScan ↗</button>
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -185,6 +195,18 @@ export default function TravelDashboardPage({ account }) {
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>{s.label}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Export + Refresh */}
+      {bookings.length > 0 && (
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginBottom: 16 }}>
+          <button onClick={() => downloadTravelCSV(bookings, addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
+            📊 Export CSV
+          </button>
+          <button onClick={() => setAddr(addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
+            ↺ Refresh
+          </button>
         </div>
       )}
 
