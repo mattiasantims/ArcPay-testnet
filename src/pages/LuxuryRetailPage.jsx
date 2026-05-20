@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import QRCodeBox from '../components/QRCodeBox.jsx'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useAccount } from 'wagmi'
 import { isMerchantRegistryConfigured } from '../config.js'
@@ -61,18 +62,6 @@ export default function LuxuryRetailPage({ account }) {
       }
     }).catch(() => {})
   }, [account])
-
-  if (!account) {
-    return (
-      <div className="card fade-up" style={{ textAlign: 'center', padding: 40 }}>
-        <div style={{ fontSize: 32, marginBottom: 16 }}>💎</div>
-        <p style={{ color: 'var(--text2)', marginBottom: 20 }}>Connect your wallet to create a luxury checkout link</p>
-        <button onClick={() => open()} className="btn-primary btn-full" style={{ maxWidth: 280, margin: '0 auto' }}>
-          Connect Wallet
-        </button>
-      </div>
-    )
-  }
 
   function handleChange(e) { setForm(prev => ({ ...prev, [e.target.name]: e.target.value })) }
 
@@ -207,16 +196,18 @@ export default function LuxuryRetailPage({ account }) {
             </div>
           </div>
 
-          <div className="card" style={{ padding: 24, marginBottom: 16, background: 'linear-gradient(135deg, #0f1219 0%, #0d0a1a 100%)', border: '1px solid #2e1f55' }}>
-            <div style={{ fontSize: 12, color: '#a78bfa', marginBottom: 14, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              QR Code — Scan to pay
+          {/* MetaMask mobile — deep link */}
+          <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#f6851b', marginBottom: 8, textAlign: 'center' }}>
+              🦊 Pay from MetaMask mobile
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ display: 'inline-block', background: '#fff', padding: 16, borderRadius: 12 }}>
-                <QRCodeSVG value={paymentUrl} size={160} />
-              </div>
+            <div style={{ background: '#f6851b18', border: '1px solid #f6851b66', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: 'var(--text2)', lineHeight: 1.6, textAlign: 'left' }}>
+              Scan with <strong style={{ color: '#f6851b' }}>MetaMask</strong> — opens directly inside the app, no browser needed.<br/>
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>Other wallets not supported in this demo.</span>
             </div>
+            <QRCodeBox url={paymentUrl} size={160} label={""} />
           </div>
+
 
           <div style={{ textAlign: 'center' }}>
             <button onClick={() => { setPaymentUrl(''); setForm(prev => ({ ...prev, ref: generateRef() })) }}
