@@ -1,13 +1,14 @@
 export function downloadBookingCSV(bookings, walletAddress) {
   if (!bookings || bookings.length === 0) return
   const headers = [
-    'status','guestWallet','merchantWallet','merchantName',
+    'timestamp','status','guestWallet','merchantWallet','merchantName',
     'totalAmount','nonRefundableAmount','refundableAmount','nonRefundablePct',
     'bookingRef','description','cancellationDeadline','checkInDate',
     'metadataHash','createdAt','closedAt','txHash','arcscanUrl','bookingUrl',
     'network','contractAddress','testnetDisclaimer',
   ]
   const rows = bookings.map(b => [
+    b.created_at ? new Date(Number(b.created_at) * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : '',
     b.status               ?? '',
     b.guest_wallet         ?? '',
     b.merchant_wallet      ?? '',
