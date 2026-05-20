@@ -2,12 +2,15 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title ArcTravelEscrow v2
+ * @title ArcTravelEscrow v3
  * @notice Travel Agency Scheduled Booking Payments for ArcPay on Arc Testnet.
  *
  * This is NOT lending, NOT BNPL, NOT consumer credit.
  * ArcPay does not advance funds. Merchant receives funds only when customer pays.
  * No admin. No fees. No upgradeability. No ETH. USDC only.
+ *
+ * v3 changes vs v2:
+ * - Added: description field to TravelBooking struct
  *
  * v2 changes vs v1:
  * - Added: cancellationDeadline must be > paymentDeadline
@@ -53,6 +56,7 @@ contract ArcTravelEscrow {
         uint256      cancellationDeadline;
         uint256      travelStartDate;
         string       travelRef;
+        string       description;
         bytes32      metadataHash;
         bool         trancheRequested;
         bool         tranchePaid;
@@ -74,6 +78,7 @@ contract ArcTravelEscrow {
         uint256 cancellationDeadline;
         uint256 travelStartDate;
         string  travelRef;
+        string  description;
         bytes32 metadataHash;
     }
 
@@ -102,6 +107,7 @@ contract ArcTravelEscrow {
         uint256 cancellationDeadline,
         uint256 travelStartDate,
         string  travelRef,
+        string  description,
         bytes32 metadataHash
     );
 
@@ -154,6 +160,7 @@ contract ArcTravelEscrow {
         uint256 cancellationDeadline,
         uint256 travelStartDate,
         string  calldata travelRef,
+        string  calldata description,
         bytes32 metadataHash
     ) external returns (uint256) {
         CreateBookingParams memory p = CreateBookingParams({
@@ -167,6 +174,7 @@ contract ArcTravelEscrow {
             cancellationDeadline: cancellationDeadline,
             travelStartDate:      travelStartDate,
             travelRef:            travelRef,
+            description:          description,
             metadataHash:         metadataHash
         });
         return _createBooking(p);
@@ -181,6 +189,7 @@ contract ArcTravelEscrow {
         require(p.trancheAmount > 0,                                               "Tranche amount required");
         require(p.initialPaymentAmount + p.trancheAmount <= p.totalPackageAmount,  "Payments exceed total");
         require(p.nonRefundableBps <= 10000,                                       "Invalid non-refundable bps");
+        require(bytes(p.description).length <= 256,                                "Description too long");
         require(bytes(p.travelRef).length > 0,                                     "Travel ref required");
         require(bytes(p.travelRef).length <= 64,                                   "Travel ref too long");
 
@@ -222,7 +231,7 @@ contract ArcTravelEscrow {
             travelId,
             p.paymentDueDate, p.paymentDeadline,
             p.cancellationDeadline, p.travelStartDate,
-            p.travelRef, p.metadataHash
+            p.travelRef, p.description, p.metadataHash
         );
     }
 
@@ -247,6 +256,7 @@ contract ArcTravelEscrow {
             cancellationDeadline:   p.cancellationDeadline,
             travelStartDate:        p.travelStartDate,
             travelRef:              p.travelRef,
+            description:            p.description,
             metadataHash:           p.metadataHash,
             trancheRequested:       false,
             tranchePaid:            false,
