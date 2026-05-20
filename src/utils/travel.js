@@ -108,7 +108,7 @@ export async function approveTravelUsdc(account, amountHuman) {
   return hash
 }
 
-export async function executeCreateTravelBooking({ account, merchant, totalPackageAmount, initialPaymentAmount, nonRefundableBps, trancheAmount, paymentDueDate, paymentDeadline, cancellationDeadline, travelStartDate, travelRef, metadataHash }) {
+export async function executeCreateTravelBooking({ account, merchant, totalPackageAmount, initialPaymentAmount, nonRefundableBps, trancheAmount, paymentDueDate, paymentDeadline, cancellationDeadline, travelStartDate, travelRef, description, metadataHash }) {
   const wc = getWalletClient()
   const hash = await wc.writeContract({
     address: ARCTRAVEL_ESCROW_ADDRESS,
@@ -125,6 +125,7 @@ export async function executeCreateTravelBooking({ account, merchant, totalPacka
       BigInt(cancellationDeadline),
       BigInt(travelStartDate),
       travelRef,
+      description || '',
       metadataHash,
     ],
     account,
@@ -231,6 +232,7 @@ function parseTravelBooking(t) {
     cancellationDeadline:  Number(t.cancellationDeadline),
     travelStartDate:       Number(t.travelStartDate),
     travelRef:             t.travelRef,
+    description:           t.description || '',
     metadataHash:          t.metadataHash,
     trancheRequested:      t.trancheRequested,
     tranchePaid:           t.tranchePaid,
