@@ -273,6 +273,10 @@
             "type": "bool"
           },
           {
+            "name": "allowRefund",
+            "type": "bool"
+          },
+          {
             "internalType": "uint256",
             "name": "defaultNonRefundableBps",
             "type": "uint256"
@@ -346,6 +350,10 @@
           {
             "internalType": "bool",
             "name": "allowScheduledTranche",
+            "type": "bool"
+          },
+          {
+            "name": "allowRefund",
             "type": "bool"
           },
           {
@@ -630,6 +638,10 @@
       {
         "internalType": "bool",
         "name": "allowScheduledTranche",
+        "type": "bool"
+      },
+      {
+        "name": "allowRefund",
         "type": "bool"
       },
       {
