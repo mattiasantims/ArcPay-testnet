@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   fetchBooking, formatUsdc, formatTs, formatDeadlineCountdown,
@@ -10,7 +11,7 @@ import { shortAddress } from '../utils/wallet.js'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useAccount } from 'wagmi'
 import { isMerchantRegistryConfigured, APP_URL } from '../config.js'
-import { getMerchantByWallet } from '../utils/merchant.js'
+import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
 import { downloadBookingPDF } from '../utils/bookingPdf.js'
 import { ARCSCAN_BASE, isBookingContractConfigured } from '../config.js'
 import BookingStatusBadge from '../components/BookingStatusBadge.jsx'
@@ -239,10 +240,34 @@ export default function BookingDetailsPage() {
       </div>
 
       {/* Downloads */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
         <button onClick={() => navigator.clipboard.writeText(`${APP_URL}/booking/${id}`)} className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px' }}>🔗 Link</button>
         <button onClick={downloadJSON} className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px' }}>📥 JSON</button>
         <button onClick={() => receipt && downloadBookingPDF(receipt)} className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px' }}>🖨️ PDF</button>
+        {txHash ? (
+          <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+            <button className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px', width: '100%' }}>🔍 ArcScan ↗</button>
+          </a>
+        ) : (
+          <a href={`${ARCSCAN_BASE}/address/${booking?.merchant}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+            <button className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px', width: '100%' }}>🔍 ArcScan ↗</button>
+          </a>
+        )}
+      </div>
+
+      {/* QR — share receipt */}
+      <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Share this receipt
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ display: 'inline-block', background: '#fff', padding: 14, borderRadius: 12 }}>
+            <QRCodeSVG value={`${APP_URL}/booking/${id}`} size={160} />
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 10, fontFamily: 'var(--mono)', wordBreak: 'break-all' }}>
+            {`${APP_URL}/booking/${id}`}
+          </p>
+        </div>
       </div>
 
       <div style={{ padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
