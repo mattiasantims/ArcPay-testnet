@@ -194,33 +194,9 @@ export default function CreatePaymentPage({ account, balance }) {
               <button onClick={copyLink} className="btn-green" style={{ padding: '10px 24px' }}>
                 {copied ? '✓ Copied!' : '🔗 Copy Payment Link'}
               </button>
-              <Link to={`/qr?r=${new URL(paymentUrl).searchParams.get('r')}`}>
-                <button className="btn-ghost" style={{ padding: '10px 20px' }}>
-                  📺 Full-screen QR
-                </button>
-              </Link>
             </div>
           </div>
 
-          {/* Payment summary */}
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 4 }}>Payment request</div>
-                <div style={{ fontWeight: 600, fontSize: 16 }}>{form.name || shortAddress(account)}</div>
-                {form.desc && <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>{form.desc}</div>}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: 'var(--display)', fontSize: 32, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-1px' }}>{form.amount}</div>
-                <div style={{ fontSize: 14, color: 'var(--text2)' }}>USDC</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span className="badge badge-gray">{form.ref}</span>
-              <span className="badge badge-blue">{form.purpose}</span>
-              <span className="badge badge-yellow">Arc Testnet</span>
-            </div>
-          </div>
 
           {/* MetaMask mobile — deep link */}
           <div className="card" style={{ padding: 20, marginBottom: 16 }}>
