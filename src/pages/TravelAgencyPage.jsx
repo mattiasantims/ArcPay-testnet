@@ -198,23 +198,6 @@ export default function TravelAgencyPage() {
         </div>
       </div>
 
-      <div className="card" style={{ borderColor: 'var(--green-bdr)', background: 'var(--green-bg)', textAlign: 'center', padding: '28px 24px', marginBottom: 16 }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
-        <h2 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, color: 'var(--green)', marginBottom: 8 }}>
-          Travel Booking Request Created
-        </h2>
-        <p style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 20 }}>
-          Share this link with your customer. They pay the initial amount today and the scheduled tranche later.
-        </p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => { navigator.clipboard.writeText(travelUrl); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-            className="btn-green" style={{ padding: '10px 24px' }}>
-            {copied ? '✓ Copied!' : '🔗 Copy Booking Link'}
-          </button>
-
-        </div>
-      </div>
-
       {/* Policy summary */}
       <div className="card" style={{ marginBottom: 16, padding: 20 }}>
         <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Payment schedule</div>
@@ -231,6 +214,22 @@ export default function TravelAgencyPage() {
             <div style={{ fontSize: 11, color: 'var(--usdc)', marginBottom: 4 }}>Scheduled tranche</div>
             <div style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 700, color: 'var(--usdc)' }}>{tranche.toFixed(2)} USDC</div>
           </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ borderColor: 'var(--green-bdr)', background: 'var(--green-bg)', textAlign: 'center', padding: '28px 24px', marginBottom: 16 }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
+        <h2 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, color: 'var(--green)', marginBottom: 8 }}>
+          Travel Booking Request Created
+        </h2>
+        <p style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 20 }}>
+          Share this link with your customer. They pay the initial amount today and the scheduled tranche later.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => { navigator.clipboard.writeText(travelUrl); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+            className="btn-green" style={{ padding: '10px 24px' }}>
+            {copied ? '✓ Copied!' : '🔗 Copy Booking Link'}
+          </button>
         </div>
       </div>
 
