@@ -48,7 +48,7 @@ export default function MerchantProfilePage() {
   const [removingW,  setRemovingW]  = useState(null)
   const [mode,       setMode]       = useState('view') // view | editProfile | editPolicy | register
   const [form,       setForm]       = useState(EMPTY_FORM)
-  const [policyForm, setPolicyForm] = useState(defaultPolicy())
+  const [policyForm, setPolicyForm] = useState(defaultPolicyForm())
   const [newWallet,  setNewWallet]  = useState('')
   // Lookup
   const [lookupInput,   setLookupInput]   = useState('')
