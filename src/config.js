@@ -37,7 +37,7 @@ export const PURPOSE_CODES = [
   { value: 'OTHER',     label: 'Other'           },
 ]
 
-export const ARCMERCHANT_REGISTRY_ADDRESS = '0xaDDde5C9866C1BF870B393379fFdCF1Ef7f9Fb49'
+export const ARCMERCHANT_REGISTRY_ADDRESS = '0x003E3110042D3BD75ac2cc7df8B069DCe09A5ab2'
 
 export function isMerchantRegistryConfigured() {
   return ARCMERCHANT_REGISTRY_ADDRESS && !ARCMERCHANT_REGISTRY_ADDRESS.startsWith('DEPLOY')
