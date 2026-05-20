@@ -287,6 +287,8 @@ export default function BookingPage({ account }) {
             </div>
           </div>
 
+          <BookingPolicyCard totalAmount={form.amount} nonRefundableBps={Math.round(parseFloat(form.nonRefundablePct)*100)} />
+
           <div className="card" style={{ borderColor: 'var(--green-bdr)', background: 'var(--green-bg)', textAlign: 'center', padding: '28px 24px', marginBottom: 16 }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
             <h2 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, color: 'var(--green)', marginBottom: 8 }}>
@@ -300,11 +302,8 @@ export default function BookingPage({ account }) {
                 className="btn-green" style={{ padding: '10px 24px' }}>
                 {copied ? '✓ Copied!' : '🔗 Copy Booking Link'}
               </button>
-
             </div>
           </div>
-
-          <BookingPolicyCard totalAmount={form.amount} nonRefundableBps={Math.round(parseFloat(form.nonRefundablePct)*100)} />
 
           {/* MetaMask mobile — deep link */}
           <div className="card" style={{ padding: 20, marginBottom: 16 }}>
