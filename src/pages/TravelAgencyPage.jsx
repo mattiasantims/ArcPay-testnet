@@ -182,6 +182,22 @@ export default function TravelAgencyPage() {
 
   if (travelUrl) return (
     <div className="fade-up">
+      {/* Hero recap */}
+      <div className="card" style={{
+        background: 'linear-gradient(135deg, #0a0a1a 0%, #150f2e 100%)',
+        border: '1px solid #2e1f55', textAlign: 'center', padding: '28px 24px', marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 32, marginBottom: 10 }}>✈️</div>
+        <div style={{ fontFamily: 'var(--display)', fontSize: 36, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-1px', marginBottom: 4 }}>
+          {parseFloat(form.totalPackageAmount || 0).toFixed(2)} USDC
+        </div>
+        {form.agencyName && <div style={{ fontSize: 15, color: 'var(--text2)', marginBottom: 8 }}>{form.agencyName}</div>}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, fontSize: 13 }}>
+          <div><span style={{ color: 'var(--text3)' }}>Initial today </span><span style={{ color: 'var(--usdc)', fontWeight: 600 }}>{parseFloat(form.initialPaymentAmount || 0).toFixed(2)} USDC</span></div>
+          <div><span style={{ color: 'var(--text3)' }}>Tranche </span><span style={{ color: 'var(--green)', fontWeight: 600 }}>{parseFloat(form.trancheAmount || 0).toFixed(2)} USDC</span></div>
+        </div>
+      </div>
+
       <div className="card" style={{ borderColor: 'var(--green-bdr)', background: 'var(--green-bg)', textAlign: 'center', padding: '28px 24px', marginBottom: 16 }}>
         <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
         <h2 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, color: 'var(--green)', marginBottom: 8 }}>
