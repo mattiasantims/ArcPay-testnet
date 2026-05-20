@@ -103,6 +103,19 @@ export default function CheckoutPage() {
         </h1>
       </div>
 
+      {/* Hero summary box — stile luxury */}
+      <div className="card" style={{
+        background: 'linear-gradient(135deg, #0a1628 0%, #0d1f3c 100%)',
+        border: '1px solid var(--usdc-dim, #1a3a5c)', textAlign: 'center', padding: '28px 24px', marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 32, marginBottom: 10 }}>◆</div>
+        <div style={{ fontFamily: 'var(--display)', fontSize: 36, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-1px', marginBottom: 4 }}>
+          {req.amount} USDC
+        </div>
+        {req.name && <div style={{ fontSize: 15, color: 'var(--text2)', marginBottom: 4 }}>{req.name}</div>}
+        {req.desc && <div style={{ fontSize: 13, color: 'var(--text3)' }}>{req.desc}</div>}
+      </div>
+
       <PaymentCard
         merchantName={req.name}
         amount={req.amount}
@@ -199,18 +212,6 @@ export default function CheckoutPage() {
       )}
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
-
-      {/* QR */}
-      <div className="card" style={{ padding: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#f6851b', marginBottom: 8, textAlign: 'center' }}>
-          🦊 Pay from MetaMask mobile
-        </div>
-        <div style={{ background: '#f6851b18', border: '1px solid #f6851b66', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: 'var(--text2)', lineHeight: 1.6, textAlign: 'left' }}>
-          Scan with <strong style={{ color: '#f6851b' }}>MetaMask</strong> — opens directly inside the app, no browser needed.<br/>
-          <span style={{ fontSize: 11, color: 'var(--text3)' }}>Other wallets not supported in this demo.</span>
-        </div>
-        <QRCodeBox url={pageUrl} size={160} label="" />
-      </div>
 
       <div style={{ marginTop: 16, padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
         <strong style={{ color: 'var(--text2)' }}>TESTNET ONLY.</strong> Testnet tokens have no real economic value.
