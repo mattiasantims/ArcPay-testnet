@@ -110,22 +110,6 @@ export default function BookingCheckoutPage() {
         </h1>
       </div>
 
-      {/* Hero summary box — stile luxury */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, #0a1a0a 0%, #0d2210 100%)',
-        border: '1px solid #1a4a2044', textAlign: 'center', padding: '28px 24px', marginBottom: 16,
-      }}>
-        <div style={{ fontSize: 32, marginBottom: 10 }}>🏨</div>
-        <div style={{ fontFamily: 'var(--display)', fontSize: 36, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-1px', marginBottom: 4 }}>
-          {total.toFixed(2)} USDC
-        </div>
-        {req.merchantName && <div style={{ fontSize: 15, color: 'var(--text2)', marginBottom: 4 }}>{req.merchantName}</div>}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10, fontSize: 13 }}>
-          <div><span style={{ color: 'var(--text3)' }}>Non-refundable </span><span style={{ color: '#f08080', fontWeight: 600 }}>{nonRef} USDC</span></div>
-          <div><span style={{ color: 'var(--text3)' }}>Escrow </span><span style={{ color: 'var(--green)', fontWeight: 600 }}>{ref} USDC</span></div>
-        </div>
-      </div>
-
       {/* Booking summary */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
