@@ -73,6 +73,7 @@ export default function MerchantProfilePage() {
           // Converti BPS in % per il form
           setPolicyForm({
             ...p,
+            allowRefund:               p.allowRefund ?? true,
             defaultNonRefundableBps:   Math.round(p.defaultNonRefundableBps / 100),
             defaultInitialPaymentBps:  Math.round(p.defaultInitialPaymentBps / 100),
             defaultTrancheBps:         Math.round(p.defaultTrancheBps / 100),
@@ -118,10 +119,16 @@ export default function MerchantProfilePage() {
   }
 
   async function handleUpdatePolicy() {
+    // Validazione: deadline deve essere <= due offset (requisito contratto)
+    if (parseInt(policyForm.paymentDeadlineOffsetDays) > parseInt(policyForm.paymentDueOffsetDays)) {
+      setError('Payment deadline offset must be ≤ Payment due offset (contract requirement)')
+      return
+    }
     setSavingPol(true); setError(''); setSuccess('')
     try {
       await updateMerchantPolicy(address, {
         allowScheduledTranche:     policyForm.allowScheduledTranche,
+        allowRefund:               policyForm.allowRefund ?? true,
         defaultNonRefundableBps:   bps(Number(policyForm.defaultNonRefundableBps)),
         defaultInitialPaymentBps:  bps(Number(policyForm.defaultInitialPaymentBps)),
         defaultTrancheBps:         bps(Number(policyForm.defaultTrancheBps)),
@@ -135,6 +142,7 @@ export default function MerchantProfilePage() {
       // Aggiorna stato locale direttamente — non ricaricare dal RPC che potrebbe essere stale
       setPolicy({
         allowScheduledTranche:     policyForm.allowScheduledTranche,
+        allowRefund:               policyForm.allowRefund,
         defaultNonRefundableBps:   bps(Number(policyForm.defaultNonRefundableBps)),
         defaultInitialPaymentBps:  bps(Number(policyForm.defaultInitialPaymentBps)),
         defaultTrancheBps:         bps(Number(policyForm.defaultTrancheBps)),
@@ -417,9 +425,9 @@ export default function MerchantProfilePage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               {[
-                { label: 'Payment due offset (minutes — testnet workaround)', name: 'paymentDueOffsetDays' },
-                { label: 'Payment deadline offset (minutes — testnet workaround)', name: 'paymentDeadlineOffsetDays' },
-                { label: 'Cancellation cutoff (minutes — testnet workaround)', name: 'cancellationCutoffDays' },
+                { label: 'Payment due offset (min) — must be > deadline', name: 'paymentDueOffsetDays' },
+                { label: 'Payment deadline offset (min) — must be < due offset', name: 'paymentDeadlineOffsetDays' },
+                { label: 'Cancellation cutoff (min)', name: 'cancellationCutoffDays' },
               ].map(f => (
                 <div key={f.name}>
                   <label className="label">{f.label}</label>
