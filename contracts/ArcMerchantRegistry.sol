@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 // solc-flags: --via-ir --optimize --optimize-runs 200
 
 /**
- * @title ArcMerchantRegistry
+ * @title ArcMerchantRegistry v2
  * @notice Self-declared public merchant profile and default policy registry for ArcPay on Arc Testnet.
  *
  * Merchants register a public business profile, link multiple wallets, and publish
@@ -36,6 +36,7 @@ contract ArcMerchantRegistry {
 
     struct MerchantPolicy {
         bool    allowScheduledTranche;
+        bool    allowRefund;
         uint256 defaultNonRefundableBps;
         uint256 defaultInitialPaymentBps;
         uint256 defaultTrancheBps;
@@ -107,7 +108,7 @@ contract ArcMerchantRegistry {
         require(paymentDueOffsetDays <= 3650,      "paymentDueOffsetDays > 3650");
         require(paymentDeadlineOffsetDays <= 3650, "paymentDeadlineOffsetDays > 3650");
         require(cancellationCutoffDays <= 3650,    "cancellationCutoffDays > 3650");
-        require(paymentDeadlineOffsetDays <= paymentDueOffsetDays, "paymentDeadlineOffsetDays must be <= paymentDueOffsetDays");
+        require(paymentDueOffsetDays <= paymentDeadlineOffsetDays, "paymentDueOffsetDays must be <= paymentDeadlineOffsetDays");
     }
 
     // ─── Storage helpers ──────────────────────────────────────────────────────
@@ -188,6 +189,7 @@ contract ArcMerchantRegistry {
 
         merchantPolicies[merchantId] = MerchantPolicy({
             allowScheduledTranche: false,
+            allowRefund:          true,
             defaultNonRefundableBps: 3000, defaultInitialPaymentBps: 1000, defaultTrancheBps: 3000,
             paymentDueOffsetDays: 90, paymentDeadlineOffsetDays: 75,
             cancellationCutoffDays: 30, refundBpsBeforeCutoff: 7000, refundBpsAfterCutoff: 0,
