@@ -103,19 +103,6 @@ export default function CheckoutPage() {
         </h1>
       </div>
 
-      {/* Hero summary box — stile luxury */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, #0a1628 0%, #0d1f3c 100%)',
-        border: '1px solid var(--usdc-dim, #1a3a5c)', textAlign: 'center', padding: '28px 24px', marginBottom: 16,
-      }}>
-        <div style={{ fontSize: 32, marginBottom: 10 }}>◆</div>
-        <div style={{ fontFamily: 'var(--display)', fontSize: 36, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-1px', marginBottom: 4 }}>
-          {req.amount} USDC
-        </div>
-        {req.name && <div style={{ fontSize: 15, color: 'var(--text2)', marginBottom: 4 }}>{req.name}</div>}
-        {req.desc && <div style={{ fontSize: 13, color: 'var(--text3)' }}>{req.desc}</div>}
-      </div>
-
       <PaymentCard
         merchantName={req.name}
         amount={req.amount}
