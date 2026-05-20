@@ -234,20 +234,6 @@ export default function CreatePaymentPage({ account, balance }) {
             <QRCodeBox url={paymentUrl} size={160} label={""} />
           </div>
 
-          {/* QR */}
-          <div className="card" style={{ padding: 28 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                QR Code — Scan to pay
-              </div>
-              <div style={{ display: 'inline-block', background: '#fff', padding: 16, borderRadius: 12 }}>
-                <QRCodeSVG value={paymentUrl} size={180} />
-              </div>
-              <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 12, fontFamily: 'var(--mono)', wordBreak: 'break-all' }}>
-                {paymentUrl}
-              </p>
-            </div>
-          </div>
 
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <button onClick={() => { setPaymentUrl(''); setForm(prev => ({ ...prev, ref: generateRef() })) }} className="btn-ghost" style={{ padding: '10px 24px', fontSize: 13 }}>
