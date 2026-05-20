@@ -155,16 +155,18 @@ function parseMerchant(m) {
 
 function parsePolicy(p) {
   if (!p) return defaultPolicy()
+  // Converti BPS in percentuale per il form (3000 BPS → 30%)
+  const bpsToP = v => Math.round(Number(v ?? 0) / 100)
   return {
     allowScheduledTranche:     p.allowScheduledTranche ?? false,
-    defaultNonRefundableBps:   Number(p.defaultNonRefundableBps   ?? 3000),
-    defaultInitialPaymentBps:  Number(p.defaultInitialPaymentBps  ?? 1000),
-    defaultTrancheBps:         Number(p.defaultTrancheBps         ?? 3000),
+    defaultNonRefundableBps:   bpsToP(p.defaultNonRefundableBps   ?? 3000),
+    defaultInitialPaymentBps:  bpsToP(p.defaultInitialPaymentBps  ?? 1000),
+    defaultTrancheBps:         bpsToP(p.defaultTrancheBps         ?? 3000),
     paymentDueOffsetDays:      Number(p.paymentDueOffsetDays      ?? 90),
     paymentDeadlineOffsetDays: Number(p.paymentDeadlineOffsetDays ?? 75),
     cancellationCutoffDays:    Number(p.cancellationCutoffDays    ?? 30),
-    refundBpsBeforeCutoff:     Number(p.refundBpsBeforeCutoff     ?? 7000),
-    refundBpsAfterCutoff:      Number(p.refundBpsAfterCutoff      ?? 0),
+    refundBpsBeforeCutoff:     bpsToP(p.refundBpsBeforeCutoff     ?? 7000),
+    refundBpsAfterCutoff:      bpsToP(p.refundBpsAfterCutoff      ?? 0),
     policyVersion:             Number(p.policyVersion             ?? 1),
     updatedAt:                 Number(p.updatedAt                 ?? 0),
   }
