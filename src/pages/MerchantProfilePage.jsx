@@ -132,8 +132,19 @@ export default function MerchantProfilePage() {
         refundBpsAfterCutoff:      bps(Number(policyForm.refundBpsAfterCutoff)),
       })
       setSuccess('Policy updated on-chain.')
-      await new Promise(r => setTimeout(r, 2000)) // wait for RPC to update
-      await load(); setMode('view')
+      // Aggiorna stato locale direttamente — non ricaricare dal RPC che potrebbe essere stale
+      setPolicy({
+        allowScheduledTranche:     policyForm.allowScheduledTranche,
+        defaultNonRefundableBps:   bps(Number(policyForm.defaultNonRefundableBps)),
+        defaultInitialPaymentBps:  bps(Number(policyForm.defaultInitialPaymentBps)),
+        defaultTrancheBps:         bps(Number(policyForm.defaultTrancheBps)),
+        paymentDueOffsetDays:      parseInt(policyForm.paymentDueOffsetDays || 90),
+        paymentDeadlineOffsetDays: parseInt(policyForm.paymentDeadlineOffsetDays || 75),
+        cancellationCutoffDays:    parseInt(policyForm.cancellationCutoffDays || 30),
+        refundBpsBeforeCutoff:     bps(Number(policyForm.refundBpsBeforeCutoff)),
+        refundBpsAfterCutoff:      bps(Number(policyForm.refundBpsAfterCutoff)),
+      })
+      setMode('view')
     } catch (e) { setError(e.message || 'Policy update failed.') }
     finally { setSavingPol(false) }
   }
