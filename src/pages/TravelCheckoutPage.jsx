@@ -134,24 +134,6 @@ export default function TravelCheckoutPage() {
         {req.description && <p style={{ fontSize: 13, color: 'var(--text2)', marginTop: 6 }}>{req.description}</p>}
       </div>
 
-      {/* Hero summary box — stile luxury */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, #0a0a1a 0%, #150f2e 100%)',
-        border: '1px solid #2e1f5544', textAlign: 'center', padding: '28px 24px', marginBottom: 16,
-      }}>
-        <div style={{ fontSize: 32, marginBottom: 10 }}>✈️</div>
-        <div style={{ fontFamily: 'var(--display)', fontSize: 36, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-1px', marginBottom: 4 }}>
-          {total.toFixed(2)} USDC
-        </div>
-        {req.agencyName && <div style={{ fontSize: 15, color: 'var(--text2)', marginBottom: 4 }}>{req.agencyName}</div>}
-        {allowTranche && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10, fontSize: 13 }}>
-            <div><span style={{ color: 'var(--text3)' }}>Initial </span><span style={{ color: 'var(--usdc)', fontWeight: 600 }}>{initial.toFixed(2)} USDC</span></div>
-            <div><span style={{ color: 'var(--text3)' }}>Tranche </span><span style={{ color: 'var(--green)', fontWeight: 600 }}>{tranche.toFixed(2)} USDC</span></div>
-          </div>
-        )}
-      </div>
-
       {/* Booking summary */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
