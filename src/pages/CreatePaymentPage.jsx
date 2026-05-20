@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import QRCodeBox from '../components/QRCodeBox.jsx'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { PURPOSE_CODES, isMerchantRegistryConfigured } from '../config.js'
 import { buildPaymentUrl, savePaymentRequest } from '../utils/paymentRequest.js'
@@ -219,6 +220,18 @@ export default function CreatePaymentPage({ account, balance }) {
               <span className="badge badge-blue">{form.purpose}</span>
               <span className="badge badge-yellow">Arc Testnet</span>
             </div>
+          </div>
+
+          {/* MetaMask mobile — deep link */}
+          <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#f6851b', marginBottom: 8, textAlign: 'center' }}>
+              🦊 Pay from MetaMask mobile
+            </div>
+            <div style={{ background: '#f6851b18', border: '1px solid #f6851b66', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: 'var(--text2)', lineHeight: 1.6, textAlign: 'left' }}>
+              Scan with <strong style={{ color: '#f6851b' }}>MetaMask</strong> — opens directly inside the app, no browser needed.<br/>
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>Other wallets not supported in this demo.</span>
+            </div>
+            <QRCodeBox url={paymentUrl} size={160} label={""} />
           </div>
 
           {/* QR */}
