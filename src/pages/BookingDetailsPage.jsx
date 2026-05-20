@@ -30,6 +30,7 @@ export default function BookingDetailsPage() {
   const account = connectedAddress || null
   const [loading,  setLoading]  = useState(false)
   const [merchantProfile, setMerchantProfile] = useState(null)
+  const [allowRefund, setAllowRefund] = useState(true)
   const [error,    setError]    = useState('')
   const [success,  setSuccess]  = useState('')
   const [now,      setNow]      = useState(Math.floor(Date.now()/1000))
@@ -41,6 +42,7 @@ export default function BookingDetailsPage() {
   useEffect(() => {
     if (!booking?.merchant || !isMerchantRegistryConfigured()) return
     getMerchantByWallet(booking.merchant).then(m => {
+      if (m?.merchantId) getMerchantPolicyByWallet(booking.merchant).then(p => setAllowRefund(p?.allowRefund ?? true)).catch(() => {})
       if (m && m.active) setMerchantProfile(m)
     }).catch(() => {})
   }, [booking?.merchant])
@@ -225,6 +227,7 @@ export default function BookingDetailsPage() {
           </div>
         ) : (
           <BookingActions
+            allowRefund={allowRefund}
             booking={booking} account={account} now={now} loading={loading}
             onGuestCancel={() => handleAction(executeCancelBeforeDeadline)}
             onMerchantCancel={() => handleAction(executeCancelBeforeDeadline)}
