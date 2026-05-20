@@ -92,6 +92,7 @@ export async function updateMerchantPolicy(account, policy) {
     functionName: 'updateMerchantPolicy',
     args: [
       policy.allowScheduledTranche ?? false,
+      policy.allowRefund ?? true,
       BigInt(policy.defaultNonRefundableBps   ?? 3000),
       BigInt(policy.defaultInitialPaymentBps  ?? 1000),
       BigInt(policy.defaultTrancheBps         ?? 3000),
@@ -157,6 +158,7 @@ function parsePolicy(p) {
   if (!p) return defaultPolicy()
   return {
     allowScheduledTranche:     p.allowScheduledTranche ?? false,
+    allowRefund:               p.allowRefund ?? true,
     defaultNonRefundableBps:   Number(p.defaultNonRefundableBps   ?? 3000),
     defaultInitialPaymentBps:  Number(p.defaultInitialPaymentBps  ?? 1000),
     defaultTrancheBps:         Number(p.defaultTrancheBps         ?? 3000),
@@ -173,6 +175,7 @@ function parsePolicy(p) {
 export function defaultPolicy() {
   return {
     allowScheduledTranche:     false,
+    allowRefund:               true,
     defaultNonRefundableBps:   3000,
     defaultInitialPaymentBps:  1000,
     defaultTrancheBps:         3000,
@@ -190,12 +193,13 @@ export function defaultPolicy() {
 export function defaultPolicyForm() {
   return {
     allowScheduledTranche:     false,
+    allowRefund:               true,
     defaultNonRefundableBps:   30,
     defaultInitialPaymentBps:  10,
     defaultTrancheBps:         30,
-    paymentDueOffsetDays:      90,
-    paymentDeadlineOffsetDays: 75,
-    cancellationCutoffDays:    30,
+    paymentDueOffsetDays:      10,
+    paymentDeadlineOffsetDays: 5,
+    cancellationCutoffDays:    15,
     refundBpsBeforeCutoff:     70,
     refundBpsAfterCutoff:      0,
   }
