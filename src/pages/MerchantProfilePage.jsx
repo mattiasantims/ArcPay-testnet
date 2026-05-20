@@ -119,11 +119,11 @@ export default function MerchantProfilePage() {
   }
 
   async function handleUpdatePolicy() {
-    // Validazione: deadline deve essere <= due offset (requisito contratto)
-    if (parseInt(policyForm.paymentDeadlineOffsetDays) > parseInt(policyForm.paymentDueOffsetDays)) {
-      setError('Payment deadline offset must be ≤ Payment due offset (contract requirement)')
-      return
-    }
+    // Il contratto richiede paymentDueOffsetDays <= paymentDeadlineOffsetDays
+    const dueOffset = parseInt(policyForm.paymentDueOffsetDays || 5)
+    const deadlineOffset = parseInt(policyForm.paymentDeadlineOffsetDays || 10)
+    const fixedDue = Math.min(dueOffset, deadlineOffset)
+    const fixedDeadline = Math.max(dueOffset, deadlineOffset)
     setSavingPol(true); setError(''); setSuccess('')
     try {
       await updateMerchantPolicy(address, {
@@ -132,8 +132,8 @@ export default function MerchantProfilePage() {
         defaultNonRefundableBps:   bps(Number(policyForm.defaultNonRefundableBps)),
         defaultInitialPaymentBps:  bps(Number(policyForm.defaultInitialPaymentBps)),
         defaultTrancheBps:         bps(Number(policyForm.defaultTrancheBps)),
-        paymentDueOffsetDays:      parseInt(policyForm.paymentDueOffsetDays || 90),
-        paymentDeadlineOffsetDays: parseInt(policyForm.paymentDeadlineOffsetDays || 75),
+        paymentDueOffsetDays:      fixedDue,
+        paymentDeadlineOffsetDays: fixedDeadline,
         cancellationCutoffDays:    parseInt(policyForm.cancellationCutoffDays || 30),
         refundBpsBeforeCutoff:     bps(Number(policyForm.refundBpsBeforeCutoff)),
         refundBpsAfterCutoff:      bps(Number(policyForm.refundBpsAfterCutoff)),
@@ -146,8 +146,8 @@ export default function MerchantProfilePage() {
         defaultNonRefundableBps:   bps(Number(policyForm.defaultNonRefundableBps)),
         defaultInitialPaymentBps:  bps(Number(policyForm.defaultInitialPaymentBps)),
         defaultTrancheBps:         bps(Number(policyForm.defaultTrancheBps)),
-        paymentDueOffsetDays:      parseInt(policyForm.paymentDueOffsetDays || 90),
-        paymentDeadlineOffsetDays: parseInt(policyForm.paymentDeadlineOffsetDays || 75),
+        paymentDueOffsetDays:      fixedDue,
+        paymentDeadlineOffsetDays: fixedDeadline,
         cancellationCutoffDays:    parseInt(policyForm.cancellationCutoffDays || 30),
         refundBpsBeforeCutoff:     bps(Number(policyForm.refundBpsBeforeCutoff)),
         refundBpsAfterCutoff:      bps(Number(policyForm.refundBpsAfterCutoff)),
