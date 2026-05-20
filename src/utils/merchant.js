@@ -186,6 +186,21 @@ export function defaultPolicy() {
   }
 }
 
+// Versione del form in percentuali (non BPS)
+export function defaultPolicyForm() {
+  return {
+    allowScheduledTranche:     false,
+    defaultNonRefundableBps:   30,
+    defaultInitialPaymentBps:  10,
+    defaultTrancheBps:         30,
+    paymentDueOffsetDays:      90,
+    paymentDeadlineOffsetDays: 75,
+    cancellationCutoffDays:    30,
+    refundBpsBeforeCutoff:     70,
+    refundBpsAfterCutoff:      0,
+  }
+}
+
 function fieldsToArgs(f) {
   return [
     f.tradingName           || '',
