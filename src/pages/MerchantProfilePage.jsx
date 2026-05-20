@@ -68,7 +68,18 @@ export default function MerchantProfilePage() {
       if (m) {
         setForm({ tradingName: m.tradingName, legalName: m.legalName, businessCategory: m.businessCategory, website: m.website, country: m.country, businessAddress: m.businessAddress, businessEmail: m.businessEmail, lei: m.lei, vatOrCompanyId: m.vatOrCompanyId, otherPublicIdentifier: m.otherPublicIdentifier })
         const p = await getMerchantPolicyByWallet(address)
-        if (p) { setPolicy(p); setPolicyForm(p) }
+        if (p) {
+          setPolicy(p)
+          // Converti BPS in % per il form
+          setPolicyForm({
+            ...p,
+            defaultNonRefundableBps:   Math.round(p.defaultNonRefundableBps / 100),
+            defaultInitialPaymentBps:  Math.round(p.defaultInitialPaymentBps / 100),
+            defaultTrancheBps:         Math.round(p.defaultTrancheBps / 100),
+            refundBpsBeforeCutoff:     Math.round(p.refundBpsBeforeCutoff / 100),
+            refundBpsAfterCutoff:      Math.round(p.refundBpsAfterCutoff / 100),
+          })
+        }
         const ws = await getMerchantWallets(m.merchantId)
         setWallets(ws)
       } else {
@@ -111,14 +122,14 @@ export default function MerchantProfilePage() {
     try {
       await updateMerchantPolicy(address, {
         allowScheduledTranche:     policyForm.allowScheduledTranche,
-        defaultNonRefundableBps:   bps(policyForm.defaultNonRefundableBps),
-        defaultInitialPaymentBps:  bps(policyForm.defaultInitialPaymentBps),
-        defaultTrancheBps:         bps(policyForm.defaultTrancheBps),
+        defaultNonRefundableBps:   bps(Number(policyForm.defaultNonRefundableBps)),
+        defaultInitialPaymentBps:  bps(Number(policyForm.defaultInitialPaymentBps)),
+        defaultTrancheBps:         bps(Number(policyForm.defaultTrancheBps)),
         paymentDueOffsetDays:      parseInt(policyForm.paymentDueOffsetDays || 90),
         paymentDeadlineOffsetDays: parseInt(policyForm.paymentDeadlineOffsetDays || 75),
         cancellationCutoffDays:    parseInt(policyForm.cancellationCutoffDays || 30),
-        refundBpsBeforeCutoff:     bps(policyForm.refundBpsBeforeCutoff),
-        refundBpsAfterCutoff:      bps(policyForm.refundBpsAfterCutoff),
+        refundBpsBeforeCutoff:     bps(Number(policyForm.refundBpsBeforeCutoff)),
+        refundBpsAfterCutoff:      bps(Number(policyForm.refundBpsAfterCutoff)),
       })
       setSuccess('Policy updated on-chain.')
       await new Promise(r => setTimeout(r, 2000)) // wait for RPC to update
