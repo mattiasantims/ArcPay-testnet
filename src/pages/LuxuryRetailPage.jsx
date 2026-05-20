@@ -62,6 +62,18 @@ export default function LuxuryRetailPage({ account }) {
     }).catch(() => {})
   }, [account])
 
+  if (!account) {
+    return (
+      <div className="card fade-up" style={{ textAlign: 'center', padding: 40 }}>
+        <div style={{ fontSize: 32, marginBottom: 16 }}>💎</div>
+        <p style={{ color: 'var(--text2)', marginBottom: 20 }}>Connect your wallet to create a luxury checkout link</p>
+        <button onClick={() => open()} className="btn-primary btn-full" style={{ maxWidth: 280, margin: '0 auto' }}>
+          Connect Wallet
+        </button>
+      </div>
+    )
+  }
+
   function handleChange(e) { setForm(prev => ({ ...prev, [e.target.name]: e.target.value })) }
 
   function applyDemo(item) {
