@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
@@ -15,7 +16,7 @@ import {
   buildTrancheReceiptObject, downloadTrancheReceiptPDF, downloadTrancheReceiptJSON,
 } from '../utils/travelPdf.js'
 import { shortAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE, isTravelContractConfigured } from '../config.js'
+import { ARCSCAN_BASE, isTravelContractConfigured, APP_URL } from '../config.js'
 
 export default function TravelDetailsPage() {
   const { id }     = useParams()
@@ -281,6 +282,21 @@ export default function TravelDetailsPage() {
           <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => navigator.clipboard.writeText(window.location.href)}>
             🔗 Copy link
           </button>
+        </div>
+      </div>
+
+      {/* QR — share receipt */}
+      <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Share this receipt
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ display: 'inline-block', background: '#fff', padding: 14, borderRadius: 12 }}>
+            <QRCodeSVG value={`${APP_URL}/travel/${id}`} size={160} />
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 10, fontFamily: 'var(--mono)', wordBreak: 'break-all' }}>
+            {`${APP_URL}/travel/${id}`}
+          </p>
         </div>
       </div>
 
