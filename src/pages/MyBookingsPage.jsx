@@ -51,8 +51,9 @@ export default function MyBookingsPage() {
 
   function exportCSV() {
     if (!bookings.length) return
-    const headers = ['status','guestWallet','merchantWallet','merchantName','totalAmount','nonRefundable','refundable','nonRefundablePct','bookingRef','cancellationDeadline','checkInDate','createdAt','txHash','arcscanUrl','bookingUrl','network','testnetDisclaimer']
+    const headers = ['timestamp','status','guestWallet','merchantWallet','merchantName','totalAmount','nonRefundable','refundable','nonRefundablePct','bookingRef','cancellationDeadline','checkInDate','createdAt','txHash','arcscanUrl','bookingUrl','network','testnetDisclaimer']
     const rows = bookings.map(b => [
+      b.createdAt ? new Date(Number(b.createdAt)*1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : '',
       ['Active','Cancelled','Released to Hotel'][Number(b.status)] ?? '',
       address ?? '',
       b.merchant ?? '',
