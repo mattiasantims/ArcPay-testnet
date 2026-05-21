@@ -13,6 +13,7 @@ import { useAccount } from 'wagmi'
 import { isMerchantRegistryConfigured, APP_URL } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
 import { downloadBookingPDF } from '../utils/bookingPdf.js'
+import { buildBookingReceiptObject, BOOKING_STATUS_LABEL } from '../utils/booking.js'
 import { ARCSCAN_BASE, isBookingContractConfigured } from '../config.js'
 import BookingStatusBadge from '../components/BookingStatusBadge.jsx'
 import BookingActions from '../components/BookingActions.jsx'
@@ -239,21 +240,32 @@ export default function BookingDetailsPage() {
         {success && <div className="success-box" style={{ marginTop: 10 }}>✓ {success}</div>}
       </div>
 
-      {/* Downloads */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
-        <button onClick={() => navigator.clipboard.writeText(`${APP_URL}/booking/${id}`)} className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px' }}>🔗 Link</button>
-        <button onClick={downloadJSON} className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px' }}>📥 JSON</button>
-        <button onClick={() => receipt && downloadBookingPDF(receipt)} className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px' }}>🖨️ PDF</button>
-        {txHash ? (
-          <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-            <button className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px', width: '100%' }}>🔍 ArcScan ↗</button>
-          </a>
-        ) : (
-          <a href={`${ARCSCAN_BASE}/address/${booking?.merchant}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-            <button className="btn-ghost" style={{ fontSize: 12, padding: '10px 6px', width: '100%' }}>🔍 ArcScan ↗</button>
-          </a>
-        )}
-      </div>
+      {/* Receipts — stile TravelDetailsPage */}
+      {receipt && (
+        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Receipts</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={() => downloadBookingPDF(receipt)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+              🖨️ Booking PDF
+            </button>
+            <button onClick={downloadJSON} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+              📄 Booking JSON
+            </button>
+            <button onClick={() => navigator.clipboard.writeText(`${APP_URL}/booking/${id}`)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+              🔗 Copy link
+            </button>
+            {txHash ? (
+              <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>🔍 ArcScan ↗</button>
+              </a>
+            ) : (
+              <a href={`${ARCSCAN_BASE}/address/${booking?.merchant}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>🔍 ArcScan ↗</button>
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* QR — share receipt */}
       <div className="card" style={{ padding: 24, marginBottom: 16 }}>
