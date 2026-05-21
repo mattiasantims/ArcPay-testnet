@@ -265,7 +265,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 12px' }}>View details</button>
+                    <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 12px' }}>View receipt</button>
                   </Link>
                   {(() => { const r = getReceiptForId(receipts, id); return r?.transaction_hash ? (
                     <a href={`${ARCSCAN_BASE}/tx/${r.transaction_hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
@@ -352,7 +352,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
                       : '🏨 Release escrow to hotel'}
                   </button>
                   <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '8px 12px' }}>View details</button>
+                    <button className="btn-ghost" style={{ fontSize: 11, padding: '8px 12px' }}>View receipt</button>
                   </Link>
                   {(() => { const r = getReceiptForId(receipts, id); return r?.transaction_hash ? (
                     <a href={`${ARCSCAN_BASE}/tx/${r.transaction_hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
