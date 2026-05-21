@@ -166,18 +166,30 @@ function parseMerchant(m) {
 function parsePolicy(p) {
   if (!p) return defaultPolicy()
   return {
-    allowScheduledTranche:     p.allowScheduledTranche ?? false,
-    allowRefund:               p.allowRefund ?? true,
-    defaultNonRefundableBps:   Number(p.defaultNonRefundableBps   ?? 3000),
-    defaultInitialPaymentBps:  Number(p.defaultInitialPaymentBps  ?? 1000),
-    defaultTrancheBps:         Number(p.defaultTrancheBps         ?? 3000),
-    paymentDueOffsetDays:      Number(p.paymentDueOffsetDays      ?? 90),
-    paymentDeadlineOffsetDays: Number(p.paymentDeadlineOffsetDays ?? 75),
-    cancellationCutoffDays:    Number(p.cancellationCutoffDays    ?? 30),
-    refundBpsBeforeCutoff:     Number(p.refundBpsBeforeCutoff     ?? 7000),
-    refundBpsAfterCutoff:      Number(p.refundBpsAfterCutoff      ?? 0),
-    policyVersion:             Number(p.policyVersion             ?? 1),
-    updatedAt:                 Number(p.updatedAt                 ?? 0),
+    allowScheduledTranche:          p.allowScheduledTranche          ?? false,
+    allowRefund:                    p.allowRefund                    ?? true,
+    defaultNonRefundableBps:        Number(p.defaultNonRefundableBps   ?? 3000),
+    defaultInitialPaymentBps:       Number(p.defaultInitialPaymentBps  ?? 1000),
+    defaultTrancheBps:              Number(p.defaultTrancheBps         ?? 3000),
+    paymentDueOffsetDays:           Number(p.paymentDueOffsetDays      ?? 90),
+    paymentDeadlineOffsetDays:      Number(p.paymentDeadlineOffsetDays ?? 75),
+    cancellationCutoffDays:         Number(p.cancellationCutoffDays    ?? 30),
+    refundBpsBeforeCutoff:          Number(p.refundBpsBeforeCutoff     ?? 7000),
+    refundBpsAfterCutoff:           Number(p.refundBpsAfterCutoff      ?? 0),
+    // v3
+    allowDelayedPayment:            p.allowDelayedPayment            ?? false,
+    defaultDelayedPaymentDays:      Number(p.defaultDelayedPaymentDays      ?? 30),
+    allowOnlineTranche:             p.allowOnlineTranche             ?? false,
+    defaultOnlineTrancheBps:        Number(p.defaultOnlineTrancheBps        ?? 5000),
+    defaultOnlineTrancheOffsetDays: Number(p.defaultOnlineTrancheOffsetDays ?? 15),
+    allowRefundClaim:               p.allowRefundClaim               ?? false,
+    refundClaimWindowDays:          Number(p.refundClaimWindowDays          ?? 14),
+    refundClaimBps:                 Number(p.refundClaimBps                 ?? 10000),
+    // v4
+    allowHotelBooking:              p.allowHotelBooking              ?? true,
+    allowTravelBooking:             p.allowTravelBooking             ?? true,
+    policyVersion:                  Number(p.policyVersion             ?? 1),
+    updatedAt:                      Number(p.updatedAt                 ?? 0),
   }
 }
 
