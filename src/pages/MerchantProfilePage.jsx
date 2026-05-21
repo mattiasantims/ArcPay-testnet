@@ -409,6 +409,21 @@ export default function MerchantProfilePage() {
               </div>
             ))}
           </div>
+
+          {/* v3 policy — Delayed, Tranche, Refund Claim */}
+          <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+            {[
+              { label: 'Delayed payment',    value: policy.allowDelayedPayment ? `✓ Enabled · ${policy.defaultDelayedPaymentDays} min` : '✗ Disabled', color: policy.allowDelayedPayment ? 'var(--green)' : 'var(--text3)' },
+              { label: 'Online tranche',     value: policy.allowOnlineTranche ? `✓ Enabled · ${pct(policy.defaultOnlineTrancheBps ?? 0)}% / ${policy.defaultOnlineTrancheOffsetDays} min` : '✗ Disabled', color: policy.allowOnlineTranche ? 'var(--green)' : 'var(--text3)' },
+              { label: 'Refund claim',       value: policy.allowRefundClaim ? `✓ Enabled · ${policy.refundClaimWindowDays} min · max ${pct(policy.refundClaimBps ?? 0)}%` : '✗ Disabled', color: policy.allowRefundClaim ? 'var(--green)' : 'var(--text3)' },
+            ].map(s => (
+              <div key={s.label} style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>{s.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: s.color || 'var(--text)' }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
           <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text3)', lineHeight: 1.5 }}>
             Changing merchant defaults does not modify existing bookings or payment requests.
           </div>
