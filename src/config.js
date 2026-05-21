@@ -44,7 +44,22 @@ export function isTravelContractConfigured() {
 }
 
 // v2 — Registry v3, Delayed Payment, Tranche, Refund
-export const ARCMERCHANT_REGISTRY_ADDRESS = '0x8a2Bc834A2d7Cf43a5C4989802eAC1546217714B'
+export const ARCMERCHANT_REGISTRY_ADDRESS = '0xddFC31de715225a219D442E1ebb49c6f2ed2de50'
+export const ARC_COMMITMENT_ADDRESS       = '0x08Ad52e6e7c20f2bDCa20dec5Abd938266C22507'
+export const ARC_REFUND_ADDRESS           = '0xe4519541A11F385C3313e214135b79291BaFAEC8'
+
+export function isMerchantRegistryConfigured() {
+  return ARCMERCHANT_REGISTRY_ADDRESS && !ARCMERCHANT_REGISTRY_ADDRESS.startsWith('DEPLOY')
+}
+export function isCommitmentContractConfigured() {
+  return ARC_COMMITMENT_ADDRESS && !ARC_COMMITMENT_ADDRESS.startsWith('DEPLOY')
+}
+export function isRefundContractConfigured() {
+  return ARC_REFUND_ADDRESS && !ARC_REFUND_ADDRESS.startsWith('DEPLOY')
+}
+
+// v2 — Delayed Payment + Tranche + Refund + Registry v3
+export const ARCMERCHANT_REGISTRY_ADDRESS = '0xddFC31de715225a219D442E1ebb49c6f2ed2de50'
 export const ARC_COMMITMENT_ADDRESS       = '0x08Ad52e6e7c20f2bDCa20dec5Abd938266C22507'
 export const ARC_REFUND_ADDRESS           = '0xe4519541A11F385C3313e214135b79291BaFAEC8'
 
