@@ -10,8 +10,7 @@ import { getCachedBookingTxHash, getBookingRequests } from '../utils/bookingRequ
 import { isValidAddress } from '../utils/wallet.js'
 import { downloadBookingCSV } from '../utils/bookingCsv.js'
 import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
-import { isMerchantRegistryConfigured } from '../config.js'
-import { isBookingContractConfigured, ARCSCAN_BASE } from '../config.js'
+import { isMerchantRegistryConfigured, isBookingContractConfigured, ARCSCAN_BASE } from '../config.js'
 import BookingStatusBadge from '../components/BookingStatusBadge.jsx'
 
 export default function BookingDashboardPage({ account, onConnect, connecting }) {
