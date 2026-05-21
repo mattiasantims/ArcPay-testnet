@@ -108,6 +108,8 @@ export async function updateMerchantPolicy(account, policy) {
       policy.allowRefundClaim                   ?? false,
       BigInt(policy.refundClaimWindowDays       ?? 14),
       BigInt(policy.refundClaimBps              ?? 10000),
+      policy.allowHotelBooking                  ?? true,
+      policy.allowTravelBooking                 ?? true,
     ],
     account,
   })
@@ -199,6 +201,8 @@ export function defaultPolicy() {
     allowRefundClaim:               false,
     refundClaimWindowDays:          14,
     refundClaimBps:                 10000,
+    allowHotelBooking:              true,
+    allowTravelBooking:             true,
     policyVersion:                  1,
     updatedAt:                      0,
   }
@@ -225,6 +229,8 @@ export function defaultPolicyForm() {
     allowRefundClaim:               false,
     refundClaimWindowDays:          14,
     refundClaimBps:                 100,
+    allowHotelBooking:              true,
+    allowTravelBooking:             true,
   }
 }
 
