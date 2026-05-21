@@ -8,7 +8,7 @@ export function downloadBookingCSV(bookings, walletAddress) {
     'network','contractAddress','testnetDisclaimer',
   ]
   const rows = bookings.map(b => [
-    b.created_at ? new Date(Number(b.created_at) * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : '',
+    b.created_at ?? '',
     b.status               ?? '',
     b.guest_wallet         ?? '',
     b.merchant_wallet      ?? '',
