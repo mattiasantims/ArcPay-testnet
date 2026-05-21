@@ -218,6 +218,7 @@ export default function LuxuryRetailPage({ account }) {
                 Connect Wallet
               </button>
             ) : (
+              <>
               {/* Payment type selector — only if policy allows */}
               {policy && (policy.allowDelayedPayment || policy.allowOnlineTranche) && (
                 <div style={{ marginBottom: 16 }}>
@@ -278,6 +279,7 @@ export default function LuxuryRetailPage({ account }) {
               <button onClick={handleCreate} className="btn-primary btn-full" style={{ background: '#1a1530', border: '1px solid #6b44ff', color: '#a78bfa' }}>
                 💎 Generate Luxury Checkout Link
               </button>
+              </>
             )}
           </div>
         </div>
