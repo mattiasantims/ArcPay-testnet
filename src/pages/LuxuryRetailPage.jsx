@@ -63,20 +63,22 @@ export default function LuxuryRetailPage({ account }) {
   const [tranche1Pct, setTranche1Pct] = useState(50)
   const [trancheOffset, setTrancheOffset] = useState(15)
 
+  const { address } = useAccount()
+  const effectiveAccount = account || address
+
   // Auto-compila nome e policy dal profilo merchant
   useEffect(() => {
-    if (!account || !isMerchantRegistryConfigured()) return
-    getMerchantByWallet(account).then(m => {
+    if (!effectiveAccount || !isMerchantRegistryConfigured()) return
+    getMerchantByWallet(effectiveAccount).then(m => {
       if (m && m.tradingName) {
         setForm(prev => prev.name ? prev : { ...prev, name: m.tradingName })
       }
     }).catch(() => {})
-    getMerchantPolicyByWallet(account).then(pol => {
+    getMerchantPolicyByWallet(effectiveAccount).then(pol => {
       if (!pol) return
       setPolicy(pol)
-      if (pol.defaultOnlineTrancheBps)      setTranche1Pct(Math.round(pol.defaultOnlineTrancheBps / 100))
+      if (pol.defaultOnlineTrancheBps)        setTranche1Pct(Math.round(pol.defaultOnlineTrancheBps / 100))
       if (pol.defaultOnlineTrancheOffsetDays) setTrancheOffset(pol.defaultOnlineTrancheOffsetDays)
-      // Pre-fill delayed date from policy
       if (pol.allowDelayedPayment && pol.defaultDelayedPaymentDays) {
         const due = new Date(nowMs + pol.defaultDelayedPaymentDays * 60 * 1000)
         const ddl = new Date(due.getTime() + pol.defaultDelayedPaymentDays * 60 * 1000)
@@ -84,7 +86,7 @@ export default function LuxuryRetailPage({ account }) {
         setDeadline(ddl.toISOString().slice(0, 16))
       }
     }).catch(() => {})
-  }, [account])
+  }, [effectiveAccount])
 
   function handleChange(e) { setForm(prev => ({ ...prev, [e.target.name]: e.target.value })) }
 
@@ -95,13 +97,13 @@ export default function LuxuryRetailPage({ account }) {
 
   function handleCreate() {
     setError('')
-    if (!account)                                      { setError('Connect wallet first'); return }
+    if (!effectiveAccount)                             { setError('Connect wallet first'); return }
     if (!form.amount || parseFloat(form.amount) <= 0)  { setError('Amount required'); return }
     if (!form.ref.trim())                              { setError('Reference required'); return }
 
     const base = {
       id:        form.ref,
-      merchant:  account,
+      merchant:  effectiveAccount,
       amount:    form.amount,
       ref:       form.ref.trim(),
       purpose:   'RETAIL',
