@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import {
   fetchMerchantBookingIds, fetchGuestBookingIds, fetchBooking,
   formatUsdc, formatTs, formatDeadlineCountdown,
-  buildBookingReceiptObject, executeReleaseAfterDeadline, executeCancelBeforeDeadline,
-  BOOKING_STATUS_LABEL,
+  buildBookingReceiptObject,
+  executeReleaseAfterDeadline, executeCancelBeforeDeadline,
 } from '../utils/booking.js'
 import { getCachedBookingTxHash, getBookingRequests } from '../utils/bookingRequest.js'
 import { isValidAddress } from '../utils/wallet.js'
@@ -12,12 +12,7 @@ import { downloadBookingCSV } from '../utils/bookingCsv.js'
 import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
 import { isMerchantRegistryConfigured } from '../config.js'
 import { isBookingContractConfigured, ARCSCAN_BASE } from '../config.js'
-import { downloadBookingPDF } from '../utils/bookingPdf.js'
 import BookingStatusBadge from '../components/BookingStatusBadge.jsx'
-
-function getReceiptForId(receipts, id) {
-  return receipts.find(r => String(r.booking_id) === String(id) || String(r.bookingId) === String(id))
-}
 
 export default function BookingDashboardPage({ account, onConnect, connecting }) {
   const [role,       setRole]       = useState('merchant')
@@ -142,7 +137,35 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
   const totalValue  = receipts.reduce((s, r) => s + parseFloat(r.total_amount || 0), 0)
   const totalEscrow = receipts.filter(r => r.status === 'Active').reduce((s, r) => s + parseFloat(r.refundable_amount || 0), 0)
 
-  const isMerchantConnected = account && role === 'merchant' && addr?.toLowerCase() === account?.toLowerCase()
+  function BookingRow({ id, booking, highlight }) {
+    const txHash = receipts.find(r => String(r.booking_id) === String(id))?.transaction_hash
+    return (
+      <div className="card" style={{ marginBottom: 8, padding: '12px 16px', ...(highlight ? { borderColor: highlight } : {}) }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <BookingStatusBadge status={booking.status} />
+            <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{booking.bookingRef}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{formatUsdc(booking.totalAmount)} USDC</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Escrow: {formatUsdc(booking.refundableAmount)}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
+                <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
+              </Link>
+              {txHash && (
+                <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                  <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>ArcScan ↗</button>
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fade-up">
@@ -156,11 +179,11 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
       {/* Role selector + address input */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          {['merchant', 'guest'].map(r => (
+          {[['merchant','🏨 Hotel View'], ['guest','👤 Guest View']].map(([r, label]) => (
             <button key={r} onClick={() => { setRole(r); setBookings([]); setReceipts([]) }}
               className={role === r ? 'btn-primary' : 'btn-ghost'}
-              style={{ fontSize: 13, padding: '7px 16px', textTransform: 'capitalize' }}>
-              {r === 'merchant' ? '🏨 Hotel view' : '👤 Guest view'}
+              style={{ fontSize: 13, padding: '7px 16px' }}>
+              {label}
             </button>
           ))}
         </div>
@@ -172,23 +195,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
           <button onClick={() => setAddr(addrInput.trim())} disabled={loading} className="btn-primary" style={{ padding: '10px 20px', height: 42 }}>
             {loading ? <><span className="spinner" />Loading...</> : '🔍 Load'}
           </button>
-          {!account && (
-            <button onClick={onConnect} disabled={connecting} className="btn-ghost" style={{ padding: '10px 16px', height: 42 }}>
-              {connecting ? <><span className="spinner" /></> : 'Connect'}
-            </button>
-          )}
         </div>
-        {/* Wallet connection hint for hotel actions */}
-        {role === 'merchant' && addr && account && addr.toLowerCase() !== account.toLowerCase() && (
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--yellow)', padding: '8px 12px', background: '#1a1200', border: '1px solid #f0c04033', borderRadius: 6 }}>
-            ⚠️ Connected wallet does not match the hotel address. Connect with the hotel wallet to cancel or release bookings.
-          </div>
-        )}
-        {role === 'merchant' && !account && (
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text2)' }}>
-            Connect the hotel wallet to cancel bookings or release escrow.
-          </div>
-        )}
         {error && <div className="error-box" style={{ marginTop: 10 }}>{error}</div>}
       </div>
 
@@ -196,10 +203,10 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
       {receipts.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
-            { label: 'Total bookings', value: receipts.length.toString(), color: 'var(--text)' },
-            { label: 'Total value',    value: `${totalValue.toFixed(2)} USDC`, color: 'var(--usdc)' },
-            { label: 'In escrow',      value: `${totalEscrow.toFixed(2)} USDC`, color: 'var(--green)' },
-            { label: 'Releasable',     value: releasable.length.toString(), color: releasable.length > 0 ? 'var(--yellow)' : 'var(--text2)' },
+            { label: 'Total bookings', value: receipts.length.toString(),        color: 'var(--text)' },
+            { label: 'Total value',    value: `${totalValue.toFixed(2)} USDC`,   color: 'var(--usdc)' },
+            { label: 'In escrow',      value: `${totalEscrow.toFixed(2)} USDC`,  color: 'var(--green)' },
+            { label: 'Releasable',     value: releasable.length.toString(),       color: releasable.length > 0 ? 'var(--yellow)' : 'var(--text2)' },
           ].map(s => (
             <div key={s.label} className="card" style={{ padding: 16, textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: s.color, fontFamily: 'var(--display)', letterSpacing: '-0.5px' }}>{s.value}</div>
@@ -211,116 +218,56 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
 
       {/* Export + Refresh */}
       {receipts.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginBottom: 16 }}>
           <button onClick={() => downloadBookingCSV(receipts, addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             📊 Export CSV
           </button>
-          <button onClick={() => load(addr)} disabled={loading} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
-            ↻ Refresh
+          <button onClick={() => load(addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
+            ↺ Refresh
           </button>
         </div>
       )}
 
-      {/* ── UPCOMING DEADLINES ── */}
-      {upcoming.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            ⏱ Upcoming Deadlines — cancellation still possible
-          </h3>
-          {upcoming.map(({ id, booking }) => (
-            <div key={id} className="card" style={{ marginBottom: 8, padding: '12px 16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <BookingStatusBadge status={booking.status} />
-                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{booking.bookingRef}</span>
-                  <span style={{ fontSize: 11, color: 'var(--green)' }}>⏱ {formatDeadlineCountdown(booking.cancellationDeadline)}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--usdc)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
-                  <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── RELEASABLE ESCROWS ── */}
+      {/* Releasable */}
       {releasable.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            🏨 Ready to Release — deadline passed
+            🏨 Ready to Release ({releasable.length})
           </h3>
-          <div style={{ background: '#1a1200', border: '1px solid #f0c04044', borderRadius: 10, padding: '12px 16px', marginBottom: 12, fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>
-            The cancellation deadline has passed. The refundable escrow can now be released to the hotel.
-            {role === 'merchant' && ' As the hotel, click "Release escrow to hotel" to receive the funds.'}
-            {role === 'guest' && ' The hotel can now release the escrow. You can also trigger the release — the funds will go to the hotel.'}
-          </div>
           {releasable.map(({ id, booking }) => (
-            <div key={id} className="card" style={{ marginBottom: 8, padding: '12px 16px', borderColor: '#f0c04044' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: '#f0c04011', border: '1px solid #f0c04044', color: 'var(--yellow)', fontFamily: 'var(--mono)' }}>
-                    Ready to release
-                  </span>
-                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{booking.bookingRef}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--usdc)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
-                  <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
-                  </Link>
-                </div>
-              </div>
-            </div>
+            <BookingRow key={id} id={id} booking={booking} highlight="var(--yellow)" />
           ))}
         </div>
       )}
 
-      {/* ── CLOSED BOOKINGS ── */}
+      {/* Upcoming */}
+      {upcoming.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+            ⏱ Upcoming ({upcoming.length})
+          </h3>
+          {upcoming.map(({ id, booking }) => (
+            <BookingRow key={id} id={id} booking={booking} />
+          ))}
+        </div>
+      )}
+
+      {/* Closed */}
       {closed.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Closed Bookings
+            Closed ({closed.length})
           </h3>
           {closed.map(({ id, booking }) => (
-            <div key={id} className="card" style={{ marginBottom: 8, padding: '14px 16px', opacity: 0.8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <BookingStatusBadge status={booking.status} />
-                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{booking.bookingRef}</span>
-                </div>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
-                  <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>View receipt</button>
-                </Link>
-                {(() => { const r = getReceiptForId(receipts, id); return r?.transaction_hash ? (
-                  <a href={`${ARCSCAN_BASE}/tx/${r.transaction_hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>ArcScan ↗</button>
-                  </a>
-                ) : null })()}
-                {(() => { const r = getReceiptForId(receipts, id); return r ? (
-                  <button onClick={() => downloadBookingPDF(r)} className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>PDF</button>
-                ) : null })()}
-              </div>
-            </div>
+            <BookingRow key={id} id={id} booking={booking} />
           ))}
         </div>
       )}
 
       {receipts.length === 0 && !loading && addr && (
         <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text3)' }}>
-          <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>🏨</div>
-          <p>No bookings found for this {role} address.</p>
-          <Link to="/booking">
-            <button className="btn-primary" style={{ marginTop: 16, padding: '10px 24px' }}>
-              Create booking request →
-            </button>
-          </Link>
+          <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>📭</div>
+          <p>No bookings found for this address.</p>
         </div>
       )}
     </div>
