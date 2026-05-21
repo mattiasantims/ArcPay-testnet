@@ -391,40 +391,82 @@ export default function MerchantProfilePage() {
             </div>
             {isOwner && <button onClick={() => setMode('editPolicy')} className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }}>✏️ Edit policy</button>}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-            {[
-              { label: 'Scheduled tranche',    value: policy.allowScheduledTranche ? '✓ Enabled' : '✗ Disabled', color: policy.allowScheduledTranche ? 'var(--green)' : 'var(--text3)' },
-              { label: 'Non-refundable',        value: `${pct(policy.defaultNonRefundableBps)}%` },
-              { label: 'Initial payment',       value: `${pct(policy.defaultInitialPaymentBps)}%` },
-              { label: 'Tranche payment',       value: `${pct(policy.defaultTrancheBps)}%` },
-              { label: 'Payment due offset',    value: `${policy.paymentDueOffsetDays} min` },
-              { label: 'Payment deadline',      value: `${policy.paymentDeadlineOffsetDays} min` },
-              { label: 'Cancel cutoff',         value: `${policy.cancellationCutoffDays} min` },
-              { label: 'Refund before cutoff',  value: `${pct(policy.refundBpsBeforeCutoff)}%` },
-              { label: 'Refund after cutoff',   value: `${pct(policy.refundBpsAfterCutoff)}%` },
-            ].map(s => (
-              <div key={s.label} style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>{s.label}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: s.color || 'var(--text)' }}>{s.value}</div>
-              </div>
-            ))}
+          {/* ── Sezione 1: Hotel & Travel ── */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Hotel & Travel Default Policy</span>
+              <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: '#07200f', border: '1px solid var(--green-bdr)', color: 'var(--green)', fontWeight: 600 }}>● Always active</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+              {[
+                { label: 'Scheduled tranche',   value: policy.allowScheduledTranche ? '✓ Enabled' : '✗ Disabled', color: policy.allowScheduledTranche ? 'var(--green)' : 'var(--text3)' },
+                { label: 'Non-refundable',       value: `${pct(policy.defaultNonRefundableBps)}%` },
+                { label: 'Initial payment',      value: `${pct(policy.defaultInitialPaymentBps)}%` },
+                { label: 'Tranche %',            value: `${pct(policy.defaultTrancheBps)}%` },
+                { label: 'Payment due offset',   value: `${policy.paymentDueOffsetDays} min` },
+                { label: 'Payment deadline',     value: `${policy.paymentDeadlineOffsetDays} min` },
+                { label: 'Cancel cutoff',        value: `${policy.cancellationCutoffDays} min` },
+                { label: 'Refund before cutoff', value: `${pct(policy.refundBpsBeforeCutoff)}%` },
+                { label: 'Refund after cutoff',  value: `${pct(policy.refundBpsAfterCutoff)}%` },
+              ].map(s => (
+                <div key={s.label} style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>{s.label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: s.color || 'var(--text)' }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* v3 policy — Delayed, Tranche, Refund Claim */}
-          <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-            {[
-              { label: 'Delayed payment',    value: policy.allowDelayedPayment ? `✓ Enabled · ${policy.defaultDelayedPaymentDays} min` : '✗ Disabled', color: policy.allowDelayedPayment ? 'var(--green)' : 'var(--text3)' },
-              { label: 'Online tranche',     value: policy.allowOnlineTranche ? `✓ Enabled · ${pct(policy.defaultOnlineTrancheBps ?? 0)}% / ${policy.defaultOnlineTrancheOffsetDays} min` : '✗ Disabled', color: policy.allowOnlineTranche ? 'var(--green)' : 'var(--text3)' },
-              { label: 'Refund claim',       value: policy.allowRefundClaim ? `✓ Enabled · ${policy.refundClaimWindowDays} min · max ${pct(policy.refundClaimBps ?? 0)}%` : '✗ Disabled', color: policy.allowRefundClaim ? 'var(--green)' : 'var(--text3)' },
-            ].map(s => (
-              <div key={s.label} style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>{s.label}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: s.color || 'var(--text)' }}>{s.value}</div>
+          {/* ── Sezione 2: Online & Luxury ── */}
+          {(() => {
+            const enabled = policy.allowDelayedPayment || policy.allowOnlineTranche
+            return (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Online & Luxury Payment Options</span>
+                  <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: enabled ? '#07200f' : 'var(--surface2)', border: `1px solid ${enabled ? 'var(--green-bdr)' : 'var(--border)'}`, color: enabled ? 'var(--green)' : 'var(--text3)', fontWeight: 600 }}>
+                    {enabled ? '✓ Enabled' : '✗ Disabled'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+                  {[
+                    { label: 'Delayed payment', value: policy.allowDelayedPayment ? `✓ Enabled · ${policy.defaultDelayedPaymentDays} min window` : '✗ Disabled', color: policy.allowDelayedPayment ? 'var(--green)' : 'var(--text3)' },
+                    { label: 'Tranche payment',  value: policy.allowOnlineTranche ? `✓ Enabled · ${pct(policy.defaultOnlineTrancheBps ?? 0)}% / ${policy.defaultOnlineTrancheOffsetDays} min` : '✗ Disabled', color: policy.allowOnlineTranche ? 'var(--green)' : 'var(--text3)' },
+                  ].map(s => (
+                    <div key={s.label} style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>{s.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: s.color }}>{s.value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+            )
+          })()}
 
-          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text3)', lineHeight: 1.5 }}>
+          {/* ── Sezione 3: Refund & Claims ── */}
+          {(() => {
+            const enabled = policy.allowRefundClaim
+            return (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Refund & Claims</span>
+                  <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: enabled ? '#07200f' : 'var(--surface2)', border: `1px solid ${enabled ? 'var(--green-bdr)' : 'var(--border)'}`, color: enabled ? 'var(--green)' : 'var(--text3)', fontWeight: 600 }}>
+                    {enabled ? '✓ Enabled' : '✗ Disabled'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+                  <div style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>Refund claim</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: enabled ? 'var(--green)' : 'var(--text3)' }}>
+                      {enabled ? `✓ Enabled · ${policy.refundClaimWindowDays} min · max ${pct(policy.refundClaimBps ?? 0)}%` : '✗ Disabled'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.5 }}>
             Changing merchant defaults does not modify existing bookings or payment requests.
           </div>
         </div>
