@@ -32,9 +32,7 @@ export function downloadBookingPDF(receipt) {
 
   y = 35
   doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(17,17,17)
-  const bookingLabel = receipt.merchant_booking_number
-    ? `Booking Receipt #${receipt.merchant_booking_number}`
-    : `Booking Receipt · ${receipt.booking_ref || receipt.booking_id}`
+  const bookingLabel = `Booking Receipt · ${receipt.booking_ref || receipt.booking_id}`
   doc.text(bookingLabel, margin, y); y += 10
   doc.setFontSize(28); doc.setFont('helvetica','bold'); doc.setTextColor(39,117,202)
   doc.text(`${receipt.total_amount} USDC`, margin, y); y += 12
