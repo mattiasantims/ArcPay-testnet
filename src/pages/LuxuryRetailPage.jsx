@@ -6,7 +6,8 @@ import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useAccount } from 'wagmi'
 import { isMerchantRegistryConfigured } from '../config.js'
 import { getMerchantByWallet } from '../utils/merchant.js'
-import { buildPaymentUrl, savePaymentRequest } from '../utils/paymentRequest.js'
+import { buildPaymentUrl, buildCommitmentUrl, savePaymentRequest } from '../utils/paymentRequest.js'
+import { getMerchantPolicyByWallet } from '../utils/merchant.js'
 import { generateRef } from '../utils/formatting.js'
 import { shortAddress } from '../utils/wallet.js'
 
@@ -49,16 +50,38 @@ export default function LuxuryRetailPage({ account }) {
     ref:     '',
     note:    '',
   })
-  const [paymentUrl, setPaymentUrl] = useState('')
-  const [copied,     setCopied]     = useState(false)
-  const [error,      setError]      = useState('')
+  const [paymentUrl,  setPaymentUrl]  = useState('')
+  const [copied,      setCopied]      = useState(false)
+  const [error,       setError]       = useState('')
+  const [payType,     setPayType]     = useState('immediate') // immediate | delayed | tranche
+  const [policy,      setPolicy]      = useState(null)
+  // Delayed payment
+  const nowMs = Date.now()
+  const [dueDate,     setDueDate]     = useState('')
+  const [deadline,    setDeadline]    = useState('')
+  // Tranche
+  const [tranche1Pct, setTranche1Pct] = useState(50)
+  const [trancheOffset, setTrancheOffset] = useState(15)
 
-  // Auto-compila il nome dal profilo merchant
+  // Auto-compila nome e policy dal profilo merchant
   useEffect(() => {
     if (!account || !isMerchantRegistryConfigured()) return
     getMerchantByWallet(account).then(m => {
       if (m && m.tradingName) {
         setForm(prev => prev.name ? prev : { ...prev, name: m.tradingName })
+      }
+    }).catch(() => {})
+    getMerchantPolicyByWallet(account).then(pol => {
+      if (!pol) return
+      setPolicy(pol)
+      if (pol.defaultOnlineTrancheBps)      setTranche1Pct(Math.round(pol.defaultOnlineTrancheBps / 100))
+      if (pol.defaultOnlineTrancheOffsetDays) setTrancheOffset(pol.defaultOnlineTrancheOffsetDays)
+      // Pre-fill delayed date from policy
+      if (pol.allowDelayedPayment && pol.defaultDelayedPaymentDays) {
+        const due = new Date(nowMs + pol.defaultDelayedPaymentDays * 60 * 1000)
+        const ddl = new Date(due.getTime() + pol.defaultDelayedPaymentDays * 60 * 1000)
+        setDueDate(due.toISOString().slice(0, 16))
+        setDeadline(ddl.toISOString().slice(0, 16))
       }
     }).catch(() => {})
   }, [account])
@@ -76,7 +99,7 @@ export default function LuxuryRetailPage({ account }) {
     if (!form.amount || parseFloat(form.amount) <= 0)  { setError('Amount required'); return }
     if (!form.ref.trim())                              { setError('Reference required'); return }
 
-    const req = {
+    const base = {
       id:        form.ref,
       merchant:  account,
       amount:    form.amount,
@@ -87,8 +110,36 @@ export default function LuxuryRetailPage({ account }) {
       note:      form.note.trim(),
       createdAt: new Date().toISOString(),
     }
-    savePaymentRequest(req)
-    setPaymentUrl(buildPaymentUrl(req))
+
+    if (payType === 'delayed') {
+      if (!dueDate)    { setError('Due date required for delayed payment'); return }
+      if (!deadline)   { setError('Deadline required for delayed payment'); return }
+      const req = { ...base, type: 'delayed',
+        dueDate:  new Date(dueDate).getTime(),
+        deadline: new Date(deadline).getTime(),
+      }
+      savePaymentRequest(req)
+      setPaymentUrl(buildPaymentUrl(req))
+    } else if (payType === 'tranche') {
+      const total   = parseFloat(form.amount)
+      const t1      = parseFloat((total * tranche1Pct / 100).toFixed(6))
+      const t2      = parseFloat((total - t1).toFixed(6))
+      const due1    = Date.now()
+      const due2    = due1 + trancheOffset * 60 * 1000
+      const ddl1    = due1 + trancheOffset * 60 * 1000
+      const ddl2    = due2 + trancheOffset * 60 * 1000
+      const req = { ...base, type: 'tranche',
+        tranches: [
+          { amount: t1.toString(), dueDate: due1, deadline: ddl1 },
+          { amount: t2.toString(), dueDate: due2, deadline: ddl2 },
+        ],
+      }
+      savePaymentRequest(req)
+      setPaymentUrl(buildPaymentUrl(req))
+    } else {
+      savePaymentRequest(base)
+      setPaymentUrl(buildPaymentUrl(base))
+    }
   }
 
   return (
@@ -167,6 +218,63 @@ export default function LuxuryRetailPage({ account }) {
                 Connect Wallet
               </button>
             ) : (
+              {/* Payment type selector — only if policy allows */}
+              {policy && (policy.allowDelayedPayment || policy.allowOnlineTranche) && (
+                <div style={{ marginBottom: 16 }}>
+                  <label className="label">Payment type</label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {[
+                      { key: 'immediate', label: '⚡ Immediate',      always: true },
+                      { key: 'delayed',   label: '📅 Delayed',        show: policy.allowDelayedPayment },
+                      { key: 'tranche',   label: '📊 Tranche',        show: policy.allowOnlineTranche },
+                    ].filter(o => o.always || o.show).map(o => (
+                      <button key={o.key} onClick={() => setPayType(o.key)}
+                        className={payType === o.key ? 'btn-primary' : 'btn-ghost'}
+                        style={{ fontSize: 12, padding: '6px 14px' }}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Delayed payment fields */}
+              {payType === 'delayed' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <label className="label">Payment due date (min — testnet workaround)</label>
+                    <input type="datetime-local" value={dueDate}
+                      onChange={e => setDueDate(e.target.value)}
+                      style={{ fontFamily: 'var(--mono)', fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label className="label">Merchant cancel deadline</label>
+                    <input type="datetime-local" value={deadline}
+                      onChange={e => setDeadline(e.target.value)}
+                      style={{ fontFamily: 'var(--mono)', fontSize: 12 }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Tranche fields */}
+              {payType === 'tranche' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <label className="label">First tranche %</label>
+                    <input type="number" min="1" max="99" value={tranche1Pct}
+                      onChange={e => setTranche1Pct(Number(e.target.value))} />
+                    {form.amount && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                      {(parseFloat(form.amount||0)*tranche1Pct/100).toFixed(2)} USDC now · {(parseFloat(form.amount||0)*(100-tranche1Pct)/100).toFixed(2)} USDC later
+                    </div>}
+                  </div>
+                  <div>
+                    <label className="label">Second tranche offset (min — testnet)</label>
+                    <input type="number" min="1" value={trancheOffset}
+                      onChange={e => setTrancheOffset(Number(e.target.value))} />
+                  </div>
+                </div>
+              )}
+
               <button onClick={handleCreate} className="btn-primary btn-full" style={{ background: '#1a1530', border: '1px solid #6b44ff', color: '#a78bfa' }}>
                 💎 Generate Luxury Checkout Link
               </button>
