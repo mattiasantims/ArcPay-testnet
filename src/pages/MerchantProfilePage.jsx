@@ -4,7 +4,7 @@ import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { shortAddress } from '../utils/wallet.js'
 import { isMerchantRegistryConfigured, ARCMERCHANT_REGISTRY_ADDRESS, ARCSCAN_BASE } from '../config.js'
 import {
-  getMerchantByWallet, getMerchantWallets, getMerchantPolicyByWallet,
+  getMerchantByWallet, getMerchantWallets, getMerchantPolicyByWallet, getMerchantPolicy,
   registerMerchant, updateMerchantProfile, updateMerchantPolicy,
   addWallet, removeWallet, deactivateMerchant,
   defaultPolicy, defaultPolicyForm, BUSINESS_CATEGORIES,
@@ -62,12 +62,15 @@ export default function MerchantProfilePage() {
 
   async function load() {
     setLoading(true); setError('')
+    // Small delay to let RPC provider initialize on page refresh
+    await new Promise(r => setTimeout(r, 800))
     try {
       const m = await getMerchantByWallet(address)
       setMerchant(m)
       if (m) {
         setForm({ tradingName: m.tradingName, legalName: m.legalName, businessCategory: m.businessCategory, website: m.website, country: m.country, businessAddress: m.businessAddress, businessEmail: m.businessEmail, lei: m.lei, vatOrCompanyId: m.vatOrCompanyId, otherPublicIdentifier: m.otherPublicIdentifier })
-        const p = await getMerchantPolicyByWallet(address)
+        let p = await getMerchantPolicyByWallet(address)
+        if (!p && m.merchantId) p = await getMerchantPolicy(m.merchantId)
         if (p) {
           setPolicy(p)
           // Converti BPS in % per il form
