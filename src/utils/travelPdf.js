@@ -199,7 +199,7 @@ export function downloadTrancheReceiptPDF(receipt) {
 
   y = 38; doc.setTextColor(30, 30, 30)
   doc.setFontSize(16); doc.setFont('helvetica', 'bold')
-  doc.text(`Tranche Payment Receipt — Travel #${receipt.travel_id}`, margin, y); y += 10
+  doc.text(`Tranche Payment Receipt · ${receipt.travel_ref || receipt.travel_id}`, margin, y); y += 10
   doc.setFontSize(13); doc.setFont('helvetica', 'normal')
   doc.text(`${receipt.tranche_amount} USDC`, margin, y); y += 8
   doc.setFontSize(9); doc.text(receipt.tranche_paid_at, margin, y); y += 10
@@ -215,8 +215,7 @@ export function downloadTrancheReceiptPDF(receipt) {
     y += Math.max(6, lines.length * 4)
   }
 
-  addField('Travel ID',       `#${receipt.travel_id}`)
-  addField('Travel Ref',      receipt.travel_ref)
+  addField('Travel Ref',      receipt.travel_ref || receipt.travel_id)
   addField('Customer',        receipt.customer_wallet)
   addField('Agency',          receipt.merchant_wallet)
   addField('Agency Name',     receipt.agency_name)
