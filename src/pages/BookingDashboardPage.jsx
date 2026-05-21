@@ -381,26 +381,26 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
             Closed Bookings
           </h3>
           {closed.map(({ id, booking }) => (
-            <div key={id} className="card" style={{ marginBottom: 8, padding: '12px 16px', opacity: 0.7 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div key={id} className="card" style={{ marginBottom: 8, padding: '14px 16px', opacity: 0.8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <BookingStatusBadge status={booking.status} />
                   <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{booking.bookingRef}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
-                  <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View</button>
-                  </Link>
-                  {(() => { const r = getReceiptForId(receipts, id); return r?.transaction_hash ? (
-                    <a href={`${ARCSCAN_BASE}/tx/${r.transaction_hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                      <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>ArcScan ↗</button>
-                    </a>
-                  ) : null })()}
-                  {(() => { const r = getReceiptForId(receipts, id); return r ? (
-                    <button onClick={() => downloadBookingPDF(r)} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>PDF</button>
-                  ) : null })()}
-                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
+                  <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>View receipt</button>
+                </Link>
+                {(() => { const r = getReceiptForId(receipts, id); return r?.transaction_hash ? (
+                  <a href={`${ARCSCAN_BASE}/tx/${r.transaction_hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                    <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>ArcScan ↗</button>
+                  </a>
+                ) : null })()}
+                {(() => { const r = getReceiptForId(receipts, id); return r ? (
+                  <button onClick={() => downloadBookingPDF(r)} className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>PDF</button>
+                ) : null })()}
               </div>
             </div>
           ))}
