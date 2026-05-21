@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+// v2 policy sections
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { shortAddress } from '../utils/wallet.js'
