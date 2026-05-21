@@ -59,9 +59,6 @@ contract ArcMerchantRegistry {
         bool    allowRefundClaim;
         uint256 refundClaimWindowDays;           // minutes on testnet
         uint256 refundClaimBps;                  // maximum BPS requested through the refund-claim UI
-        // v4
-        bool    allowHotelBooking;
-        bool    allowTravelBooking;
 
         // metadata
         uint256 policyVersion;
@@ -293,8 +290,6 @@ contract ArcMerchantRegistry {
             allowRefundClaim: false,
             refundClaimWindowDays: 14,
             refundClaimBps: 10000,
-            allowHotelBooking: true,
-            allowTravelBooking: true,
             policyVersion: 1,
             updatedAt: block.timestamp
         });
@@ -370,9 +365,7 @@ contract ArcMerchantRegistry {
         uint256 defaultOnlineTrancheOffsetDays,
         bool allowRefundClaim,
         uint256 refundClaimWindowDays,
-        uint256 refundClaimBps,
-        bool allowHotelBooking,
-        bool allowTravelBooking
+        uint256 refundClaimBps
     ) external {
         uint256 mid = walletToMerchantId[msg.sender];
         require(mid != 0, "No merchant linked to this wallet");
@@ -416,8 +409,6 @@ contract ArcMerchantRegistry {
         pol.allowRefundClaim = allowRefundClaim;
         pol.refundClaimWindowDays = refundClaimWindowDays;
         pol.refundClaimBps = refundClaimBps;
-        pol.allowHotelBooking = allowHotelBooking;
-        pol.allowTravelBooking = allowTravelBooking;
         pol.policyVersion = newPolicyVersion;
         pol.updatedAt = block.timestamp;
 
@@ -495,7 +486,7 @@ contract ArcMerchantRegistry {
 
     function getMerchantPolicyByWallet(address wallet) external view returns (MerchantPolicy memory) {
         uint256 mid = walletToMerchantId[wallet];
-        require(mid != 0, "Wallet not linked to any merchant");
+        if (mid == 0) return merchantPolicies[0];
         return merchantPolicies[mid];
     }
 

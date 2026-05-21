@@ -524,16 +524,6 @@
             "internalType": "uint256",
             "name": "updatedAt",
             "type": "uint256"
-          },
-          {
-            "name": "allowHotelBooking",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "allowTravelBooking",
-            "type": "bool",
-            "internalType": "bool"
           }
         ],
         "internalType": "struct ArcMerchantRegistry.MerchantPolicy",
@@ -650,16 +640,6 @@
             "internalType": "uint256",
             "name": "updatedAt",
             "type": "uint256"
-          },
-          {
-            "name": "allowHotelBooking",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "allowTravelBooking",
-            "type": "bool",
-            "internalType": "bool"
           }
         ],
         "internalType": "struct ArcMerchantRegistry.MerchantPolicy",
@@ -916,16 +896,6 @@
         "internalType": "uint256",
         "name": "refundClaimBps",
         "type": "uint256"
-      },
-      {
-        "name": "allowHotelBooking",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "allowTravelBooking",
-        "type": "bool",
-        "internalType": "bool"
       }
     ],
     "name": "updateMerchantPolicy",
