@@ -1,0 +1,231 @@
+[
+  {
+    "type": "function",
+    "name": "payAndCreateProof",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "name": "payee",
+        "type": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "name": "paymentRef",
+        "type": "string"
+      },
+      {
+        "name": "purposeCode",
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "proofId",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getProof",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "proofId",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "proofId",
+            "type": "uint256"
+          },
+          {
+            "name": "payer",
+            "type": "address"
+          },
+          {
+            "name": "payee",
+            "type": "address"
+          },
+          {
+            "name": "token",
+            "type": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "name": "paymentRef",
+            "type": "string"
+          },
+          {
+            "name": "purposeCode",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "metadataHash",
+            "type": "bytes32"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256"
+          },
+          {
+            "name": "createdBlock",
+            "type": "uint256"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getProofsSent",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getProofsReceived",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "proofExists",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "proofId",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "totalProofs",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "ProofCreated",
+    "anonymous": false,
+    "inputs": [
+      {
+        "name": "proofId",
+        "type": "uint256",
+        "indexed": true
+      },
+      {
+        "name": "payer",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "payee",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": false
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "paymentRef",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "purposeCode",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "createdBlock",
+        "type": "uint256",
+        "indexed": false
+      }
+    ]
+  }
+]

@@ -1,0 +1,983 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "MerchantDeactivated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "policyVersion",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "allowScheduledTranche",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "MerchantPolicyUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "profileVersion",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "oldProfileHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "newProfileHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "MerchantProfileUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "ownerWallet",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "profileHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "MerchantRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "wallet",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "MerchantWalletAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "wallet",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "MerchantWalletRemoved",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "wallet",
+        "type": "address"
+      }
+    ],
+    "name": "addWallet",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "deactivateMerchant",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getMerchant",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "merchantId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "ownerWallet",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "tradingName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "legalName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "businessCategory",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "website",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "country",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "businessAddress",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "businessEmail",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "lei",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "vatOrCompanyId",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "otherPublicIdentifier",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "profileHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "profileVersion",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "createdAt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "updatedAt",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct ArcMerchantRegistry.Merchant",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "wallet",
+        "type": "address"
+      }
+    ],
+    "name": "getMerchantByWallet",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "merchantId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "ownerWallet",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "tradingName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "legalName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "businessCategory",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "website",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "country",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "businessAddress",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "businessEmail",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "lei",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "vatOrCompanyId",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "otherPublicIdentifier",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "profileHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "profileVersion",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "createdAt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "updatedAt",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct ArcMerchantRegistry.Merchant",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "wallet",
+        "type": "address"
+      }
+    ],
+    "name": "getMerchantIdByWallet",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getMerchantPolicy",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "allowScheduledTranche",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultNonRefundableBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultInitialPaymentBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultTrancheBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "paymentDueOffsetDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "paymentDeadlineOffsetDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "cancellationCutoffDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "refundBpsBeforeCutoff",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "refundBpsAfterCutoff",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "allowDelayedPayment",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultDelayedPaymentDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "allowOnlineTranche",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultOnlineTrancheBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultOnlineTrancheOffsetDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "allowRefundClaim",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "refundClaimWindowDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "refundClaimBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "policyVersion",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "updatedAt",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct ArcMerchantRegistry.MerchantPolicy",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "wallet",
+        "type": "address"
+      }
+    ],
+    "name": "getMerchantPolicyByWallet",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "allowScheduledTranche",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultNonRefundableBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultInitialPaymentBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultTrancheBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "paymentDueOffsetDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "paymentDeadlineOffsetDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "cancellationCutoffDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "refundBpsBeforeCutoff",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "refundBpsAfterCutoff",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "allowDelayedPayment",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultDelayedPaymentDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "allowOnlineTranche",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultOnlineTrancheBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "defaultOnlineTrancheOffsetDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "allowRefundClaim",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "refundClaimWindowDays",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "refundClaimBps",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "policyVersion",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "updatedAt",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct ArcMerchantRegistry.MerchantPolicy",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getMerchantWallets",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "wallet",
+        "type": "address"
+      }
+    ],
+    "name": "isWalletLinked",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "merchantCounter",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      }
+    ],
+    "name": "merchantExists",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "tradingName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "legalName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "businessCategory",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "website",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "country",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "businessAddress",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "businessEmail",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "lei",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "vatOrCompanyId",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "otherPublicIdentifier",
+        "type": "string"
+      }
+    ],
+    "name": "registerMerchant",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "merchantId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "wallet",
+        "type": "address"
+      }
+    ],
+    "name": "removeWallet",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalMerchants",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "allowScheduledTranche",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "defaultNonRefundableBps",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "defaultInitialPaymentBps",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "defaultTrancheBps",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "paymentDueOffsetDays",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "paymentDeadlineOffsetDays",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "cancellationCutoffDays",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "refundBpsBeforeCutoff",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "refundBpsAfterCutoff",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "allowDelayedPayment",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "defaultDelayedPaymentDays",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "allowOnlineTranche",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "defaultOnlineTrancheBps",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "defaultOnlineTrancheOffsetDays",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "allowRefundClaim",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "refundClaimWindowDays",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "refundClaimBps",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateMerchantPolicy",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "tradingName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "legalName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "businessCategory",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "website",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "country",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "businessAddress",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "businessEmail",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "lei",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "vatOrCompanyId",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "otherPublicIdentifier",
+        "type": "string"
+      }
+    ],
+    "name": "updateMerchantProfile",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "walletToMerchantId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
