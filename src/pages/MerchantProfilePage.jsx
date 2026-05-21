@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-// v2 policy sections
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { shortAddress } from '../utils/wallet.js'
@@ -89,6 +88,8 @@ export default function MerchantProfilePage() {
             allowRefundClaim:               p.allowRefundClaim ?? false,
             refundClaimWindowDays:          p.refundClaimWindowDays ?? 14,
             refundClaimBps:                 Math.round((p.refundClaimBps ?? 10000) / 100),
+            allowHotelBooking:              p.allowHotelBooking ?? true,
+            allowTravelBooking:             p.allowTravelBooking ?? true,
           })
         }
         const ws = await getMerchantWallets(m.merchantId)
@@ -131,8 +132,8 @@ export default function MerchantProfilePage() {
   async function handleUpdatePolicy() {
     const dueOffset      = parseInt(policyForm.paymentDueOffsetDays      || 5)
     const deadlineOffset = parseInt(policyForm.paymentDeadlineOffsetDays || 10)
-    const fixedDue      = Math.min(dueOffset, deadlineOffset)
-    const fixedDeadline = Math.max(dueOffset, deadlineOffset)
+    const fixedDue      = Math.max(dueOffset, deadlineOffset)
+    const fixedDeadline = Math.min(dueOffset, deadlineOffset)
     setSavingPol(true); setError(''); setSuccess('')
     try {
       await updateMerchantPolicy(address, {
@@ -155,6 +156,8 @@ export default function MerchantProfilePage() {
         allowRefundClaim:               policyForm.allowRefundClaim               ?? false,
         refundClaimWindowDays:          parseInt(policyForm.refundClaimWindowDays           || 14),
         refundClaimBps:                 bps(Number(policyForm.refundClaimBps                || 100)),
+        allowHotelBooking:              policyForm.allowHotelBooking              ?? true,
+        allowTravelBooking:             policyForm.allowTravelBooking             ?? true,
       })
       setSuccess('Policy updated on-chain.')
       // Aggiorna stato locale direttamente — non ricaricare dal RPC che potrebbe essere stale
@@ -177,6 +180,8 @@ export default function MerchantProfilePage() {
         allowRefundClaim:               policyForm.allowRefundClaim               ?? false,
         refundClaimWindowDays:          parseInt(policyForm.refundClaimWindowDays           || 14),
         refundClaimBps:                 bps(Number(policyForm.refundClaimBps                || 100)),
+        allowHotelBooking:              policyForm.allowHotelBooking              ?? true,
+        allowTravelBooking:             policyForm.allowTravelBooking             ?? true,
       })
       setMode('view')
     } catch (e) { setError(e.message || 'Policy update failed.') }
@@ -396,11 +401,15 @@ export default function MerchantProfilePage() {
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Hotel & Travel Default Policy</span>
-              <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: '#07200f', border: '1px solid var(--green-bdr)', color: 'var(--green)', fontWeight: 600 }}>● Always active</span>
+              <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: (policy.allowHotelBooking || policy.allowTravelBooking) ? '#07200f' : 'var(--surface2)', border: `1px solid ${(policy.allowHotelBooking || policy.allowTravelBooking) ? 'var(--green-bdr)' : 'var(--border)'}`, color: (policy.allowHotelBooking || policy.allowTravelBooking) ? 'var(--green)' : 'var(--text3)', fontWeight: 600 }}>
+                {(policy.allowHotelBooking || policy.allowTravelBooking) ? '✓ Enabled' : '✗ Disabled'}
+              </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
               {[
-                { label: 'Scheduled tranche',   value: policy.allowScheduledTranche ? '✓ Enabled' : '✗ Disabled', color: policy.allowScheduledTranche ? 'var(--green)' : 'var(--text3)' },
+                { label: 'Hotel booking',        value: policy.allowHotelBooking ? '✓ Enabled' : '✗ Disabled', color: policy.allowHotelBooking ? 'var(--green)' : 'var(--text3)' },
+              { label: 'Travel booking',       value: policy.allowTravelBooking ? '✓ Enabled' : '✗ Disabled', color: policy.allowTravelBooking ? 'var(--green)' : 'var(--text3)' },
+              { label: 'Scheduled tranche',   value: policy.allowScheduledTranche ? '✓ Enabled' : '✗ Disabled', color: policy.allowScheduledTranche ? 'var(--green)' : 'var(--text3)' },
                 { label: 'Non-refundable',       value: `${pct(policy.defaultNonRefundableBps)}%` },
                 { label: 'Initial payment',      value: `${pct(policy.defaultInitialPaymentBps)}%` },
                 { label: 'Tranche %',            value: `${pct(policy.defaultTrancheBps)}%` },
@@ -481,6 +490,30 @@ export default function MerchantProfilePage() {
             These defaults pre-fill new Hotel and Travel payment request forms. They do not modify existing bookings.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Hotel booking toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Allow hotel booking</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>Customers can make hotel booking deposits via ArcBookingEscrow</div>
+              </div>
+              <button onClick={() => setPolicyForm(p => ({ ...p, allowHotelBooking: !p.allowHotelBooking }))}
+                style={{ padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: policyForm.allowHotelBooking ? 'none' : '1px solid var(--text3)', background: policyForm.allowHotelBooking ? 'var(--green)' : 'transparent', color: policyForm.allowHotelBooking ? '#000' : 'var(--text)' }}>
+                {policyForm.allowHotelBooking ? 'Enabled' : 'Enable'}
+              </button>
+            </div>
+
+            {/* Travel booking toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Allow travel booking</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>Customers can make travel bookings with tranche payments via ArcTravelEscrow</div>
+              </div>
+              <button onClick={() => setPolicyForm(p => ({ ...p, allowTravelBooking: !p.allowTravelBooking }))}
+                style={{ padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: policyForm.allowTravelBooking ? 'none' : '1px solid var(--text3)', background: policyForm.allowTravelBooking ? 'var(--green)' : 'transparent', color: policyForm.allowTravelBooking ? '#000' : 'var(--text)' }}>
+                {policyForm.allowTravelBooking ? 'Enabled' : 'Enable'}
+              </button>
+            </div>
+
             {/* Scheduled tranche toggle */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
               <div>
@@ -509,7 +542,7 @@ export default function MerchantProfilePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               {[
                 { label: 'Payment due offset (min — testnet workaround)', name: 'paymentDueOffsetDays' },
-                { label: 'Payment deadline offset (min — must be ≥ due offset)', name: 'paymentDeadlineOffsetDays' },
+                { label: 'Payment deadline offset (min — must be ≤ due offset)', name: 'paymentDeadlineOffsetDays' },
                 { label: 'Cancellation cutoff (min)', name: 'cancellationCutoffDays' },
               ].map(f => (
                 <div key={f.name}>
