@@ -227,82 +227,23 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
           <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             ⏱ Upcoming Deadlines — cancellation still possible
           </h3>
-          {upcoming.map(({ id, booking }) => {
-            const isMerchant = account?.toLowerCase() === booking.merchant?.toLowerCase()
-            const isGuest    = account?.toLowerCase() === booking.guest?.toLowerCase()
-            return (
-              <div key={id} className="card" style={{ marginBottom: 10, padding: '16px 18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                  <div>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                      <BookingStatusBadge status={booking.status} />
-                    </div>
-                    <div style={{ fontSize: 13, fontFamily: 'var(--mono)', marginBottom: 4 }}>{booking.bookingRef}</div>
-                    <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>
-                      ⏱ {formatDeadlineCountdown(booking.cancellationDeadline)} remaining
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 700, color: 'var(--usdc)' }}>
-                      {formatUsdc(booking.totalAmount)} USDC
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 2 }}>
-                      {formatUsdc(booking.refundableAmount)} USDC in escrow
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      {formatUsdc(booking.nonRefundableAmount)} USDC non-refundable
-                    </div>
-                  </div>
+          {upcoming.map(({ id, booking }) => (
+            <div key={id} className="card" style={{ marginBottom: 8, padding: '12px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <BookingStatusBadge status={booking.status} />
+                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{booking.bookingRef}</span>
+                  <span style={{ fontSize: 11, color: 'var(--green)' }}>⏱ {formatDeadlineCountdown(booking.cancellationDeadline)}</span>
                 </div>
-
-                {/* Hotel instructions */}
-                {role === 'merchant' && (
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 6, lineHeight: 1.6 }}>
-                    <strong style={{ color: 'var(--text)' }}>Hotel actions:</strong> Before the deadline you can cancel this booking on behalf of the guest
-                    (e.g. if they requested cancellation via email or WhatsApp). The refundable portion will be returned to the guest automatically.
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--usdc)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
                   <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 12px' }}>View receipt</button>
+                    <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
                   </Link>
-                  {(() => { const r = getReceiptForId(receipts, id); return r?.transaction_hash ? (
-                    <a href={`${ARCSCAN_BASE}/tx/${r.transaction_hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                      <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 12px' }}>ArcScan ↗</button>
-                    </a>
-                  ) : null })()}
-                  {(() => { const r = getReceiptForId(receipts, id); return r ? (
-                    <button onClick={() => downloadBookingPDF(r)} className="btn-ghost" style={{ fontSize: 11, padding: '6px 12px' }}>PDF</button>
-                  ) : null })()}
-                  {/* Hotel: process guest cancellation */}
-                  {role === 'merchant' && isMerchant && (
-                    <button
-                      onClick={() => handleProcessCancellation(id)}
-                      disabled={cancelling === id}
-                      style={{ fontSize: 11, padding: '6px 14px', background: '#1a1200', border: '1px solid #f0c040', color: '#f0c040', borderRadius: 8, cursor: 'pointer', fontWeight: 500 }}>
-                      {cancelling === id ? '⏳ Processing...' : '✉️ Process guest cancellation'}
-                    </button>
-                  )}
-                  {/* Guest: cancel directly */}
-                  {role === 'guest' && isGuest && (
-                    <button
-                      onClick={() => handleProcessCancellation(id)}
-                      disabled={cancelling === id}
-                      style={{ fontSize: 11, padding: '6px 14px', background: '#1a0808', border: '1px solid #f04f4f', color: '#f08080', borderRadius: 8, cursor: 'pointer', fontWeight: 500 }}>
-                      {cancelling === id ? '⏳ Cancelling...' : '✕ Cancel booking'}
-                    </button>
-                  )}
-                  {/* Wallet not matching — show hint */}
-                  {role === 'merchant' && !isMerchant && account && (
-                    <span style={{ fontSize: 11, color: 'var(--text3)', alignSelf: 'center' }}>
-                      Connect hotel wallet to cancel
-                    </span>
-                  )}
                 </div>
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -317,60 +258,24 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
             {role === 'merchant' && ' As the hotel, click "Release escrow to hotel" to receive the funds.'}
             {role === 'guest' && ' The hotel can now release the escrow. You can also trigger the release — the funds will go to the hotel.'}
           </div>
-          {releasable.map(({ id, booking }) => {
-            const isMerchant = account?.toLowerCase() === booking.merchant?.toLowerCase()
-            return (
-              <div key={id} className="card" style={{ marginBottom: 10, padding: '16px 18px', borderColor: '#f0c04044', background: '#1a1200' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 11, color: 'var(--yellow)', background: '#f0c04011', border: '1px solid #f0c04044', borderRadius: 20, padding: '2px 8px' }}>
-                        Deadline passed
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 13, fontFamily: 'var(--mono)', marginBottom: 2 }}>{booking.bookingRef}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>Cancellation window closed</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 700, color: 'var(--yellow)' }}>
-                      {formatUsdc(booking.refundableAmount)} USDC
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text2)' }}>escrow to release to hotel</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      + {formatUsdc(booking.nonRefundableAmount)} USDC already received
-                    </div>
-                  </div>
+          {releasable.map(({ id, booking }) => (
+            <div key={id} className="card" style={{ marginBottom: 8, padding: '12px 16px', borderColor: '#f0c04044' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: '#f0c04011', border: '1px solid #f0c04044', color: 'var(--yellow)', fontFamily: 'var(--mono)' }}>
+                    Ready to release
+                  </span>
+                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{booking.bookingRef}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => handleRelease(id)}
-                    disabled={releasing === id || !account}
-                    className="btn-primary"
-                    style={{ fontSize: 12, padding: '8px 18px' }}>
-                    {releasing === id
-                      ? <><span className="spinner" />Releasing...</>
-                      : '🏨 Release escrow to hotel'}
-                  </button>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--usdc)' }}>{formatUsdc(booking.totalAmount)} USDC</span>
                   <Link to={`/booking/${id}?mode=${role}`} style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '8px 12px' }}>View receipt</button>
+                    <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
                   </Link>
-                  {(() => { const r = getReceiptForId(receipts, id); return r?.transaction_hash ? (
-                    <a href={`${ARCSCAN_BASE}/tx/${r.transaction_hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                      <button className="btn-ghost" style={{ fontSize: 11, padding: '8px 12px' }}>ArcScan ↗</button>
-                    </a>
-                  ) : null })()}
-                  {(() => { const r = getReceiptForId(receipts, id); return r ? (
-                    <button onClick={() => downloadBookingPDF(r)} className="btn-ghost" style={{ fontSize: 11, padding: '8px 12px' }}>PDF</button>
-                  ) : null })()}
                 </div>
-                {!account && (
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
-                    Connect wallet to release escrow.
-                  </div>
-                )}
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
       )}
 
