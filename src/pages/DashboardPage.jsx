@@ -205,35 +205,77 @@ export default function DashboardPage({ account, onConnect, connecting }) {
         </div>
       )}
 
-      {/* Commitments section */}
-      {commitments.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            📅 Delayed & Tranche Commitments ({commitments.length})
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {commitments.map(cm => (
-              <div key={cm.commitmentId} className="card" style={{ padding: '12px 16px', borderColor: cm.status === 0 ? 'var(--border)' : undefined }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontFamily: 'var(--mono)', fontWeight: 600, background: (COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)') + '22', color: COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)', border: `1px solid ${(COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)')}44` }}>
-                      {COMMITMENT_STATUS_LABEL[cm.status]} · {COMMITMENT_TYPE_LABEL[cm.type]}
-                    </span>
-                    <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{cm.ref}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>{shortAddress(cm.customer)}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{cm.totalAmount} USDC</span>
-                    <Link to={`/commitment/${cm.commitmentId}?mode=merchant`} style={{ textDecoration: 'none' }}>
-                      <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
-                    </Link>
-                  </div>
-                </div>
+      {/* Commitments section — delayed & tranche */}
+      {commitments.length > 0 && (() => {
+        const now = Math.floor(Date.now() / 1000)
+        const active    = commitments.filter(c => c.status === 0)
+        const overdue   = active.filter(c => now >= (c.deadline || c.trancheDeadlines?.[c.tranchesPaidCount] || 0))
+        const fulfilled = commitments.filter(c => c.status === 1)
+        const cancelled = commitments.filter(c => c.status === 2 || c.status === 3)
+
+        function CommitRow({ cm }) {
+          const isOverdue = cm.status === 0 && now >= (cm.deadline || cm.trancheDeadlines?.[cm.tranchesPaidCount] || 0)
+          const statusColor = isOverdue ? '#f08080' : COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)'
+          const statusLabel = isOverdue ? 'Overdue' : COMMITMENT_STATUS_LABEL[cm.status]
+          return (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: statusColor }}>● {statusLabel}</span>
+                <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{cm.ref}</span>
+                <span style={{ fontSize: 11, color: 'var(--text3)' }}>{COMMITMENT_TYPE_LABEL[cm.type]} · {shortAddress(cm.customer)}</span>
               </div>
-            ))}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{cm.totalAmount} USDC</span>
+                <Link to={`/commitment/${cm.commitmentId}?mode=merchant`} style={{ textDecoration: 'none' }}>
+                  <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
+                </Link>
+              </div>
+            </div>
+          )
+        }
+
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+              📅 Delayed & Tranche Payments ({commitments.length})
+            </h3>
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              {overdue.length > 0 && (
+                <div>
+                  <div style={{ padding: '8px 16px', background: '#1a0808', fontSize: 11, fontWeight: 700, color: '#f08080', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    ⚠️ Overdue ({overdue.length})
+                  </div>
+                  {overdue.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
+                </div>
+              )}
+              {active.filter(cm => !(now >= (cm.deadline || cm.trancheDeadlines?.[cm.tranchesPaidCount] || 0))).length > 0 && (
+                <div>
+                  <div style={{ padding: '8px 16px', background: 'var(--surface2)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Active ({active.length - overdue.length})
+                  </div>
+                  {active.filter(cm => !(now >= (cm.deadline || cm.trancheDeadlines?.[cm.tranchesPaidCount] || 0))).map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
+                </div>
+              )}
+              {fulfilled.length > 0 && (
+                <div>
+                  <div style={{ padding: '8px 16px', background: 'var(--surface2)', fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Fulfilled ({fulfilled.length})
+                  </div>
+                  {fulfilled.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
+                </div>
+              )}
+              {cancelled.length > 0 && (
+                <div>
+                  <div style={{ padding: '8px 16px', background: 'var(--surface2)', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Cancelled / Expired ({cancelled.length})
+                  </div>
+                  {cancelled.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Table */}
       {receipts.length === 0 && !loading && merchantAddr && (

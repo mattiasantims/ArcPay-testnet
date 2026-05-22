@@ -181,49 +181,67 @@ export default function MyPaymentsPage() {
         </div>
       ) : (
         <>
-        {/* Commitments section */}
-        {commitments.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-              📅 My Commitments ({commitments.length})
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {commitments.map(cm => {
-                const nextTranche = cm.type === 1 ? cm.trancheAmounts.findIndex((_, i) => !cm.tranchePaid[i]) : -1
-                const canPayDelayed = cm.type === 0 && cm.status === 0 && !cm.paid && now >= cm.dueDate
-                const canPayTranche = cm.type === 1 && cm.status === 0 && nextTranche >= 0 && now >= (cm.trancheDueDates[nextTranche] || 0)
-                return (
-                  <div key={cm.commitmentId} className="card" style={{ padding: '12px 16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontFamily: 'var(--mono)', fontWeight: 600, background: (COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)') + '22', color: COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)', border: `1px solid ${(COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)')}44` }}>
-                          {COMMITMENT_STATUS_LABEL[cm.status]} · {COMMITMENT_TYPE_LABEL[cm.type]}
-                        </span>
-                        <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{cm.ref}</span>
-                      </div>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--usdc)' }}>{cm.totalAmount} USDC</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <Link to={`/commitment/${cm.commitmentId}`} style={{ textDecoration: 'none' }}>
-                        <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
-                      </Link>
-                      {canPayDelayed && (
-                        <button onClick={() => handlePay(cm)} disabled={acting === cm.commitmentId} className="btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}>
-                          {acting === cm.commitmentId ? '...' : '✅ Pay now'}
-                        </button>
-                      )}
-                      {canPayTranche && (
-                        <button onClick={() => handlePayTranche(cm, nextTranche)} disabled={acting === `${cm.commitmentId}-${nextTranche}`} className="btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}>
-                          {acting === `${cm.commitmentId}-${nextTranche}` ? '...' : `✅ Pay tranche ${nextTranche + 1} (${cm.trancheAmounts[nextTranche]} USDC)`}
-                        </button>
-                      )}
-                    </div>
+        {/* Commitments section — booking-style layout */}
+        {commitments.length > 0 && (() => {
+          const active    = commitments.filter(c => c.status === 0)
+          const fulfilled = commitments.filter(c => c.status === 1)
+          const cancelled = commitments.filter(c => c.status === 2 || c.status === 3)
+          const overdue   = active.filter(cm => now >= (cm.deadline || cm.trancheDeadlines?.[cm.tranchesPaidCount] || 0))
+
+          function CommitRow({ cm }) {
+            const nextTranche   = cm.type === 1 ? cm.trancheAmounts.findIndex((_, i) => !cm.tranchePaid[i]) : -1
+            const canPayDelayed = cm.type === 0 && cm.status === 0 && !cm.paid && now >= cm.dueDate
+            const canPayTranche = cm.type === 1 && cm.status === 0 && nextTranche >= 0 && now >= (cm.trancheDueDates[nextTranche] || 0)
+            const isOverdue     = cm.status === 0 && now >= (cm.deadline || cm.trancheDeadlines?.[cm.tranchesPaidCount] || 0)
+            const statusColor   = isOverdue ? '#f08080' : COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)'
+            const statusLabel   = isOverdue ? 'Overdue' : COMMITMENT_STATUS_LABEL[cm.status]
+            return (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: statusColor }}>● {statusLabel}</span>
+                    <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{cm.ref}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>{COMMITMENT_TYPE_LABEL[cm.type]}</span>
                   </div>
-                )
-              })}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Link to={`/commitment/${cm.commitmentId}`} style={{ textDecoration: 'none' }}>
+                      <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
+                    </Link>
+                    {canPayDelayed && (
+                      <button onClick={() => handlePay(cm)} disabled={acting === cm.commitmentId} className="btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}>
+                        {acting === cm.commitmentId ? '...' : '✅ Pay now'}
+                      </button>
+                    )}
+                    {canPayTranche && (
+                      <button onClick={() => handlePayTranche(cm, nextTranche)} disabled={acting === `${cm.commitmentId}-${nextTranche}`} className="btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}>
+                        {acting === `${cm.commitmentId}-${nextTranche}` ? '...' : `✅ Pay tranche ${nextTranche + 1} (${cm.trancheAmounts[nextTranche]} USDC)`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--usdc)', flexShrink: 0 }}>{cm.totalAmount} USDC</span>
+              </div>
+            )
+          }
+
+          return (
+            <div style={{ marginBottom: 20 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                📅 Delayed & Tranche Payments ({commitments.length})
+              </h3>
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                {overdue.length > 0 && <div style={{ padding: '8px 16px', background: '#1a0808', fontSize: 11, fontWeight: 700, color: '#f08080', textTransform: 'uppercase', letterSpacing: '0.06em' }}>⚠️ Overdue ({overdue.length})</div>}
+                {overdue.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
+                {active.filter(cm => !(now >= (cm.deadline || 0))).length > 0 && <div style={{ padding: '8px 16px', background: 'var(--surface2)', fontSize: 11, fontWeight: 700, color: 'var(--usdc)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Active ({active.length - overdue.length})</div>}
+                {active.filter(cm => !(now >= (cm.deadline || 0))).map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
+                {fulfilled.length > 0 && <div style={{ padding: '8px 16px', background: 'var(--surface2)', fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Fulfilled ({fulfilled.length})</div>}
+                {fulfilled.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
+                {cancelled.length > 0 && <div style={{ padding: '8px 16px', background: 'var(--surface2)', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Cancelled / Expired ({cancelled.length})</div>}
+                {cancelled.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Immediate payments */}
         {payments.length === 0 && commitments.length === 0 ? (
