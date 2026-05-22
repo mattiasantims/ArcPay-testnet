@@ -11,7 +11,6 @@ import { ARCPROOF_ADDRESS, ARCSCAN_BASE, isCommitmentContractConfigured } from '
 import ArcProofABI from '../abis/ArcProof.json'
 import { getCachedTxHash } from '../utils/paymentRequest.js'
 import { fetchCustomerCommitmentIds, fetchCommitment, fulfillDelayedCommitment, fulfillTranche, COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL } from '../utils/commitment.js'
-import { isCommitmentContractConfigured } from '../config.js'
 import { formatUsdc, formatTs, recoverTxHash } from '../utils/receipts.js'
 import { shortAddress } from '../utils/wallet.js'
 
