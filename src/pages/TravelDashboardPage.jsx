@@ -10,7 +10,6 @@ import {
 } from '../utils/travel.js'
 import { isValidAddress, shortAddress } from '../utils/wallet.js'
 import { isTravelContractConfigured, isMerchantRegistryConfigured, ARCSCAN_BASE } from '../config.js'
-import { downloadTravelPDF } from '../utils/travelPdf.js'
 import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
 import { downloadTravelCSV } from '../utils/travelCsv.js'
 

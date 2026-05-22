@@ -7,9 +7,10 @@ import { wagmiConfig } from '../walletConfig.js'
 import { getPublicClient } from '../utils/wallet.js'
 import { getMerchantByWallet } from '../utils/merchant.js'
 import { isMerchantRegistryConfigured } from '../config.js'
-import { ARCPROOF_ADDRESS, ARCSCAN_BASE } from '../config.js'
+import { ARCPROOF_ADDRESS, ARCSCAN_BASE, isCommitmentContractConfigured } from '../config.js'
 import ArcProofABI from '../abis/ArcProof.json'
 import { getCachedTxHash } from '../utils/paymentRequest.js'
+import { fetchCustomerCommitmentIds, fetchCommitment, fulfillDelayedCommitment, fulfillTranche, COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL } from '../utils/commitment.js'
 import { formatUsdc, formatTs, recoverTxHash } from '../utils/receipts.js'
 import { shortAddress } from '../utils/wallet.js'
 
@@ -40,8 +41,10 @@ async function fetchProof(proofId) {
 export default function MyPaymentsPage() {
   const { address, isConnected } = useAccount()
   const { open } = useWeb3Modal()
-  const [payments, setPayments] = useState([])
-  const [loading, setLoading]   = useState(false)
+  const [payments,    setPayments]    = useState([])
+  const [commitments, setCommitments] = useState([])
+  const [loading,     setLoading]     = useState(false)
+  const [acting,      setActing]      = useState(null)
 
   useEffect(() => {
     if (!isConnected || !address) return
@@ -62,8 +65,41 @@ export default function MyPaymentsPage() {
         return { ...p, txHash, merchantName }
       }))
       setPayments(withTx)
+
+      // Load commitments
+      if (isCommitmentContractConfigured()) {
+        try {
+          const ids = await fetchCustomerCommitmentIds(address)
+          const list = []
+          for (const id of [...ids].reverse()) {
+            const cm = await fetchCommitment(id)
+            if (cm) list.push(cm)
+          }
+          setCommitments(list)
+        } catch {}
+      }
     }).finally(() => setLoading(false))
   }, [address, isConnected])
+
+  async function handlePay(cm) {
+    setActing(cm.commitmentId)
+    try {
+      await fulfillDelayedCommitment(address, cm.commitmentId)
+      const updated = await fetchCommitment(cm.commitmentId)
+      setCommitments(prev => prev.map(c => c.commitmentId === cm.commitmentId ? updated : c))
+    } catch(e) { alert(e.message || 'Transaction failed') }
+    finally { setActing(null) }
+  }
+
+  async function handlePayTranche(cm, idx) {
+    setActing(`${cm.commitmentId}-${idx}`)
+    try {
+      await fulfillTranche(address, cm.commitmentId, idx)
+      const updated = await fetchCommitment(cm.commitmentId)
+      setCommitments(prev => prev.map(c => c.commitmentId === cm.commitmentId ? updated : c))
+    } catch(e) { alert(e.message || 'Transaction failed') }
+    finally { setActing(null) }
+  }
 
   function exportCSV() {
     const rows = [
@@ -97,6 +133,8 @@ export default function MyPaymentsPage() {
   }
 
   const total = payments.reduce((s, p) => s + Number(formatUsdc(p.amount)), 0).toFixed(2)
+  const now = Math.floor(Date.now() / 1000)
+  const pendingCommitments = commitments.filter(c => c.status === 0)
 
   if (!isConnected) return (
     <div className="card fade-up" style={{ textAlign: 'center', padding: 40 }}>
@@ -141,11 +179,58 @@ export default function MyPaymentsPage() {
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
           <span className="spinner" /> Loading payments...
         </div>
-      ) : payments.length === 0 ? (
-        <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
-          No payments found for this wallet.
-        </div>
       ) : (
+        <>
+        {/* Commitments section */}
+        {commitments.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+              📅 My Commitments ({commitments.length})
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {commitments.map(cm => {
+                const nextTranche = cm.type === 1 ? cm.trancheAmounts.findIndex((_, i) => !cm.tranchePaid[i]) : -1
+                const canPayDelayed = cm.type === 0 && cm.status === 0 && !cm.paid && now >= cm.dueDate
+                const canPayTranche = cm.type === 1 && cm.status === 0 && nextTranche >= 0 && now >= (cm.trancheDueDates[nextTranche] || 0)
+                return (
+                  <div key={cm.commitmentId} className="card" style={{ padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontFamily: 'var(--mono)', fontWeight: 600, background: (COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)') + '22', color: COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)', border: `1px solid ${(COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)')}44` }}>
+                          {COMMITMENT_STATUS_LABEL[cm.status]} · {COMMITMENT_TYPE_LABEL[cm.type]}
+                        </span>
+                        <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{cm.ref}</span>
+                      </div>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--usdc)' }}>{cm.totalAmount} USDC</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <Link to={`/commitment/${cm.commitmentId}`} style={{ textDecoration: 'none' }}>
+                        <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
+                      </Link>
+                      {canPayDelayed && (
+                        <button onClick={() => handlePay(cm)} disabled={acting === cm.commitmentId} className="btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}>
+                          {acting === cm.commitmentId ? '...' : '✅ Pay now'}
+                        </button>
+                      )}
+                      {canPayTranche && (
+                        <button onClick={() => handlePayTranche(cm, nextTranche)} disabled={acting === `${cm.commitmentId}-${nextTranche}`} className="btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}>
+                          {acting === `${cm.commitmentId}-${nextTranche}` ? '...' : `✅ Pay tranche ${nextTranche + 1} (${cm.trancheAmounts[nextTranche]} USDC)`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Immediate payments */}
+        {payments.length === 0 && commitments.length === 0 ? (
+          <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
+            No payments found for this wallet.
+          </div>
+        ) : payments.length > 0 ? (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           {payments.map((p, i) => (
             <div key={p.proofId.toString()} style={{
@@ -170,6 +255,8 @@ export default function MyPaymentsPage() {
             </div>
           ))}
         </div>
+        ) : null}
+        </>
       )}
     </div>
   )

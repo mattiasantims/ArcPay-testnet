@@ -29,7 +29,11 @@ import MyTravelPage          from './pages/MyTravelPage.jsx'
 import TravelAgencyPage      from './pages/TravelAgencyPage.jsx'
 import TravelCheckoutPage    from './pages/TravelCheckoutPage.jsx'
 import TravelDetailsPage     from './pages/TravelDetailsPage.jsx'
-import TravelDashboardPage   from './pages/TravelDashboardPage.jsx'
+import TravelDashboardPage      from './pages/TravelDashboardPage.jsx'
+import CommitmentDashboardPage from './pages/CommitmentDashboardPage.jsx'
+import CommitmentDetailsPage   from './pages/CommitmentDetailsPage.jsx'
+import MyCommitmentsPage       from './pages/MyCommitmentsPage.jsx'
+import PaymentSuccessPage       from './pages/PaymentSuccessPage.jsx'
 import { getUsdcBalance } from './utils/receipts.js'
 
 export default function App() {
@@ -143,7 +147,11 @@ export default function App() {
           <Route path="/travel"             element={<TravelAgencyPage     {...shared} />} />
           <Route path="/travel/pay"         element={<TravelCheckoutPage />} />
           <Route path="/travel/:id"         element={<TravelDetailsPage />} />
-          <Route path="/travel-dashboard"   element={<TravelDashboardPage  {...shared} />} />
+          <Route path="/travel-dashboard"      element={<TravelDashboardPage      {...shared} />} />
+          <Route path="/commitment-dashboard"  element={<CommitmentDashboardPage {...shared} />} />
+          <Route path="/commitment/:id"         element={<CommitmentDetailsPage />} />
+          <Route path="/my-commitments"         element={<MyCommitmentsPage />} />
+          <Route path="/payment-success"        element={<PaymentSuccessPage />} />
           <Route path="/qr"                 element={<QRPage />} />
         </Routes>
       </main>

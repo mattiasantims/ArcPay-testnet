@@ -3,14 +3,18 @@ pragma solidity ^0.8.20;
 // solc-flags: --via-ir --optimize --optimize-runs 200
 
 /**
- * @title ArcMerchantRegistry v2
+ * @title ArcMerchantRegistry v3
  * @notice Self-declared public merchant profile and default policy registry for ArcPay on Arc Testnet.
  *
- * Merchants register a public business profile, link multiple wallets, and publish
- * default payment/refund policy settings. The registry does NOT verify information.
- * Policy defaults pre-fill ArcPay forms — they do NOT modify existing bookings.
+ * v3 preserves the v2 merchant/profile model and appends advanced policy flags for:
+ * - delayed online/luxury payment commitments;
+ * - online/luxury tranche commitments;
+ * - merchant-managed refund claims.
  *
- * No admin. No fees. No upgradeability. No KYC. Self-declared profiles only.
+ * The registry does NOT verify merchant identity, does NOT execute payments,
+ * does NOT hold funds, and does NOT store commercial analytics.
+ * Policy defaults pre-fill ArcPay forms only. They do not modify existing payments,
+ * bookings, commitments or refund requests.
  */
 contract ArcMerchantRegistry {
 
@@ -35,16 +39,28 @@ contract ArcMerchantRegistry {
     }
 
     struct MerchantPolicy {
+        // v2 fields, kept in the same order for frontend compatibility
         bool    allowScheduledTranche;
-        bool    allowRefund;
         uint256 defaultNonRefundableBps;
         uint256 defaultInitialPaymentBps;
         uint256 defaultTrancheBps;
-        uint256 paymentDueOffsetDays;
-        uint256 paymentDeadlineOffsetDays;
-        uint256 cancellationCutoffDays;
+        uint256 paymentDueOffsetDays;          // minutes on testnet
+        uint256 paymentDeadlineOffsetDays;     // minutes on testnet; <= due offset when offsets are measured before travel/service date
+        uint256 cancellationCutoffDays;        // minutes on testnet
         uint256 refundBpsBeforeCutoff;
         uint256 refundBpsAfterCutoff;
+
+        // v3 fields, appended only
+        bool    allowDelayedPayment;
+        uint256 defaultDelayedPaymentDays;       // minutes on testnet
+        bool    allowOnlineTranche;
+        uint256 defaultOnlineTrancheBps;         // BPS first online/luxury tranche
+        uint256 defaultOnlineTrancheOffsetDays;  // minutes on testnet
+        bool    allowRefundClaim;
+        uint256 refundClaimWindowDays;           // minutes on testnet
+        uint256 refundClaimBps;                  // maximum BPS requested through the refund-claim UI
+
+        // metadata
         uint256 policyVersion;
         uint256 updatedAt;
     }
@@ -72,13 +88,13 @@ contract ArcMerchantRegistry {
         string calldata website,
         string calldata country
     ) internal pure {
-        require(bytes(tradingName).length > 0,       "tradingName required");
-        require(bytes(businessCategory).length > 0,  "businessCategory required");
-        require(bytes(tradingName).length <= 96,     "tradingName too long");
-        require(bytes(legalName).length <= 128,      "legalName too long");
-        require(bytes(businessCategory).length <= 64,"businessCategory too long");
-        require(bytes(website).length <= 160,        "website too long");
-        require(bytes(country).length <= 64,         "country too long");
+        require(bytes(tradingName).length > 0,        "tradingName required");
+        require(bytes(businessCategory).length > 0,   "businessCategory required");
+        require(bytes(tradingName).length <= 96,      "tradingName too long");
+        require(bytes(legalName).length <= 128,       "legalName too long");
+        require(bytes(businessCategory).length <= 64, "businessCategory too long");
+        require(bytes(website).length <= 160,         "website too long");
+        require(bytes(country).length <= 64,          "country too long");
     }
 
     function _validateLengths2(
@@ -88,27 +104,71 @@ contract ArcMerchantRegistry {
         string calldata vatOrCompanyId,
         string calldata otherPublicIdentifier
     ) internal pure {
-        require(bytes(businessAddress).length <= 180,       "businessAddress too long");
-        require(bytes(businessEmail).length <= 128,         "businessEmail too long");
-        require(bytes(lei).length <= 32,                    "lei too long");
-        require(bytes(vatOrCompanyId).length <= 64,         "vatOrCompanyId too long");
-        require(bytes(otherPublicIdentifier).length <= 96,  "otherPublicIdentifier too long");
+        require(bytes(businessAddress).length <= 180,      "businessAddress too long");
+        require(bytes(businessEmail).length <= 128,        "businessEmail too long");
+        require(bytes(lei).length <= 32,                   "lei too long");
+        require(bytes(vatOrCompanyId).length <= 64,        "vatOrCompanyId too long");
+        require(bytes(otherPublicIdentifier).length <= 96, "otherPublicIdentifier too long");
     }
 
-    function _validatePolicy(
-        uint256 defaultNonRefundableBps, uint256 defaultInitialPaymentBps, uint256 defaultTrancheBps,
-        uint256 paymentDueOffsetDays, uint256 paymentDeadlineOffsetDays,
-        uint256 cancellationCutoffDays, uint256 refundBpsBeforeCutoff, uint256 refundBpsAfterCutoff
+    function _validateBps(
+        uint256 defaultNonRefundableBps,
+        uint256 defaultInitialPaymentBps,
+        uint256 defaultTrancheBps,
+        uint256 refundBpsBeforeCutoff,
+        uint256 refundBpsAfterCutoff,
+        uint256 defaultOnlineTrancheBps,
+        uint256 refundClaimBps
     ) internal pure {
         require(defaultNonRefundableBps <= 10000,  "defaultNonRefundableBps > 10000");
         require(defaultInitialPaymentBps <= 10000, "defaultInitialPaymentBps > 10000");
         require(defaultTrancheBps <= 10000,        "defaultTrancheBps > 10000");
         require(refundBpsBeforeCutoff <= 10000,    "refundBpsBeforeCutoff > 10000");
         require(refundBpsAfterCutoff <= 10000,     "refundBpsAfterCutoff > 10000");
-        require(paymentDueOffsetDays <= 3650,      "paymentDueOffsetDays > 3650");
-        require(paymentDeadlineOffsetDays <= 3650, "paymentDeadlineOffsetDays > 3650");
-        require(cancellationCutoffDays <= 3650,    "cancellationCutoffDays > 3650");
-        require(paymentDueOffsetDays <= paymentDeadlineOffsetDays, "paymentDueOffsetDays must be <= paymentDeadlineOffsetDays");
+        require(defaultOnlineTrancheBps <= 10000,  "defaultOnlineTrancheBps > 10000");
+        require(refundClaimBps <= 10000,           "refundClaimBps > 10000");
+    }
+
+    function _validatePolicy(
+        uint256 defaultNonRefundableBps,
+        uint256 defaultInitialPaymentBps,
+        uint256 defaultTrancheBps,
+        uint256 paymentDueOffsetDays,
+        uint256 paymentDeadlineOffsetDays,
+        uint256 cancellationCutoffDays,
+        uint256 refundBpsBeforeCutoff,
+        uint256 refundBpsAfterCutoff,
+        uint256 defaultDelayedPaymentDays,
+        uint256 defaultOnlineTrancheBps,
+        uint256 defaultOnlineTrancheOffsetDays,
+        bool allowRefundClaim,
+        uint256 refundClaimWindowDays,
+        uint256 refundClaimBps
+    ) internal pure {
+        _validateBps(
+            defaultNonRefundableBps,
+            defaultInitialPaymentBps,
+            defaultTrancheBps,
+            refundBpsBeforeCutoff,
+            refundBpsAfterCutoff,
+            defaultOnlineTrancheBps,
+            refundClaimBps
+        );
+
+        // Existing v2 ArcPay semantics: offsets are minutes/days before a future service/travel date.
+        // A larger offset means an earlier date, therefore the payment deadline offset must be <= due offset.
+        require(paymentDueOffsetDays <= 3650,             "paymentDueOffsetDays > 3650");
+        require(paymentDeadlineOffsetDays <= 3650,        "paymentDeadlineOffsetDays > 3650");
+        require(cancellationCutoffDays <= 3650,           "cancellationCutoffDays > 3650");
+        require(defaultDelayedPaymentDays <= 3650,        "defaultDelayedPaymentDays > 3650");
+        require(defaultOnlineTrancheOffsetDays <= 3650,   "defaultOnlineTrancheOffsetDays > 3650");
+        require(paymentDeadlineOffsetDays <= paymentDueOffsetDays, "paymentDeadlineOffsetDays must be <= paymentDueOffsetDays");
+
+        if (allowRefundClaim) {
+            require(refundClaimWindowDays > 0, "refundClaimWindowDays required");
+            require(refundClaimBps > 0,        "refundClaimBps required");
+        }
+        require(refundClaimWindowDays <= 3650, "refundClaimWindowDays > 3650");
     }
 
     // ─── Storage helpers ──────────────────────────────────────────────────────
@@ -145,9 +205,15 @@ contract ArcMerchantRegistry {
 
     function _computeHash(
         address owner,
-        string calldata tradingName, string calldata legalName, string calldata businessCategory,
-        string calldata website, string calldata country, string calldata businessAddress,
-        string calldata businessEmail, string calldata lei, string calldata vatOrCompanyId,
+        string calldata tradingName,
+        string calldata legalName,
+        string calldata businessCategory,
+        string calldata website,
+        string calldata country,
+        string calldata businessAddress,
+        string calldata businessEmail,
+        string calldata lei,
+        string calldata vatOrCompanyId,
         string calldata otherPublicIdentifier,
         uint256 version
     ) internal view returns (bytes32) {
@@ -161,9 +227,15 @@ contract ArcMerchantRegistry {
     // ─── Write functions ──────────────────────────────────────────────────────
 
     function registerMerchant(
-        string calldata tradingName, string calldata legalName, string calldata businessCategory,
-        string calldata website, string calldata country, string calldata businessAddress,
-        string calldata businessEmail, string calldata lei, string calldata vatOrCompanyId,
+        string calldata tradingName,
+        string calldata legalName,
+        string calldata businessCategory,
+        string calldata website,
+        string calldata country,
+        string calldata businessAddress,
+        string calldata businessEmail,
+        string calldata lei,
+        string calldata vatOrCompanyId,
         string calldata otherPublicIdentifier
     ) external returns (uint256 merchantId) {
         require(walletToMerchantId[msg.sender] == 0, "Wallet already linked to a merchant");
@@ -174,26 +246,52 @@ contract ArcMerchantRegistry {
         merchantCounter++;
         merchantId = merchantCounter;
 
-        merchants[merchantId].merchantId      = merchantId;
-        merchants[merchantId].ownerWallet     = msg.sender;
-        merchants[merchantId].profileVersion  = 1;
-        merchants[merchantId].active          = true;
-        merchants[merchantId].createdAt       = block.timestamp;
-        merchants[merchantId].updatedAt       = block.timestamp;
+        merchants[merchantId].merchantId     = merchantId;
+        merchants[merchantId].ownerWallet    = msg.sender;
+        merchants[merchantId].profileVersion = 1;
+        merchants[merchantId].active         = true;
+        merchants[merchantId].createdAt      = block.timestamp;
+        merchants[merchantId].updatedAt      = block.timestamp;
 
         _storeMerchantStrings1(merchantId, tradingName, legalName, businessCategory, website, country);
         _storeMerchantStrings2(merchantId, businessAddress, businessEmail, lei, vatOrCompanyId, otherPublicIdentifier);
 
-        bytes32 hash = _computeHash(msg.sender, tradingName, legalName, businessCategory, website, country, businessAddress, businessEmail, lei, vatOrCompanyId, otherPublicIdentifier, 1);
+        bytes32 hash = _computeHash(
+            msg.sender,
+            tradingName,
+            legalName,
+            businessCategory,
+            website,
+            country,
+            businessAddress,
+            businessEmail,
+            lei,
+            vatOrCompanyId,
+            otherPublicIdentifier,
+            1
+        );
         merchants[merchantId].profileHash = hash;
 
         merchantPolicies[merchantId] = MerchantPolicy({
             allowScheduledTranche: false,
-            allowRefund:          true,
-            defaultNonRefundableBps: 3000, defaultInitialPaymentBps: 1000, defaultTrancheBps: 3000,
-            paymentDueOffsetDays: 90, paymentDeadlineOffsetDays: 75,
-            cancellationCutoffDays: 30, refundBpsBeforeCutoff: 7000, refundBpsAfterCutoff: 0,
-            policyVersion: 1, updatedAt: block.timestamp
+            defaultNonRefundableBps: 3000,
+            defaultInitialPaymentBps: 1000,
+            defaultTrancheBps: 3000,
+            paymentDueOffsetDays: 90,
+            paymentDeadlineOffsetDays: 75,
+            cancellationCutoffDays: 30,
+            refundBpsBeforeCutoff: 7000,
+            refundBpsAfterCutoff: 0,
+            allowDelayedPayment: false,
+            defaultDelayedPaymentDays: 30,
+            allowOnlineTranche: false,
+            defaultOnlineTrancheBps: 5000,
+            defaultOnlineTrancheOffsetDays: 15,
+            allowRefundClaim: false,
+            refundClaimWindowDays: 14,
+            refundClaimBps: 10000,
+            policyVersion: 1,
+            updatedAt: block.timestamp
         });
 
         walletToMerchantId[msg.sender] = merchantId;
@@ -204,9 +302,15 @@ contract ArcMerchantRegistry {
     }
 
     function updateMerchantProfile(
-        string calldata tradingName, string calldata legalName, string calldata businessCategory,
-        string calldata website, string calldata country, string calldata businessAddress,
-        string calldata businessEmail, string calldata lei, string calldata vatOrCompanyId,
+        string calldata tradingName,
+        string calldata legalName,
+        string calldata businessCategory,
+        string calldata website,
+        string calldata country,
+        string calldata businessAddress,
+        string calldata businessEmail,
+        string calldata lei,
+        string calldata vatOrCompanyId,
         string calldata otherPublicIdentifier
     ) external {
         uint256 mid = walletToMerchantId[msg.sender];
@@ -217,9 +321,22 @@ contract ArcMerchantRegistry {
         _validateLengths1(tradingName, legalName, businessCategory, website, country);
         _validateLengths2(businessAddress, businessEmail, lei, vatOrCompanyId, otherPublicIdentifier);
 
-        bytes32 oldHash    = merchants[mid].profileHash;
+        bytes32 oldHash = merchants[mid].profileHash;
         uint256 newVersion = merchants[mid].profileVersion + 1;
-        bytes32 newHash    = _computeHash(msg.sender, tradingName, legalName, businessCategory, website, country, businessAddress, businessEmail, lei, vatOrCompanyId, otherPublicIdentifier, newVersion);
+        bytes32 newHash = _computeHash(
+            msg.sender,
+            tradingName,
+            legalName,
+            businessCategory,
+            website,
+            country,
+            businessAddress,
+            businessEmail,
+            lei,
+            vatOrCompanyId,
+            otherPublicIdentifier,
+            newVersion
+        );
 
         _storeMerchantStrings1(mid, tradingName, legalName, businessCategory, website, country);
         _storeMerchantStrings2(mid, businessAddress, businessEmail, lei, vatOrCompanyId, otherPublicIdentifier);
@@ -233,34 +350,67 @@ contract ArcMerchantRegistry {
 
     function updateMerchantPolicy(
         bool allowScheduledTranche,
-        uint256 defaultNonRefundableBps, uint256 defaultInitialPaymentBps, uint256 defaultTrancheBps,
-        uint256 paymentDueOffsetDays, uint256 paymentDeadlineOffsetDays,
-        uint256 cancellationCutoffDays, uint256 refundBpsBeforeCutoff, uint256 refundBpsAfterCutoff
+        uint256 defaultNonRefundableBps,
+        uint256 defaultInitialPaymentBps,
+        uint256 defaultTrancheBps,
+        uint256 paymentDueOffsetDays,
+        uint256 paymentDeadlineOffsetDays,
+        uint256 cancellationCutoffDays,
+        uint256 refundBpsBeforeCutoff,
+        uint256 refundBpsAfterCutoff,
+        bool allowDelayedPayment,
+        uint256 defaultDelayedPaymentDays,
+        bool allowOnlineTranche,
+        uint256 defaultOnlineTrancheBps,
+        uint256 defaultOnlineTrancheOffsetDays,
+        bool allowRefundClaim,
+        uint256 refundClaimWindowDays,
+        uint256 refundClaimBps
     ) external {
         uint256 mid = walletToMerchantId[msg.sender];
         require(mid != 0, "No merchant linked to this wallet");
         require(merchants[mid].ownerWallet == msg.sender, "Not owner wallet");
         require(merchants[mid].active, "Merchant not active");
+
         _validatePolicy(
-            defaultNonRefundableBps, defaultInitialPaymentBps, defaultTrancheBps,
-            paymentDueOffsetDays, paymentDeadlineOffsetDays,
-            cancellationCutoffDays, refundBpsBeforeCutoff, refundBpsAfterCutoff
+            defaultNonRefundableBps,
+            defaultInitialPaymentBps,
+            defaultTrancheBps,
+            paymentDueOffsetDays,
+            paymentDeadlineOffsetDays,
+            cancellationCutoffDays,
+            refundBpsBeforeCutoff,
+            refundBpsAfterCutoff,
+            defaultDelayedPaymentDays,
+            defaultOnlineTrancheBps,
+            defaultOnlineTrancheOffsetDays,
+            allowRefundClaim,
+            refundClaimWindowDays,
+            refundClaimBps
         );
 
         MerchantPolicy storage pol = merchantPolicies[mid];
-        uint256 newPolicyVersion    = pol.policyVersion + 1;
+        uint256 newPolicyVersion = pol.policyVersion + 1;
 
-        pol.allowScheduledTranche    = allowScheduledTranche;
-        pol.defaultNonRefundableBps  = defaultNonRefundableBps;
+        pol.allowScheduledTranche = allowScheduledTranche;
+        pol.defaultNonRefundableBps = defaultNonRefundableBps;
         pol.defaultInitialPaymentBps = defaultInitialPaymentBps;
-        pol.defaultTrancheBps        = defaultTrancheBps;
-        pol.paymentDueOffsetDays     = paymentDueOffsetDays;
+        pol.defaultTrancheBps = defaultTrancheBps;
+        pol.paymentDueOffsetDays = paymentDueOffsetDays;
         pol.paymentDeadlineOffsetDays = paymentDeadlineOffsetDays;
-        pol.cancellationCutoffDays   = cancellationCutoffDays;
-        pol.refundBpsBeforeCutoff    = refundBpsBeforeCutoff;
-        pol.refundBpsAfterCutoff     = refundBpsAfterCutoff;
-        pol.policyVersion            = newPolicyVersion;
-        pol.updatedAt                = block.timestamp;
+        pol.cancellationCutoffDays = cancellationCutoffDays;
+        pol.refundBpsBeforeCutoff = refundBpsBeforeCutoff;
+        pol.refundBpsAfterCutoff = refundBpsAfterCutoff;
+        pol.allowDelayedPayment = allowDelayedPayment;
+        pol.defaultDelayedPaymentDays = defaultDelayedPaymentDays;
+        pol.allowOnlineTranche = allowOnlineTranche;
+        pol.defaultOnlineTrancheBps = defaultOnlineTrancheBps;
+        pol.defaultOnlineTrancheOffsetDays = defaultOnlineTrancheOffsetDays;
+        pol.allowRefundClaim = allowRefundClaim;
+        pol.refundClaimWindowDays = refundClaimWindowDays;
+        pol.refundClaimBps = refundClaimBps;
+        pol.policyVersion = newPolicyVersion;
+        pol.updatedAt = block.timestamp;
 
         emit MerchantPolicyUpdated(mid, newPolicyVersion, allowScheduledTranche, block.timestamp);
     }
@@ -302,7 +452,7 @@ contract ArcMerchantRegistry {
         require(mid != 0, "No merchant linked to this wallet");
         require(merchants[mid].ownerWallet == msg.sender, "Not owner wallet");
         require(merchants[mid].active, "Already deactivated");
-        merchants[mid].active    = false;
+        merchants[mid].active = false;
         merchants[mid].updatedAt = block.timestamp;
         emit MerchantDeactivated(mid, block.timestamp);
     }
@@ -336,7 +486,7 @@ contract ArcMerchantRegistry {
 
     function getMerchantPolicyByWallet(address wallet) external view returns (MerchantPolicy memory) {
         uint256 mid = walletToMerchantId[wallet];
-        require(mid != 0, "Wallet not linked to any merchant");
+        if (mid == 0) return merchantPolicies[0];
         return merchantPolicies[mid];
     }
 

@@ -7,6 +7,8 @@ import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useAccount } from 'wagmi'
 import PaymentCard from '../components/PaymentCard.jsx'
 import QRCodeBox from '../components/QRCodeBox.jsx'
+import { createDelayedCommitment, createTrancheCommitment } from '../utils/commitment.js'
+import { isCommitmentContractConfigured } from '../config.js'
 
 export default function CheckoutPage() {
   const [params]   = useSearchParams()
@@ -54,6 +56,50 @@ export default function CheckoutPage() {
     if (!account || !req) return
     setError('')
     const metadataHash = computeMetadataHash(req.desc, req.note, req.name)
+
+    // ── Delayed commitment ──
+    if (req.type === 'delayed') {
+      try {
+        setStep('paying')
+        const { commitmentId } = await createDelayedCommitment(account, {
+          merchant:     req.merchant,
+          amount:       req.amount,
+          dueDate:      req.dueDate,
+          deadline:     req.deadline,
+          ref:          req.ref,
+          description:  req.desc || '',
+          metadataHash,
+        })
+        navigate(`/commitment/${commitmentId}`)
+      } catch (e) {
+        setError(e.message || 'Transaction failed.')
+        setStep('idle')
+      }
+      return
+    }
+
+    // ── Tranche commitment ──
+    if (req.type === 'tranche') {
+      try {
+        setStep('paying')
+        const { commitmentId } = await createTrancheCommitment(account, {
+          merchant:        req.merchant,
+          trancheAmounts:  req.tranches.map(t => t.amount),
+          trancheDueDates: req.tranches.map(t => t.dueDate),
+          trancheDeadlines:req.tranches.map(t => t.deadline),
+          ref:             req.ref,
+          description:     req.desc || '',
+          metadataHash,
+        })
+        navigate(`/commitment/${commitmentId}`)
+      } catch (e) {
+        setError(e.message || 'Transaction failed.')
+        setStep('idle')
+      }
+      return
+    }
+
+    // ── Immediate payment (default) ──
     try {
       setStep('approving')
       await approveUsdc(account, req.amount)
@@ -158,10 +204,10 @@ export default function CheckoutPage() {
                 <span className="spinner" />
                 <div>
                   <div style={{ fontWeight: 500, fontSize: 14 }}>
-                    {step === 'approving' ? 'Step 1/2 — Approving USDC...' : 'Step 2/2 — Sending payment...'}
+                    {req.type === 'delayed' || req.type === 'tranche' ? 'Signing commitment on-chain...' : step === 'approving' ? 'Step 1/2 — Approving USDC...' : 'Step 2/2 — Sending payment...'}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-                    {step === 'approving' ? 'Confirm approve in MetaMask' : 'Confirm payment in MetaMask'}
+                    {req.type === 'delayed' || req.type === 'tranche' ? 'No USDC transferred now — just your signed commitment' : step === 'approving' ? 'Confirm approve in MetaMask' : 'Confirm payment in MetaMask'}
                   </div>
                 </div>
               </div>
@@ -186,7 +232,7 @@ export default function CheckoutPage() {
                 <div style={{ fontSize: 13, color: 'var(--usdc)', fontWeight: 600 }}>{balance} USDC</div>
               </div>
               <button onClick={handlePay} disabled={isLoading} className="btn-primary btn-full" style={{ marginBottom: 8 }}>
-                {step === 'idle'      && `✅ Pay ${req.amount} USDC`}
+                {step === 'idle'      && (req.type === 'delayed' ? `📅 Sign delayed payment commitment` : req.type === 'tranche' ? `📊 Sign tranche commitment` : `✅ Pay ${req.amount} USDC`)}
                 {step === 'approving' && <><span className="spinner" />Approving USDC...</>}
                 {step === 'paying'    && <><span className="spinner" />Processing payment...</>}
               </button>
@@ -202,7 +248,7 @@ export default function CheckoutPage() {
 
       <div style={{ marginTop: 16, padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
         <strong style={{ color: 'var(--text2)' }}>TESTNET ONLY.</strong> Testnet tokens have no real economic value.
-        Not a regulated payment service. No custody. No KYC/AML.
+        Testnet demo only. No custody. Not a production payment service.
       </div>
     </div>
   )

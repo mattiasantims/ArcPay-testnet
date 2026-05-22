@@ -304,7 +304,7 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
             <label className="label">Merchant wallet</label>
             <input value={addrInput} onChange={e => setAddrInput(e.target.value)} placeholder="0x..." />
           </div>
-          <button onClick={() => setAddr(addrInput.trim())} disabled={loading} className="btn-primary" style={{ padding: '10px 18px', height: 42 }}>
+          <button onClick={() => { const a = addrInput.trim(); setAddr(a); loadData(a) }} disabled={loading} className="btn-primary" style={{ padding: '10px 18px', height: 42 }}>
             {loading ? <><span className="spinner" />Loading...</> : '🔄 Refresh on-chain data'}
           </button>
           {!account && (

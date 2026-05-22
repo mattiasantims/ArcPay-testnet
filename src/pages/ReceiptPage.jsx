@@ -8,7 +8,9 @@ import {
 import { getCachedTxHash } from '../utils/paymentRequest.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured } from '../config.js'
-import { getMerchantByWallet } from '../utils/merchant.js'
+import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
+import { requestRefund } from '../utils/refund.js'
+import { isRefundContractConfigured } from '../config.js'
 import ReceiptActions from '../components/ReceiptActions.jsx'
 
 export default function ReceiptPage() {
@@ -19,6 +21,13 @@ export default function ReceiptPage() {
   const [txHash,   setTxHash]  = useState(null)
   const [receipt,  setReceipt] = useState(null)
   const [merchantProfile, setMerchantProfile] = useState(null)
+  const [merchantPolicy,  setMerchantPolicy]  = useState(null)
+  const [showRefund,      setShowRefund]       = useState(false)
+  const [refundAmount,    setRefundAmount]     = useState('')
+  const [refundReason,    setRefundReason]     = useState('')
+  const [refundSending,   setRefundSending]    = useState(false)
+  const [refundSuccess,   setRefundSuccess]    = useState('')
+  const [refundError,     setRefundError]      = useState('')
 
   // Optional frontend-only metadata from URL
   const merchantName = params.get('name') ? decodeURIComponent(params.get('name')) : null
@@ -55,7 +64,31 @@ export default function ReceiptPage() {
     getMerchantByWallet(proof.payee).then(m => {
       if (m && m.active) setMerchantProfile(m)
     }).catch(() => {})
+    getMerchantPolicyByWallet(proof.payee).then(p => {
+      if (p) setMerchantPolicy(p)
+    }).catch(() => {})
   }, [proof?.payee])
+
+  async function handleRefundRequest(payerAddress) {
+    if (!payerAddress)    { setRefundError('Connect wallet first'); return }
+    if (!refundAmount || parseFloat(refundAmount) <= 0) { setRefundError('Amount required'); return }
+    if (!refundReason.trim()) { setRefundError('Reason required'); return }
+    setRefundSending(true); setRefundError('')
+    try {
+      const windowMin  = merchantPolicy?.refundClaimWindowDays ?? 14
+      const expiresAt  = Date.now() + windowMin * 60 * 1000
+      await requestRefund(payerAddress, {
+        merchant:   proof.payee,
+        amount:     refundAmount,
+        proofRef:   proof.paymentRef || id,
+        reason:     refundReason,
+        expiresAt,
+      })
+      setRefundSuccess('Refund request submitted on-chain. Merchant will review.')
+      setShowRefund(false)
+    } catch(e) { setRefundError(e.message || 'Transaction failed') }
+    finally { setRefundSending(false) }
+  }
 
   useEffect(() => {
     if (proof && status === 'found') {
@@ -198,6 +231,43 @@ export default function ReceiptPage() {
           </p>
         </div>
       </div>
+
+      {/* Refund claim */}
+      {isRefundContractConfigured() && merchantPolicy?.allowRefundClaim && proof && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
+          {refundSuccess ? (
+            <div className="success-box">{refundSuccess}</div>
+          ) : !showRefund ? (
+            <button onClick={() => setShowRefund(true)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)' }}>
+              Request refund from merchant
+            </button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
+                Merchant has up to {merchantPolicy.refundClaimWindowDays} min to respond. Max refundable: {Math.round(merchantPolicy.refundClaimBps / 100)}% of payment.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="label">Amount to claim (USDC)</label>
+                  <input type="number" min="0.01" step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} placeholder={receipt?.amount || ''} />
+                </div>
+                <div>
+                  <label className="label">Reason</label>
+                  <input value={refundReason} onChange={e => setRefundReason(e.target.value)} placeholder="e.g. Item not as described" />
+                </div>
+              </div>
+              {refundError && <div className="error-box">{refundError}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => handleRefundRequest(proof.payer)} disabled={refundSending} className="btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>
+                  {refundSending ? <><span className="spinner" />Sending...</> : '📤 Submit refund request'}
+                </button>
+                <button onClick={() => { setShowRefund(false); setRefundError('') }} className="btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Disclaimer */}
       <div style={{ padding: 14, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>

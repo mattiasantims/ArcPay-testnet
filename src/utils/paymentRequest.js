@@ -21,7 +21,7 @@ function fromBase64url(encoded) {
 }
 
 export function encodePaymentRequest(req) {
-  const json = JSON.stringify({
+  const payload = {
     merchant: req.merchant,
     amount:   req.amount,
     ref:      req.ref,
@@ -29,8 +29,22 @@ export function encodePaymentRequest(req) {
     name:     req.name    || '',
     desc:     req.desc    || '',
     note:     req.note    || '',
-  })
-  return toBase64url(json)
+  }
+  // v2 — payment type fields
+  if (req.type && req.type !== 'immediate') {
+    payload.type = req.type
+    if (req.type === 'delayed') {
+      payload.dueDate  = req.dueDate
+      payload.deadline = req.deadline
+    } else if (req.type === 'tranche') {
+      payload.tranches = req.tranches
+    }
+  }
+  return toBase64url(JSON.stringify(payload))
+}
+
+export function buildCommitmentUrl(req) {
+  return buildPaymentUrl(req)
 }
 
 export function decodePaymentRequest(encoded) {
