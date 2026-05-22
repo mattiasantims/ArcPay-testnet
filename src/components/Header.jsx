@@ -137,7 +137,6 @@ export default function Header({ balance }) {
     { path: '/dashboard',            icon: '📊', label: 'Payments Dashboard',   active: p === '/dashboard' },
     { path: '/booking-dashboard',    icon: '📋', label: 'Booking Dashboard',    active: p === '/booking-dashboard' },
     { path: '/travel-dashboard',     icon: '✈️', label: 'Travel Dashboard',     active: p === '/travel-dashboard' },
-    { path: '/commitment-dashboard', icon: '📅', label: 'Commitments',          active: p === '/commitment-dashboard' },
     'divider',
     { path: '/analytics',            icon: '📈', label: 'Analytics',            active: p === '/analytics' },
     { path: '/merchant-profile',     icon: '🏪', label: 'Merchant Profile',     active: p === '/merchant-profile' },
@@ -147,7 +146,6 @@ export default function Header({ balance }) {
     { path: '/my-payments',    icon: '💳', label: 'My Payments',    active: p === '/my-payments' },
     { path: '/my-bookings',    icon: '🏨', label: 'My Bookings',    active: p === '/my-bookings' },
     { path: '/my-travel',      icon: '✈️', label: 'My Travel',      active: p === '/my-travel' },
-    { path: '/my-commitments', icon: '📅', label: 'My Commitments', active: p === '/my-commitments' },
   ]
 
   const reportsItems = isCustomerRoute ? customerReportsItems : merchantReportsItems

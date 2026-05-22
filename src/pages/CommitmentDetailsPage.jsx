@@ -28,7 +28,7 @@ function countdown(unix) {
 export default function CommitmentDetailsPage() {
   const { id }  = useParams()
   const [params] = useSearchParams()
-  const mode     = params.get('mode') || 'customer'
+  const modeParam = params.get('mode')
   const { address } = useAccount()
   const { open }    = useWeb3Modal()
   const configured  = isCommitmentContractConfigured()
@@ -98,6 +98,7 @@ export default function CommitmentDetailsPage() {
   const now = Math.floor(Date.now() / 1000)
   const isMerchant = address?.toLowerCase() === c.merchant?.toLowerCase()
   const isCustomer = address?.toLowerCase() === c.customer?.toLowerCase()
+  const mode = modeParam || (isMerchant ? 'merchant' : 'customer')
 
   return (
     <div className="fade-up" style={{ maxWidth: 680, margin: '0 auto' }}>
@@ -176,7 +177,7 @@ export default function CommitmentDetailsPage() {
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{amt} USDC</span>
                 {c.tranchePaid[i] ? (
                   <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ Paid</span>
-                ) : isCustomer && c.status === 0 && now >= c.trancheDueDates[i] ? (
+                ) : isCustomer && c.status === 0 && !c.tranchePaid[i] && now < (c.trancheDeadlines[i] || Infinity) ? (
                   <button onClick={() => handleFulfillTranche(i)} disabled={acting} className="btn-primary" style={{ fontSize: 11, padding: '5px 12px' }}>
                     {acting ? '...' : 'Pay now'}
                   </button>
@@ -197,7 +198,7 @@ export default function CommitmentDetailsPage() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {/* Customer: pay delayed */}
-            {isCustomer && c.type === 0 && !c.paid && now >= c.dueDate && (
+            {isCustomer && c.type === 0 && !c.paid && now < c.deadline && (
               <button onClick={handleFulfill} disabled={acting} className="btn-primary" style={{ fontSize: 13, padding: '10px 20px' }}>
                 {acting ? <><span className="spinner" />Processing...</> : '✅ Pay now'}
               </button>

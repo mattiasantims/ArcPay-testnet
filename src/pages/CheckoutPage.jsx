@@ -70,7 +70,7 @@ export default function CheckoutPage() {
           description:  req.desc || '',
           metadataHash,
         })
-        navigate(`/commitment/${commitmentId}`)
+        navigate(`/commitment/${commitmentId}?mode=customer`)
       } catch (e) {
         setError(e.message || 'Transaction failed.')
         setStep('idle')
@@ -91,7 +91,7 @@ export default function CheckoutPage() {
           description:     req.desc || '',
           metadataHash,
         })
-        navigate(`/commitment/${commitmentId}`)
+        navigate(`/commitment/${commitmentId}?mode=customer`)
       } catch (e) {
         setError(e.message || 'Transaction failed.')
         setStep('idle')
