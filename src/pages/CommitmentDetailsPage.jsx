@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { QRCodeSVG } from 'qrcode.react'
+import { requestRefund, isRefundContractConfigured } from '../utils/refund.js'
 import {
   fetchCommitment, fulfillDelayedCommitment, fulfillTranche, cancelCommitment,
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
@@ -10,8 +11,7 @@ import {
 } from '../utils/commitment.js'
 import { downloadCommitmentPDF } from '../utils/commitmentPdf.js'
 import { shortAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured, isRefundContractConfigured } from '../config.js'
-import { requestRefund } from '../utils/refund.js'
+import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured } from '../config.js'
 
 function formatTs(unix) {
   if (!unix || unix === 0) return 'N/A'
@@ -29,6 +29,7 @@ function countdown(unix) {
 export default function CommitmentDetailsPage() {
   const { id }  = useParams()
   const [params] = useSearchParams()
+  const modeParam = params.get('mode')
   const { address } = useAccount()
   const { open }    = useWeb3Modal()
   const configured  = isCommitmentContractConfigured()
@@ -91,19 +92,19 @@ export default function CommitmentDetailsPage() {
     finally { setActing(false) }
   }
 
-
   async function handleRefundRequest() {
-    if (!address) return open()
+    if (!walletAddress) return
     if (!refundAmount || parseFloat(refundAmount) <= 0) { setError('Amount required'); return }
     if (!refundReason.trim()) { setError('Reason required'); return }
     setRefundSending(true)
     try {
-      await requestRefund(address, {
-        merchant:  commitment.merchant,
-        amount:    refundAmount,
-        proofRef:  commitment.ref,
-        reason:    refundReason,
-        expiresAt: Date.now() + 14 * 60 * 1000,
+      const windowMin = 14
+      await requestRefund(walletAddress, {
+        merchant:   commitment.merchant,
+        amount:     refundAmount,
+        proofRef:   commitment.ref,
+        reason:     refundReason,
+        expiresAt:  Date.now() + windowMin * 60 * 1000,
       })
       setRefundDone('Refund request submitted on-chain. Merchant will review.')
       setShowRefund(false)
@@ -121,8 +122,10 @@ export default function CommitmentDetailsPage() {
 
   const c   = commitment
   const now = Math.floor(Date.now() / 1000)
-  const isMerchant = address?.toLowerCase() === c.merchant?.toLowerCase()
-  const isCustomer = address?.toLowerCase() === c.customer?.toLowerCase()
+  const effectiveAddr = walletAddress || address
+  const isMerchant = effectiveAddr?.toLowerCase() === c.merchant?.toLowerCase()
+  const isCustomer = effectiveAddr?.toLowerCase() === c.customer?.toLowerCase()
+  const mode = modeParam || (isMerchant ? 'merchant' : 'customer')
 
   return (
     <div className="fade-up" style={{ maxWidth: 680, margin: '0 auto' }}>
@@ -201,7 +204,7 @@ export default function CommitmentDetailsPage() {
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{amt} USDC</span>
                 {c.tranchePaid[i] ? (
                   <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ Paid</span>
-                ) : isCustomer && c.status === 0 && !c.tranchePaid[i] && now < (c.trancheDeadlines?.[i] || Infinity) ? (
+                ) : isCustomer && c.status === 0 && now >= c.trancheDueDates[i] ? (
                   <button onClick={() => handleFulfillTranche(i)} disabled={acting} className="btn-primary" style={{ fontSize: 11, padding: '5px 12px' }}>
                     {acting ? '...' : 'Pay now'}
                   </button>
@@ -222,7 +225,7 @@ export default function CommitmentDetailsPage() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {/* Customer: pay delayed */}
-            {isCustomer && c.type === 0 && !c.paid && now < c.deadline && (
+            {isCustomer && c.type === 0 && !c.paid && now >= c.dueDate && (
               <button onClick={handleFulfill} disabled={acting} className="btn-primary" style={{ fontSize: 13, padding: '10px 20px' }}>
                 {acting ? <><span className="spinner" />Processing...</> : '✅ Pay now'}
               </button>
@@ -265,9 +268,8 @@ export default function CommitmentDetailsPage() {
         </div>
       </div>
 
-
-      {/* Refund claim — after payment fulfilled */}
-      {commitment && commitment.status === 1 && isCustomer && isRefundContractConfigured() && (
+      {/* Refund claim — show after payment fulfilled */}
+      {commitment && commitment.status === 1 && isCustomer && isRefundContractConfigured && (
         <div className="card" style={{ padding: 16, marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
           {refundDone ? (
