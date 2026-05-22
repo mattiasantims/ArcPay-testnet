@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { QRCodeSVG } from 'qrcode.react'
-import { requestRefund, isRefundContractConfigured } from '../utils/refund.js'
+import { requestRefund } from '../utils/refund.js'
 import {
   fetchCommitment, fulfillDelayedCommitment, fulfillTranche, cancelCommitment,
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
@@ -11,7 +11,7 @@ import {
 } from '../utils/commitment.js'
 import { downloadCommitmentPDF } from '../utils/commitmentPdf.js'
 import { shortAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured } from '../config.js'
+import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured, isRefundContractConfigured } from '../config.js'
 
 function formatTs(unix) {
   if (!unix || unix === 0) return 'N/A'
