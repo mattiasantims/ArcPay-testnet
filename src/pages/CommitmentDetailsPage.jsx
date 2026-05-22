@@ -11,7 +11,7 @@ import {
 } from '../utils/commitment.js'
 import { downloadCommitmentPDF } from '../utils/commitmentPdf.js'
 import { shortAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured } from '../config.js'
+import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured, isRefundContractConfigured } from '../config.js'
 
 function formatTs(unix) {
   if (!unix || unix === 0) return 'N/A'
@@ -29,7 +29,6 @@ function countdown(unix) {
 export default function CommitmentDetailsPage() {
   const { id }  = useParams()
   const [params] = useSearchParams()
-  const modeParam = params.get('mode')
   const { address } = useAccount()
   const { open }    = useWeb3Modal()
   const configured  = isCommitmentContractConfigured()
@@ -45,7 +44,7 @@ export default function CommitmentDetailsPage() {
   const [refundSending, setRefundSending] = useState(false)
   const [refundDone,    setRefundDone]    = useState('')
 
-  const txHash   = getCachedCommitmentTxHash(id)
+  const txHash     = getCachedCommitmentTxHash(id)
   const receiptUrl = `${APP_URL}/commitment/${id}`
 
   useEffect(() => { if (configured) load() }, [id, configured])
@@ -93,18 +92,17 @@ export default function CommitmentDetailsPage() {
   }
 
   async function handleRefundRequest() {
-    if (!walletAddress) return
+    if (!address) return open()
     if (!refundAmount || parseFloat(refundAmount) <= 0) { setError('Amount required'); return }
     if (!refundReason.trim()) { setError('Reason required'); return }
     setRefundSending(true)
     try {
-      const windowMin = 14
-      await requestRefund(walletAddress, {
-        merchant:   commitment.merchant,
-        amount:     refundAmount,
-        proofRef:   commitment.ref,
-        reason:     refundReason,
-        expiresAt:  Date.now() + windowMin * 60 * 1000,
+      await requestRefund(address, {
+        merchant:  commitment.merchant,
+        amount:    refundAmount,
+        proofRef:  commitment.ref,
+        reason:    refundReason,
+        expiresAt: Date.now() + 14 * 60 * 1000,
       })
       setRefundDone('Refund request submitted on-chain. Merchant will review.')
       setShowRefund(false)
@@ -122,10 +120,8 @@ export default function CommitmentDetailsPage() {
 
   const c   = commitment
   const now = Math.floor(Date.now() / 1000)
-  const effectiveAddr = walletAddress || address
-  const isMerchant = effectiveAddr?.toLowerCase() === c.merchant?.toLowerCase()
-  const isCustomer = effectiveAddr?.toLowerCase() === c.customer?.toLowerCase()
-  const mode = modeParam || (isMerchant ? 'merchant' : 'customer')
+  const isMerchant = address?.toLowerCase() === c.merchant?.toLowerCase()
+  const isCustomer = address?.toLowerCase() === c.customer?.toLowerCase()
 
   return (
     <div className="fade-up" style={{ maxWidth: 680, margin: '0 auto' }}>
@@ -204,7 +200,7 @@ export default function CommitmentDetailsPage() {
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{amt} USDC</span>
                 {c.tranchePaid[i] ? (
                   <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ Paid</span>
-                ) : isCustomer && c.status === 0 && now >= c.trancheDueDates[i] ? (
+                ) : isCustomer && c.status === 0 && !c.tranchePaid[i] ? (
                   <button onClick={() => handleFulfillTranche(i)} disabled={acting} className="btn-primary" style={{ fontSize: 11, padding: '5px 12px' }}>
                     {acting ? '...' : 'Pay now'}
                   </button>
@@ -224,25 +220,63 @@ export default function CommitmentDetailsPage() {
             Available Actions
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {/* Customer: pay delayed */}
-            {isCustomer && c.type === 0 && !c.paid && now >= c.dueDate && (
+            {isCustomer && c.type === 0 && !c.paid && (
               <button onClick={handleFulfill} disabled={acting} className="btn-primary" style={{ fontSize: 13, padding: '10px 20px' }}>
                 {acting ? <><span className="spinner" />Processing...</> : '✅ Pay now'}
               </button>
             )}
-            {/* Merchant: cancel if overdue */}
             {isMerchant && now >= c.deadline && (
               <button onClick={handleCancel} disabled={acting}
                 style={{ fontSize: 13, padding: '10px 20px', background: '#1a0808', border: '1px solid #f04f4f', color: '#f08080', borderRadius: 8, cursor: 'pointer' }}>
                 {acting ? '...' : '✕ Cancel commitment'}
               </button>
             )}
-            {c.status === 0 && !isMerchant && !isCustomer && (
+            {!isMerchant && !isCustomer && (
               <p style={{ fontSize: 13, color: 'var(--text3)' }}>Connect the relevant wallet to take action.</p>
             )}
           </div>
-          {error  && <div className="error-box"   style={{ marginTop: 12 }}>{error}</div>}
+          {error   && <div className="error-box"   style={{ marginTop: 12 }}>{error}</div>}
           {success && <div className="success-box" style={{ marginTop: 12 }}>{success}</div>}
+        </div>
+      )}
+
+      {/* Refund claim — available from Active and Fulfilled */}
+      {(c.status === 0 || c.status === 1) && isCustomer && isRefundContractConfigured() && (
+        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
+          {refundDone ? (
+            <div className="success-box">{refundDone}</div>
+          ) : !showRefund ? (
+            <button onClick={() => setShowRefund(true)} className="btn-ghost"
+              style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)' }}>
+              Request refund from merchant
+            </button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="label">Amount to claim (USDC)</label>
+                  <input type="number" min="0.01" step="0.01" value={refundAmount}
+                    onChange={e => setRefundAmount(e.target.value)}
+                    placeholder={c.totalAmount} />
+                </div>
+                <div>
+                  <label className="label">Reason</label>
+                  <input value={refundReason} onChange={e => setRefundReason(e.target.value)}
+                    placeholder="e.g. Item not as described" />
+                </div>
+              </div>
+              {error && <div className="error-box">{error}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={handleRefundRequest} disabled={refundSending} className="btn-primary"
+                  style={{ fontSize: 12, padding: '8px 16px' }}>
+                  {refundSending ? <><span className="spinner" />Sending...</> : '📤 Submit refund request'}
+                </button>
+                <button onClick={() => { setShowRefund(false); setError('') }} className="btn-ghost"
+                  style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -267,45 +301,6 @@ export default function CommitmentDetailsPage() {
           )}
         </div>
       </div>
-
-      {/* Refund claim — show after payment fulfilled */}
-      {commitment && commitment.status === 1 && isCustomer && isRefundContractConfigured && (
-        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
-          {refundDone ? (
-            <div className="success-box">{refundDone}</div>
-          ) : !showRefund ? (
-            <button onClick={() => setShowRefund(true)} className="btn-ghost"
-              style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)' }}>
-              Request refund from merchant
-            </button>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label className="label">Amount to claim (USDC)</label>
-                  <input type="number" min="0.01" step="0.01" value={refundAmount}
-                    onChange={e => setRefundAmount(e.target.value)}
-                    placeholder={commitment.totalAmount} />
-                </div>
-                <div>
-                  <label className="label">Reason</label>
-                  <input value={refundReason} onChange={e => setRefundReason(e.target.value)}
-                    placeholder="e.g. Item not as described" />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={handleRefundRequest} disabled={refundSending} className="btn-primary"
-                  style={{ fontSize: 12, padding: '8px 16px' }}>
-                  {refundSending ? <><span className="spinner" />Sending...</> : '📤 Submit refund request'}
-                </button>
-                <button onClick={() => { setShowRefund(false); setError('') }} className="btn-ghost"
-                  style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* QR */}
       <div className="card" style={{ padding: 24, marginBottom: 16 }}>
