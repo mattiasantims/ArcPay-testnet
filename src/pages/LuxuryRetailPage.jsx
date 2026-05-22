@@ -10,7 +10,9 @@ import { shortAddress } from '../utils/wallet.js'
 
 function addMinutes(min) { return Math.floor(Date.now() / 1000) + min * 60 }
 function toDatetimeLocal(sec) {
-  return new Date(sec * 1000).toISOString().slice(0, 16)
+  const d = new Date(sec * 1000)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 function fromDatetimeLocal(str) {
   return Math.floor(new Date(str).getTime() / 1000)
@@ -64,6 +66,9 @@ export default function LuxuryRetailPage({ account }) {
   const [error,      setError]      = useState('')
   const [payType,    setPayType]    = useState('immediate')
   const [policy,     setPolicy]     = useState(null)
+  const [refundEnabled, setRefundEnabled] = useState(false)
+  const [refundWindow,  setRefundWindow]  = useState(14)
+  const [refundMaxPct,  setRefundMaxPct]  = useState(100)
 
   // Delayed fields
   const [delayedPreset, setDelayedPreset] = useState('demo')
@@ -86,6 +91,11 @@ export default function LuxuryRetailPage({ account }) {
       if (p) {
         setPolicy(p)
         if (p.defaultOnlineTrancheBps) setTranche1Pct(Math.round(p.defaultOnlineTrancheBps / 100))
+        if (p.allowRefundClaim) {
+          setRefundEnabled(true)
+          if (p.refundClaimWindowDays) setRefundWindow(p.refundClaimWindowDays)
+          if (p.refundClaimBps) setRefundMaxPct(Math.round(p.refundClaimBps / 100))
+        }
       }
     }).catch(() => {})
   }, [effectiveAccount])
@@ -122,6 +132,7 @@ export default function LuxuryRetailPage({ account }) {
       ref: form.ref.trim(), purpose: 'RETAIL',
       name: form.name.trim(), desc: form.desc.trim(), note: form.note.trim(),
       createdAt: new Date().toISOString(),
+      ...(refundEnabled ? { allowRefundClaim: true, refundClaimWindowDays: refundWindow, refundClaimBps: refundMaxPct * 100 } : {}),
     }
 
     if (payType === 'delayed') {
@@ -398,24 +409,34 @@ export default function LuxuryRetailPage({ account }) {
               </div>
             )}
 
-            {/* Refund & Claim info box — always visible */}
+            {/* Refund & Claim — always visible toggle override */}
             <div style={{ padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 14 }}>💸</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Refund & Claim</span>
-                {policy?.allowRefundClaim ? (
-                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'var(--green-bg)', border: '1px solid var(--green-bdr)', color: 'var(--green)', fontWeight: 600 }}>✓ Enabled</span>
-                ) : (
-                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text3)', fontWeight: 600 }}>✗ Disabled</span>
-                )}
-              </div>
-              {policy?.allowRefundClaim ? (
-                <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
-                  Customer can request a refund within <strong>{policy.refundClaimWindowDays} min</strong> of payment. Max refundable: <strong>{Math.round(policy.refundClaimBps / 100)}%</strong>. Merchant approves or denies.
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: refundEnabled ? 10 : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14 }}>💸</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Refund & Claim</span>
+                  {policy?.allowRefundClaim && (
+                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>policy default: enabled</span>
+                  )}
                 </div>
-              ) : (
-                <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
-                  Refund claims not enabled for this merchant. Enable in Merchant Profile → Edit policy.
+                <button onClick={() => setRefundEnabled(r => !r)}
+                  style={{ padding: '4px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: refundEnabled ? 'none' : '1px solid var(--text3)', background: refundEnabled ? 'var(--green)' : 'transparent', color: refundEnabled ? '#000' : 'var(--text)' }}>
+                  {refundEnabled ? 'Enabled' : 'Enable'}
+                </button>
+              </div>
+              {refundEnabled && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label className="label">Claim window (min)</label>
+                    <input type="number" min="1" value={refundWindow} onChange={e => setRefundWindow(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label">Max refundable %</label>
+                    <input type="number" min="1" max="100" value={refundMaxPct} onChange={e => setRefundMaxPct(Number(e.target.value))} />
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', gridColumn: '1/-1', lineHeight: 1.5 }}>
+                    Customer can request refund within {refundWindow} min of payment. Merchant approves or denies. Max {refundMaxPct}% refundable.
+                  </div>
                 </div>
               )}
             </div>
