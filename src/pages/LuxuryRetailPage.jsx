@@ -148,7 +148,7 @@ export default function LuxuryRetailPage({ account }) {
       const total = parseFloat(form.amount)
       const t1    = parseFloat((total * tranche1Pct / 100).toFixed(6))
       const t2    = parseFloat((total - t1).toFixed(6))
-      const due1  = Date.now()
+      const due1  = Date.now() + 60 * 1000  // 1 min in future for tranche 1
       const due2  = fromDatetimeLocal(trancheDue) * 1000
       const ddl1  = fromDatetimeLocal(trancheDeadline) * 1000
       const ddl2  = ddl1 + (ddl1 - due2)
