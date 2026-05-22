@@ -31,6 +31,7 @@ export default function CommitmentDetailsPage() {
   const [params] = useSearchParams()
   const modeParam = params.get('mode')
   const { address } = useAccount()
+  const walletAddress = address
   const { open }    = useWeb3Modal()
   const configured  = isCommitmentContractConfigured()
 
