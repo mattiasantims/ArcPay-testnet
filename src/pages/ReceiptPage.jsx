@@ -7,11 +7,15 @@ import {
   fetchProof, formatUsdc, formatTs,
   buildReceiptObject, recoverTxHash,
 } from '../utils/receipts.js'
-import { getCachedTxHash } from '../utils/paymentRequest.js'
+import { getCachedTxHash, decodePaymentRequest } from '../utils/paymentRequest.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured, isRefundContractConfigured } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
-import { requestRefund } from '../utils/refund.js'
+import {
+  requestRefund, directRefund,
+  fetchCustomerRefundIds, fetchMerchantRefundIds, fetchRefundRequest,
+  REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
+} from '../utils/refund.js'
 import ReceiptActions from '../components/ReceiptActions.jsx'
 
 export default function ReceiptPage() {
@@ -26,6 +30,9 @@ export default function ReceiptPage() {
   const [receipt,         setReceipt]         = useState(null)
   const [merchantProfile, setMerchantProfile] = useState(null)
   const [merchantPolicy,  setMerchantPolicy]  = useState(null)
+
+  // Refund state — customer side
+  const [existingRefund,  setExistingRefund]  = useState(null)  // refund already submitted
   const [showRefund,      setShowRefund]       = useState(false)
   const [refundAmount,    setRefundAmount]     = useState('')
   const [refundReason,    setRefundReason]     = useState('')
@@ -33,20 +40,21 @@ export default function ReceiptPage() {
   const [refundSuccess,   setRefundSuccess]    = useState('')
   const [refundError,     setRefundError]      = useState('')
 
+  // Direct refund state — merchant side
+  const [showDirect,      setShowDirect]       = useState(false)
+  const [directAmount,    setDirectAmount]     = useState('')
+  const [directReason,    setDirectReason]     = useState('')
+  const [directSending,   setDirectSending]    = useState(false)
+  const [directSuccess,   setDirectSuccess]    = useState('')
+  const [directError,     setDirectError]      = useState('')
+
   // Optional frontend-only metadata from URL
   const merchantName = params.get('name') ? decodeURIComponent(params.get('name')) : null
   const description  = params.get('desc') ? decodeURIComponent(params.get('desc')) : null
 
-  // Refund params passed by CheckoutPage after immediate payment
-  // These are the workaround for the "policy non persiste" known bug.
-  const urlAllowRefund  = params.get('allowRefundClaim') === '1'
-  const urlWindowMin    = params.get('refundWindowMin')  ? Number(params.get('refundWindowMin'))  : 14
-  const urlRefundBps    = params.get('refundBps')        ? Number(params.get('refundBps'))        : 10000
-
-  // Effective refund policy: prefer on-chain (merchantPolicy), fall back to URL params
-  const effectiveRefundEnabled = !!(merchantPolicy?.allowRefundClaim || urlAllowRefund)
-  const effectiveWindowMin     = merchantPolicy?.refundClaimWindowDays ?? urlWindowMin
-  const effectiveBps           = merchantPolicy?.refundClaimBps        ?? urlRefundBps
+  // Refund enabled: always show if refund contract configured + proof exists
+  // No URL dependency, no window check — let contract + merchant decide
+  const refundContractReady = isRefundContractConfigured()
 
   useEffect(() => {
     async function load() {
@@ -71,7 +79,7 @@ export default function ReceiptPage() {
     load()
   }, [id])
 
-  // Load merchant profile + on-chain policy
+  // Load merchant profile + policy
   useEffect(() => {
     if (!proof?.payee || !isMerchantRegistryConfigured()) return
     getMerchantByWallet(proof.payee).then(m => {
@@ -82,21 +90,57 @@ export default function ReceiptPage() {
     }).catch(() => {})
   }, [proof?.payee])
 
+  // Load existing refund for this proof (by proofRef match) — shows status to both parties
+  useEffect(() => {
+    if (!proof || !refundContractReady || !address) return
+    const proofRef = proof.paymentRef || id
+
+    // Try customer side first, then merchant side
+    const isCustomer = address.toLowerCase() === proof.payer?.toLowerCase()
+    const isMerchant = address.toLowerCase() === proof.payee?.toLowerCase()
+
+    async function findRefund() {
+      try {
+        let ids = []
+        if (isCustomer) ids = await fetchCustomerRefundIds(address)
+        else if (isMerchant) ids = await fetchMerchantRefundIds(address)
+        for (const rid of [...ids].reverse()) {
+          const r = await fetchRefundRequest(rid)
+          if (r && r.proofRef === proofRef) { setExistingRefund(r); return }
+        }
+      } catch {}
+    }
+    findRefund()
+  }, [proof, address, refundContractReady])
+
+  // Build receipt object
+  useEffect(() => {
+    if (proof && status === 'found') {
+      setReceipt(buildReceiptObject({
+        proofData: proof, txHash, proofId: id, merchantName, description, merchantProfile,
+      }))
+    }
+  }, [proof, txHash, status])
+
   async function handleRefundRequest() {
-    const payerAddress = address
-    if (!payerAddress) { setRefundError('Connect wallet first'); return }
+    if (!address) { setRefundError('Connect wallet first'); return }
     if (!refundAmount || parseFloat(refundAmount) <= 0) { setRefundError('Amount required'); return }
     if (!refundReason.trim()) { setRefundError('Reason required'); return }
     setRefundSending(true); setRefundError('')
     try {
-      await requestRefund(payerAddress, {
-        merchant:  proof.payee,
-        amount:    refundAmount,
-        proofRef:  proof.paymentRef || id,
-        reason:    refundReason,
+      const result = await requestRefund(address, {
+        merchant: proof.payee,
+        amount:   refundAmount,
+        proofRef: proof.paymentRef || id,
+        reason:   refundReason,
       })
       setRefundSuccess('Refund request submitted on-chain. Merchant will review.')
       setShowRefund(false)
+      // Reload existing refund
+      if (result.refundId) {
+        const r = await fetchRefundRequest(result.refundId)
+        setExistingRefund(r)
+      }
     } catch (e) {
       setRefundError(e.message || 'Transaction failed')
     } finally {
@@ -104,19 +148,25 @@ export default function ReceiptPage() {
     }
   }
 
-  useEffect(() => {
-    if (proof && status === 'found') {
-      const r = buildReceiptObject({
-        proofData:      proof,
-        txHash,
-        proofId:        id,
-        merchantName,
-        description,
-        merchantProfile,
+  async function handleDirectRefund() {
+    if (!address) return
+    if (!directAmount || parseFloat(directAmount) <= 0) { setDirectError('Amount required'); return }
+    setDirectSending(true); setDirectError('')
+    try {
+      await directRefund(address, {
+        customerWallet: proof.payer,
+        amount:         directAmount,
+        proofRef:       proof.paymentRef || id,
+        reason:         directReason || 'Direct refund',
       })
-      setReceipt(r)
+      setDirectSuccess(`Refund of ${directAmount} USDC sent to customer.`)
+      setShowDirect(false)
+    } catch (e) {
+      setDirectError(e.message || 'Transaction failed')
+    } finally {
+      setDirectSending(false)
     }
-  }, [proof, txHash, status])
+  }
 
   if (status === 'loading') return (
     <div style={{ textAlign: 'center', padding: '80px 20px' }}>
@@ -139,14 +189,29 @@ export default function ReceiptPage() {
 
   const receiptUrl = window.location.href
   const isUsdc     = proof.token?.toLowerCase() === USDC_ADDRESS.toLowerCase()
+  const isCustomer = !!address && address.toLowerCase() === proof.payer?.toLowerCase()
+  const isMerchant = !!address && address.toLowerCase() === proof.payee?.toLowerCase()
+
+  // Refund status badge color/label
+  const refundStatusColor = existingRefund ? (REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)') : null
+  const refundStatusLabel = existingRefund ? (REFUND_STATUS_LABEL[existingRefund.status] || '') : null
 
   return (
     <div className="fade-up">
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
           <span className="badge badge-green">✓ Verified on-chain</span>
           <span className="badge badge-blue">Arc Testnet</span>
+          {existingRefund && (
+            <span style={{
+              fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 700,
+              background: (refundStatusColor) + '22', color: refundStatusColor,
+              border: `1px solid ${refundStatusColor}44`,
+            }}>
+              Refund: {refundStatusLabel}
+            </span>
+          )}
         </div>
         <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.5px' }}>
           {proof.paymentRef ? `Payment Receipt · ${proof.paymentRef}` : 'Payment Receipt'}
@@ -228,6 +293,119 @@ export default function ReceiptPage() {
         </div>
       )}
 
+      {/* ── Available Actions card ── */}
+      {refundContractReady && (isCustomer || isMerchant) && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Available Actions
+          </div>
+
+          {/* ── Customer: request refund ── */}
+          {isCustomer && (
+            <>
+              {refundSuccess && <div className="success-box" style={{ marginBottom: 8 }}>{refundSuccess}</div>}
+              {existingRefund ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Refund request:</span>
+                  <span style={{
+                    fontSize: 12, padding: '2px 10px', borderRadius: 20, fontWeight: 700,
+                    background: (REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)') + '22',
+                    color: REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)',
+                    border: `1px solid ${(REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)')}44`,
+                  }}>
+                    {REFUND_STATUS_LABEL[existingRefund.status]} — {existingRefund.amount} USDC
+                  </span>
+                </div>
+              ) : !showRefund ? (
+                <button onClick={() => setShowRefund(true)} className="btn-ghost"
+                  style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)' }}>
+                  💸 Request refund from merchant
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {!address && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Connect wallet to sign</span>
+                      <button onClick={() => open()} className="btn-primary" style={{ fontSize: 11, padding: '5px 14px' }}>Connect</button>
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label className="label">Amount to claim (USDC)</label>
+                      <input type="number" min="0.01" step="0.01" value={refundAmount}
+                        onChange={e => setRefundAmount(e.target.value)} placeholder={receipt?.amount || ''} />
+                    </div>
+                    <div>
+                      <label className="label">Reason</label>
+                      <input value={refundReason} onChange={e => setRefundReason(e.target.value)}
+                        placeholder="e.g. Item not as described" />
+                    </div>
+                  </div>
+                  {refundError && <div className="error-box">{refundError}</div>}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={handleRefundRequest} disabled={refundSending || !address}
+                      className="btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>
+                      {refundSending ? <><span className="spinner" />Sending...</> : '📤 Submit refund request'}
+                    </button>
+                    <button onClick={() => { setShowRefund(false); setRefundError('') }}
+                      className="btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Merchant: issue direct refund ── */}
+          {isMerchant && (
+            <div style={{ marginTop: isCustomer ? 16 : 0 }}>
+              {directSuccess ? (
+                <div className="success-box">{directSuccess}</div>
+              ) : !showDirect ? (
+                <button onClick={() => setShowDirect(true)} className="btn-ghost"
+                  style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--green)', color: 'var(--green)' }}>
+                  💸 Issue direct refund to customer
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                    Off-chain agreed refund — transfers USDC directly to the customer wallet.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label className="label">Amount (USDC)</label>
+                      <input type="number" min="0.01" step="0.01" value={directAmount}
+                        onChange={e => setDirectAmount(e.target.value)} placeholder={receipt?.amount || ''} />
+                    </div>
+                    <div>
+                      <label className="label">Reason</label>
+                      <input value={directReason} onChange={e => setDirectReason(e.target.value)}
+                        placeholder="e.g. Agreed refund — phone call" />
+                    </div>
+                  </div>
+                  {directError && <div className="error-box">{directError}</div>}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={handleDirectRefund} disabled={directSending}
+                      className="btn-primary"
+                      style={{ fontSize: 12, padding: '8px 16px', background: 'var(--green)', border: 'none' }}>
+                      {directSending ? <><span className="spinner" />Sending...</> : '✓ Send refund'}
+                    </button>
+                    <button onClick={() => { setShowDirect(false); setDirectError('') }}
+                      className="btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Neither customer nor merchant — show info */}
+          {!isCustomer && !isMerchant && (
+            <p style={{ fontSize: 13, color: 'var(--text3)' }}>
+              Connect the customer or merchant wallet to take action.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* QR */}
       <div className="card" style={{ padding: 28, marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -242,73 +420,6 @@ export default function ReceiptPage() {
           </p>
         </div>
       </div>
-
-      {/* ── Refund claim ── */}
-      {/* Visible when: refund contract deployed AND (on-chain policy OR URL flag from CheckoutPage) */}
-      {/* Refund window check: button visible only within effectiveWindowMin minutes of payment */}
-      {isRefundContractConfigured() && effectiveRefundEnabled && proof && (() => {
-        const paymentTime = Number(proof.timestamp) * 1000  // ms
-        const windowMs    = effectiveWindowMin * 60 * 1000
-        const withinWindow = !paymentTime || Date.now() - paymentTime <= windowMs
-        return withinWindow
-      })() && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
-          {refundSuccess ? (
-            <div className="success-box">{refundSuccess}</div>
-          ) : !showRefund ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button
-                onClick={() => setShowRefund(true)}
-                className="btn-ghost"
-                style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)', width: 'fit-content' }}
-              >
-                Request refund from merchant
-              </button>
-              {!address && (
-                <p style={{ fontSize: 12, color: 'var(--text3)' }}>
-                  Dovrai connettere il wallet per firmare la richiesta.{' '}
-                  <button onClick={() => open()} className="btn-ghost" style={{ fontSize: 11, padding: '3px 10px' }}>Connect</button>
-                </p>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
-                Il merchant ha {effectiveWindowMin} min per rispondere. Max rimborsabile: {Math.round(effectiveBps / 100)}% del pagamento.
-              </div>
-              {!address && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>Connetti il wallet per firmare</span>
-                  <button onClick={() => open()} className="btn-primary" style={{ fontSize: 11, padding: '5px 14px' }}>Connect</button>
-                </div>
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label className="label">Amount to claim (USDC)</label>
-                  <input type="number" min="0.01" step="0.01" value={refundAmount}
-                    onChange={e => setRefundAmount(e.target.value)}
-                    placeholder={receipt?.amount || ''} />
-                </div>
-                <div>
-                  <label className="label">Reason</label>
-                  <input value={refundReason} onChange={e => setRefundReason(e.target.value)}
-                    placeholder="e.g. Item not as described" />
-                </div>
-              </div>
-              {refundError && <div className="error-box">{refundError}</div>}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={handleRefundRequest} disabled={refundSending || !address}
-                  className="btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>
-                  {refundSending ? <><span className="spinner" />Sending...</> : '📤 Submit refund request'}
-                </button>
-                <button onClick={() => { setShowRefund(false); setRefundError('') }}
-                  className="btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Disclaimer */}
       <div style={{ padding: 14, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>

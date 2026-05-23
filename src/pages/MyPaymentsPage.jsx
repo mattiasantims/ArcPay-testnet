@@ -80,6 +80,7 @@ export default function MyPaymentsPage() {
   const [loading,     setLoading]     = useState(false)
   const [acting,      setActing]      = useState(null)
   const [refunds,     setRefunds]     = useState([])
+  const [refundsByRef, setRefundsByRef] = useState({})
 
   useEffect(() => {
     if (!isConnected || !address) return
@@ -342,6 +343,16 @@ export default function MyPaymentsPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                       <span className="badge badge-gray" style={{ fontSize: 10 }}>{p.purposeCode}</span>
+                      {refundsByRef[p.paymentRef] && (() => {
+                        const ref = refundsByRef[p.paymentRef]
+                        const col = REFUND_STATUS_COLOR[ref.status] || 'var(--text3)'
+                        return (
+                          <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, fontWeight: 700,
+                            background: col + '22', color: col, border: `1px solid ${col}44` }}>
+                            Refund: {REFUND_STATUS_LABEL[ref.status]}
+                          </span>
+                        )
+                      })()}
                       {p.merchantName && (
                         <span style={{ fontSize: 12, color: 'var(--text2)' }}>{p.merchantName}</span>
                       )}
