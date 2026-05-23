@@ -89,13 +89,11 @@ export default function ReceiptPage() {
     if (!refundReason.trim()) { setRefundError('Reason required'); return }
     setRefundSending(true); setRefundError('')
     try {
-      const expiresAt = Date.now() + effectiveWindowMin * 60 * 1000
       await requestRefund(payerAddress, {
         merchant:  proof.payee,
         amount:    refundAmount,
         proofRef:  proof.paymentRef || id,
         reason:    refundReason,
-        expiresAt,
       })
       setRefundSuccess('Refund request submitted on-chain. Merchant will review.')
       setShowRefund(false)
@@ -247,7 +245,13 @@ export default function ReceiptPage() {
 
       {/* ── Refund claim ── */}
       {/* Visible when: refund contract deployed AND (on-chain policy OR URL flag from CheckoutPage) */}
-      {isRefundContractConfigured() && effectiveRefundEnabled && proof && (
+      {/* Refund window check: button visible only within effectiveWindowMin minutes of payment */}
+      {isRefundContractConfigured() && effectiveRefundEnabled && proof && (() => {
+        const paymentTime = Number(proof.timestamp) * 1000  // ms
+        const windowMs    = effectiveWindowMin * 60 * 1000
+        const withinWindow = !paymentTime || Date.now() - paymentTime <= windowMs
+        return withinWindow
+      })() && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
           {refundSuccess ? (

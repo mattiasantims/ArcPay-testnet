@@ -116,7 +116,6 @@ export default function CommitmentDetailsPage() {
         amount:    refundAmount,
         proofRef:  commitment.ref,
         reason:    refundReason,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 giorni,
       })
       setRefundDone('Refund request submitted on-chain. Merchant will review.')
       setShowRefund(false)

@@ -16,7 +16,7 @@ import {
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
 } from '../utils/commitment.js'
 import {
-  fetchMerchantRefundIds, fetchRefundRequest, approveRefund, denyRefund,
+  fetchMerchantRefundIds, fetchRefundRequest, approveRefund, denyRefund, directRefund,
   REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 
@@ -62,6 +62,13 @@ export default function DashboardPage({ account, onConnect, connecting }) {
   const [refunds,       setRefunds]       = useState([])
   const [refundActing,  setRefundActing]  = useState(null)
   const [refundMsg,     setRefundMsg]     = useState('')
+  const [showDirect,    setShowDirect]    = useState(false)
+  const [directTo,      setDirectTo]      = useState('')
+  const [directAmount,  setDirectAmount]  = useState('')
+  const [directRef,     setDirectRef]     = useState('')
+  const [directReason,  setDirectReason]  = useState('')
+  const [directSending, setDirectSending] = useState(false)
+  const [directMsg,     setDirectMsg]     = useState('')
 
   // Auto-load when wallet connects
   useEffect(() => {
@@ -208,6 +215,29 @@ export default function DashboardPage({ account, onConnect, connecting }) {
       setRefundMsg(`Error: ${e.message || 'Deny failed'}`)
     } finally {
       setRefundActing(null)
+    }
+  }
+
+  async function handleDirectRefund() {
+    if (!account) return
+    if (!directTo.match(/^0x[0-9a-fA-F]{40}$/)) { setDirectMsg('Indirizzo wallet non valido'); return }
+    if (!directAmount || parseFloat(directAmount) <= 0) { setDirectMsg('Importo richiesto'); return }
+    setDirectSending(true); setDirectMsg('')
+    try {
+      await directRefund(account, {
+        customerWallet: directTo,
+        amount:         directAmount,
+        proofRef:       directRef || 'DIRECT',
+        reason:         directReason || 'Direct refund',
+      })
+      setDirectMsg(`✓ Rimborso di ${directAmount} USDC inviato a ${directTo.slice(0,10)}...`)
+      setShowDirect(false)
+      setDirectTo(''); setDirectAmount(''); setDirectRef(''); setDirectReason('')
+      await load(merchantAddr)
+    } catch (e) {
+      setDirectMsg(`Errore: ${e.message || 'Transaction failed'}`)
+    } finally {
+      setDirectSending(false)
     }
   }
 
@@ -372,6 +402,62 @@ export default function DashboardPage({ account, onConnect, connecting }) {
           <button onClick={() => load(merchantAddr)} disabled={loading} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             ↻ Refresh
           </button>
+        </div>
+      )}
+
+      {/* ── Direct Refund (merchant-initiated, no prior request) ── */}
+      {account && (
+        <div style={{ marginBottom: 20 }}>
+          {!showDirect ? (
+            <button
+              onClick={() => setShowDirect(true)}
+              className="btn-ghost"
+              style={{ fontSize: 13, padding: '8px 18px', borderColor: 'var(--green)', color: 'var(--green)' }}
+            >
+              💸 Emetti rimborso diretto
+            </button>
+          ) : (
+            <div className="card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>💸 Rimborso diretto al cliente</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+                Rimborso off-chain concordato — trasferisce USDC direttamente al wallet del cliente senza richiesta previa.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="label">Wallet cliente</label>
+                  <input value={directTo} onChange={e => setDirectTo(e.target.value)} placeholder="0x..." />
+                </div>
+                <div>
+                  <label className="label">Importo (USDC)</label>
+                  <input type="number" min="0.01" step="0.01" value={directAmount}
+                    onChange={e => setDirectAmount(e.target.value)} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="label">Ref pagamento</label>
+                  <input value={directRef} onChange={e => setDirectRef(e.target.value)}
+                    placeholder="es. LUXURY-20260524-0016" />
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="label">Motivo</label>
+                  <input value={directReason} onChange={e => setDirectReason(e.target.value)}
+                    placeholder="es. Prodotto non conforme — accordo telefonico" />
+                </div>
+              </div>
+              {directMsg && (
+                <div className={directMsg.startsWith('✓') ? 'success-box' : 'error-box'} style={{ marginBottom: 10 }}>
+                  {directMsg}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={handleDirectRefund} disabled={directSending} className="btn-primary"
+                  style={{ fontSize: 12, padding: '8px 16px', background: 'var(--green)', border: 'none' }}>
+                  {directSending ? <><span className="spinner" />Invio...</> : '✓ Invia rimborso'}
+                </button>
+                <button onClick={() => { setShowDirect(false); setDirectMsg('') }} className="btn-ghost"
+                  style={{ fontSize: 12, padding: '8px 14px' }}>Annulla</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
