@@ -1,25 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
+import { useAccount } from 'wagmi'
+import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   fetchProof, formatUsdc, formatTs,
   buildReceiptObject, recoverTxHash,
 } from '../utils/receipts.js'
-import { getCachedTxHash } from '../utils/paymentRequest.js'
+import { getCachedTxHash, decodePaymentRequest } from '../utils/paymentRequest.js'
 import { shortAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured } from '../config.js'
+import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured, isRefundContractConfigured } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
 import { requestRefund } from '../utils/refund.js'
-import { isRefundContractConfigured } from '../config.js'
 import ReceiptActions from '../components/ReceiptActions.jsx'
 
 export default function ReceiptPage() {
-  const { id }     = useParams()
-  const [params]   = useSearchParams()
-  const [proof,    setProof]   = useState(null)
-  const [status,   setStatus]  = useState('loading')
-  const [txHash,   setTxHash]  = useState(null)
-  const [receipt,  setReceipt] = useState(null)
+  const { id }   = useParams()
+  const [params] = useSearchParams()
+  const { address } = useAccount()
+  const { open }    = useWeb3Modal()
+
+  const [proof,           setProof]           = useState(null)
+  const [status,          setStatus]          = useState('loading')
+  const [txHash,          setTxHash]          = useState(null)
+  const [receipt,         setReceipt]         = useState(null)
   const [merchantProfile, setMerchantProfile] = useState(null)
   const [merchantPolicy,  setMerchantPolicy]  = useState(null)
   const [showRefund,      setShowRefund]       = useState(false)
@@ -32,6 +36,22 @@ export default function ReceiptPage() {
   // Optional frontend-only metadata from URL
   const merchantName = params.get('name') ? decodeURIComponent(params.get('name')) : null
   const description  = params.get('desc') ? decodeURIComponent(params.get('desc')) : null
+
+  // Decode full payment request from ?r= param (luxury flow encodes allowRefundClaim here)
+  const urlReq = (() => {
+    const r = params.get('r')
+    if (!r) return null
+    try { return decodePaymentRequest(r) } catch { return null }
+  })()
+
+  // Effective refund policy: prefer on-chain (merchantPolicy), fall back to URL-encoded req
+  // This is the workaround for the "policy non persiste" known bug.
+  const effectiveRefundEnabled = !!(
+    merchantPolicy?.allowRefundClaim ||
+    urlReq?.allowRefundClaim
+  )
+  const effectiveWindowDays = merchantPolicy?.refundClaimWindowDays ?? urlReq?.refundClaimWindowDays ?? 14
+  const effectiveBps        = merchantPolicy?.refundClaimBps        ?? urlReq?.refundClaimBps        ?? 10000
 
   useEffect(() => {
     async function load() {
@@ -58,7 +78,7 @@ export default function ReceiptPage() {
     load()
   }, [id])
 
-  // Carica profilo merchant dal registry usando l'indirizzo del merchant
+  // Load merchant profile + on-chain policy
   useEffect(() => {
     if (!proof?.payee || !isMerchantRegistryConfigured()) return
     getMerchantByWallet(proof.payee).then(m => {
@@ -69,25 +89,29 @@ export default function ReceiptPage() {
     }).catch(() => {})
   }, [proof?.payee])
 
-  async function handleRefundRequest(payerAddress) {
-    if (!payerAddress)    { setRefundError('Connect wallet first'); return }
+  async function handleRefundRequest() {
+    // Determine payer: use connected wallet if matches proof.payer, else use proof.payer directly
+    const payerAddress = address || proof?.payer
+    if (!payerAddress) { setRefundError('Connect wallet first'); return }
     if (!refundAmount || parseFloat(refundAmount) <= 0) { setRefundError('Amount required'); return }
     if (!refundReason.trim()) { setRefundError('Reason required'); return }
     setRefundSending(true); setRefundError('')
     try {
-      const windowMin  = merchantPolicy?.refundClaimWindowDays ?? 14
-      const expiresAt  = Date.now() + windowMin * 60 * 1000
+      const expiresAt = Date.now() + effectiveWindowDays * 60 * 1000
       await requestRefund(payerAddress, {
-        merchant:   proof.payee,
-        amount:     refundAmount,
-        proofRef:   proof.paymentRef || id,
-        reason:     refundReason,
+        merchant:  proof.payee,
+        amount:    refundAmount,
+        proofRef:  proof.paymentRef || id,
+        reason:    refundReason,
         expiresAt,
       })
       setRefundSuccess('Refund request submitted on-chain. Merchant will review.')
       setShowRefund(false)
-    } catch(e) { setRefundError(e.message || 'Transaction failed') }
-    finally { setRefundSending(false) }
+    } catch (e) {
+      setRefundError(e.message || 'Transaction failed')
+    } finally {
+      setRefundSending(false)
+    }
   }
 
   useEffect(() => {
@@ -232,37 +256,76 @@ export default function ReceiptPage() {
         </div>
       </div>
 
-      {/* Refund claim */}
-      {isRefundContractConfigured() && merchantPolicy?.allowRefundClaim && proof && (
+      {/* ── Refund claim ─────────────────────────────────────────────────────── */}
+      {/* Shows when: refund contract deployed AND (on-chain policy OR URL flag) */}
+      {isRefundContractConfigured() && effectiveRefundEnabled && proof && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
           {refundSuccess ? (
             <div className="success-box">{refundSuccess}</div>
           ) : !showRefund ? (
-            <button onClick={() => setShowRefund(true)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)' }}>
-              Request refund from merchant
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                onClick={() => setShowRefund(true)}
+                className="btn-ghost"
+                style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)', width: 'fit-content' }}
+              >
+                Request refund from merchant
+              </button>
+              {!address && (
+                <p style={{ fontSize: 12, color: 'var(--text3)' }}>
+                  You'll need to connect your wallet to sign the refund request.{' '}
+                  <button onClick={() => open()} className="btn-ghost" style={{ fontSize: 11, padding: '3px 10px' }}>Connect</button>
+                </p>
+              )}
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
-                Merchant has up to {merchantPolicy.refundClaimWindowDays} min to respond. Max refundable: {Math.round(merchantPolicy.refundClaimBps / 100)}% of payment.
+                Merchant has up to {effectiveWindowDays} min to respond. Max refundable: {Math.round(effectiveBps / 100)}% of payment.
               </div>
+              {!address && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>Connect wallet to sign</span>
+                  <button onClick={() => open()} className="btn-primary" style={{ fontSize: 11, padding: '5px 14px' }}>Connect</button>
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label className="label">Amount to claim (USDC)</label>
-                  <input type="number" min="0.01" step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} placeholder={receipt?.amount || ''} />
+                  <input
+                    type="number" min="0.01" step="0.01"
+                    value={refundAmount}
+                    onChange={e => setRefundAmount(e.target.value)}
+                    placeholder={receipt?.amount || ''}
+                  />
                 </div>
                 <div>
                   <label className="label">Reason</label>
-                  <input value={refundReason} onChange={e => setRefundReason(e.target.value)} placeholder="e.g. Item not as described" />
+                  <input
+                    value={refundReason}
+                    onChange={e => setRefundReason(e.target.value)}
+                    placeholder="e.g. Item not as described"
+                  />
                 </div>
               </div>
               {refundError && <div className="error-box">{refundError}</div>}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => handleRefundRequest(proof.payer)} disabled={refundSending} className="btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>
+                <button
+                  onClick={handleRefundRequest}
+                  disabled={refundSending || !address}
+                  className="btn-primary"
+                  style={{ fontSize: 12, padding: '8px 16px' }}
+                >
                   {refundSending ? <><span className="spinner" />Sending...</> : '📤 Submit refund request'}
                 </button>
-                <button onClick={() => { setShowRefund(false); setRefundError('') }} className="btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
+                <button
+                  onClick={() => { setShowRefund(false); setRefundError('') }}
+                  className="btn-ghost"
+                  style={{ fontSize: 12, padding: '8px 14px' }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           )}
