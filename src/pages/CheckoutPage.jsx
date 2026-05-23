@@ -21,7 +21,7 @@ export default function CheckoutPage() {
   const [step,     setStep]     = useState('idle')
   const [error,    setError]    = useState('')
   const [connecting, setConnecting] = useState(false)
-  const [payMethod, setPayMethod]   = useState('usdc') // always usdc
+  const [payMethod, setPayMethod]   = useState('usdc')
 
   useEffect(() => {
     const r = params.get('r')
@@ -70,7 +70,7 @@ export default function CheckoutPage() {
           description:  req.desc || '',
           metadataHash,
         })
-        navigate(`/commitment/${commitmentId}?mode=customer`)
+        navigate(`/commitment/${commitmentId}`)
       } catch (e) {
         setError(e.message || 'Transaction failed.')
         setStep('idle')
@@ -91,7 +91,7 @@ export default function CheckoutPage() {
           description:     req.desc || '',
           metadataHash,
         })
-        navigate(`/commitment/${commitmentId}?mode=customer`)
+        navigate(`/commitment/${commitmentId}`)
       } catch (e) {
         setError(e.message || 'Transaction failed.')
         setStep('idle')
@@ -113,7 +113,18 @@ export default function CheckoutPage() {
         description: req.desc || '',
         metadataHash,
       })
-      navigate(`/receipt/${proofId}?name=${encodeURIComponent(req.name || '')}&desc=${encodeURIComponent(req.desc || '')}`)
+      // Build receipt URL — include refund params from req so ReceiptPage can show refund button
+      // even when the merchant's on-chain policy hasn't been saved (known testnet limitation)
+      const receiptParams = new URLSearchParams({
+        name: req.name || '',
+        desc: req.desc || '',
+      })
+      if (req.allowRefundClaim) {
+        receiptParams.set('allowRefundClaim', '1')
+        receiptParams.set('refundWindowMin', String(req.refundClaimWindowDays ?? 14))
+        receiptParams.set('refundBps', String(req.refundClaimBps ?? 10000))
+      }
+      navigate(`/receipt/${proofId}?${receiptParams.toString()}`)
     } catch (e) {
       console.error(e)
       setError(e.message || 'Transaction failed. Check MetaMask and try again.')
@@ -165,7 +176,6 @@ export default function CheckoutPage() {
             Select payment method
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Card — disabled, no label */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 14,
               padding: '14px 16px', borderRadius: 10,
@@ -175,7 +185,6 @@ export default function CheckoutPage() {
               <div style={{ fontSize: 22 }}>💳</div>
               <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text3)' }}>Credit / Debit Card</div>
             </div>
-            {/* USDC — active */}
             <div
               onClick={() => setPayMethod('usdc')}
               style={{
@@ -237,7 +246,7 @@ export default function CheckoutPage() {
                 {step === 'paying'    && <><span className="spinner" />Processing payment...</>}
               </button>
               <p style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center', marginBottom: 12 }}>
-                2 MetaMask confirmations: approve USDC → send payment
+                {req.type === 'delayed' || req.type === 'tranche' ? '1 MetaMask confirmation — no USDC transferred now' : '2 MetaMask confirmations: approve USDC → send payment'}
               </p>
             </div>
           )}

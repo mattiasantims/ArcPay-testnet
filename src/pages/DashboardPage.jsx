@@ -9,7 +9,7 @@ import { getCachedTxHash, getPaymentRequests } from '../utils/paymentRequest.js'
 import { shortAddress, isValidAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, isMerchantRegistryConfigured, isRefundContractConfigured, isCommitmentContractConfigured } from '../config.js'
 import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
-import { downloadCSV } from '../utils/csv.js'
+import { downloadCSV, downloadUnifiedCSV } from '../utils/csv.js'
 import { downloadReceiptPDF } from '../utils/pdf.js'
 import {
   fetchMerchantCommitmentIds, fetchCommitment,
@@ -366,7 +366,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
       {/* Export / refresh */}
       {receipts.length > 0 && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, justifyContent: 'flex-end' }}>
-          <button onClick={() => downloadCSV(receipts, merchantAddr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
+          <button onClick={() => downloadUnifiedCSV({ receipts, commitments, refunds, walletAddress: merchantAddr, role: 'merchant' })} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             📊 Export CSV
           </button>
           <button onClick={() => load(merchantAddr)} disabled={loading} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>

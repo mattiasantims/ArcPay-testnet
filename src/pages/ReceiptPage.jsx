@@ -7,7 +7,7 @@ import {
   fetchProof, formatUsdc, formatTs,
   buildReceiptObject, recoverTxHash,
 } from '../utils/receipts.js'
-import { getCachedTxHash, decodePaymentRequest } from '../utils/paymentRequest.js'
+import { getCachedTxHash } from '../utils/paymentRequest.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured, isRefundContractConfigured } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
@@ -37,21 +37,16 @@ export default function ReceiptPage() {
   const merchantName = params.get('name') ? decodeURIComponent(params.get('name')) : null
   const description  = params.get('desc') ? decodeURIComponent(params.get('desc')) : null
 
-  // Decode full payment request from ?r= param (luxury flow encodes allowRefundClaim here)
-  const urlReq = (() => {
-    const r = params.get('r')
-    if (!r) return null
-    try { return decodePaymentRequest(r) } catch { return null }
-  })()
+  // Refund params passed by CheckoutPage after immediate payment
+  // These are the workaround for the "policy non persiste" known bug.
+  const urlAllowRefund  = params.get('allowRefundClaim') === '1'
+  const urlWindowMin    = params.get('refundWindowMin')  ? Number(params.get('refundWindowMin'))  : 14
+  const urlRefundBps    = params.get('refundBps')        ? Number(params.get('refundBps'))        : 10000
 
-  // Effective refund policy: prefer on-chain (merchantPolicy), fall back to URL-encoded req
-  // This is the workaround for the "policy non persiste" known bug.
-  const effectiveRefundEnabled = !!(
-    merchantPolicy?.allowRefundClaim ||
-    urlReq?.allowRefundClaim
-  )
-  const effectiveWindowDays = merchantPolicy?.refundClaimWindowDays ?? urlReq?.refundClaimWindowDays ?? 14
-  const effectiveBps        = merchantPolicy?.refundClaimBps        ?? urlReq?.refundClaimBps        ?? 10000
+  // Effective refund policy: prefer on-chain (merchantPolicy), fall back to URL params
+  const effectiveRefundEnabled = !!(merchantPolicy?.allowRefundClaim || urlAllowRefund)
+  const effectiveWindowMin     = merchantPolicy?.refundClaimWindowDays ?? urlWindowMin
+  const effectiveBps           = merchantPolicy?.refundClaimBps        ?? urlRefundBps
 
   useEffect(() => {
     async function load() {
@@ -60,7 +55,6 @@ export default function ReceiptPage() {
         const data = await fetchProof(id)
         if (!data) { setStatus('notfound'); return }
         setProof(data)
-
         const cached = getCachedTxHash(id)
         if (cached) {
           setTxHash(cached)
@@ -68,7 +62,6 @@ export default function ReceiptPage() {
           const recovered = await recoverTxHash(id, data.createdBlock)
           if (recovered) setTxHash(recovered)
         }
-
         setStatus('found')
       } catch (e) {
         console.error(e)
@@ -90,14 +83,13 @@ export default function ReceiptPage() {
   }, [proof?.payee])
 
   async function handleRefundRequest() {
-    // Determine payer: use connected wallet if matches proof.payer, else use proof.payer directly
-    const payerAddress = address || proof?.payer
+    const payerAddress = address
     if (!payerAddress) { setRefundError('Connect wallet first'); return }
     if (!refundAmount || parseFloat(refundAmount) <= 0) { setRefundError('Amount required'); return }
     if (!refundReason.trim()) { setRefundError('Reason required'); return }
     setRefundSending(true); setRefundError('')
     try {
-      const expiresAt = Date.now() + effectiveWindowDays * 60 * 1000
+      const expiresAt = Date.now() + effectiveWindowMin * 60 * 1000
       await requestRefund(payerAddress, {
         merchant:  proof.payee,
         amount:    refundAmount,
@@ -134,7 +126,6 @@ export default function ReceiptPage() {
       <p style={{ color: 'var(--text2)', marginTop: 16 }}>Loading receipt #{id}...</p>
     </div>
   )
-
   if (status === 'notfound') return (
     <div className="card fade-up" style={{ textAlign: 'center', padding: 48 }}>
       <div style={{ fontSize: 36, marginBottom: 16 }}>🔍</div>
@@ -142,7 +133,6 @@ export default function ReceiptPage() {
       <p style={{ color: 'var(--text2)', fontSize: 14 }}>Receipt #{id} does not exist on Arc Testnet.</p>
     </div>
   )
-
   if (status === 'error') return (
     <div className="error-box fade-up" style={{ padding: 24 }}>
       Failed to load receipt. Check your network connection.
@@ -193,22 +183,22 @@ export default function ReceiptPage() {
       {/* Details */}
       <div className="card" style={{ marginBottom: 16 }}>
         {[
-          { k: 'Payment Ref',   v: proof.paymentRef,   mono: true },
-          { k: 'Purpose',       v: proof.purposeCode,  mono: true },
-          { k: 'Description',   v: proof?.description || description || '—' },
-          { k: 'Merchant wallet', v: proof.payee,        mono: true, full: true },
-          { k: 'Trading name',    v: merchantProfile?.tradingName || merchantName || '—' },
-          { k: 'Legal name',      v: merchantProfile?.legalName || '—' },
-          { k: 'Country',         v: merchantProfile?.country || '—' },
+          { k: 'Payment Ref',       v: proof.paymentRef,   mono: true },
+          { k: 'Purpose',           v: proof.purposeCode,  mono: true },
+          { k: 'Description',       v: proof?.description || description || '—' },
+          { k: 'Merchant wallet',   v: proof.payee,        mono: true, full: true },
+          { k: 'Trading name',      v: merchantProfile?.tradingName || merchantName || '—' },
+          { k: 'Legal name',        v: merchantProfile?.legalName || '—' },
+          { k: 'Country',           v: merchantProfile?.country || '—' },
           { k: 'Registered office', v: merchantProfile?.businessAddress || '—' },
           { k: 'VAT / Company ID',  v: merchantProfile?.vatOrCompanyId || '—' },
-          { k: 'LEI',             v: merchantProfile?.lei || '—' },
-          { k: 'Customer',        v: proof.payer,        mono: true, full: true },
-          { k: 'Token',         v: isUsdc ? 'USDC (Circle)' : proof.token },
-          { k: 'Metadata hash', v: proof.metadataHash, mono: true, full: true },
-          { k: 'Block',         v: proof.createdBlock?.toString() ?? '—', mono: true },
-          { k: 'Timestamp',     v: formatTs(proof.timestamp) },
-          { k: 'Network',       v: 'Arc Testnet · Chain ID 5042002' },
+          { k: 'LEI',               v: merchantProfile?.lei || '—' },
+          { k: 'Customer',          v: proof.payer,        mono: true, full: true },
+          { k: 'Token',             v: isUsdc ? 'USDC (Circle)' : proof.token },
+          { k: 'Metadata hash',     v: proof.metadataHash, mono: true, full: true },
+          { k: 'Block',             v: proof.createdBlock?.toString() ?? '—', mono: true },
+          { k: 'Timestamp',         v: formatTs(proof.timestamp) },
+          { k: 'Network',           v: 'Arc Testnet · Chain ID 5042002' },
         ].map((row, i, arr) => (
           <div key={row.k} className="field-row" style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
             <span className="field-key">{row.k}</span>
@@ -217,7 +207,6 @@ export default function ReceiptPage() {
             </span>
           </div>
         ))}
-        {/* TX Hash */}
         <div className="field-row" style={{ borderBottom: 'none' }}>
           <span className="field-key">TX Hash</span>
           {txHash ? (
@@ -256,8 +245,8 @@ export default function ReceiptPage() {
         </div>
       </div>
 
-      {/* ── Refund claim ─────────────────────────────────────────────────────── */}
-      {/* Shows when: refund contract deployed AND (on-chain policy OR URL flag) */}
+      {/* ── Refund claim ── */}
+      {/* Visible when: refund contract deployed AND (on-chain policy OR URL flag from CheckoutPage) */}
       {isRefundContractConfigured() && effectiveRefundEnabled && proof && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
@@ -274,7 +263,7 @@ export default function ReceiptPage() {
               </button>
               {!address && (
                 <p style={{ fontSize: 12, color: 'var(--text3)' }}>
-                  You'll need to connect your wallet to sign the refund request.{' '}
+                  Dovrai connettere il wallet per firmare la richiesta.{' '}
                   <button onClick={() => open()} className="btn-ghost" style={{ fontSize: 11, padding: '3px 10px' }}>Connect</button>
                 </p>
               )}
@@ -282,50 +271,35 @@ export default function ReceiptPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
-                Merchant has up to {effectiveWindowDays} min to respond. Max refundable: {Math.round(effectiveBps / 100)}% of payment.
+                Il merchant ha {effectiveWindowMin} min per rispondere. Max rimborsabile: {Math.round(effectiveBps / 100)}% del pagamento.
               </div>
               {!address && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>Connect wallet to sign</span>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>Connetti il wallet per firmare</span>
                   <button onClick={() => open()} className="btn-primary" style={{ fontSize: 11, padding: '5px 14px' }}>Connect</button>
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label className="label">Amount to claim (USDC)</label>
-                  <input
-                    type="number" min="0.01" step="0.01"
-                    value={refundAmount}
+                  <input type="number" min="0.01" step="0.01" value={refundAmount}
                     onChange={e => setRefundAmount(e.target.value)}
-                    placeholder={receipt?.amount || ''}
-                  />
+                    placeholder={receipt?.amount || ''} />
                 </div>
                 <div>
                   <label className="label">Reason</label>
-                  <input
-                    value={refundReason}
-                    onChange={e => setRefundReason(e.target.value)}
-                    placeholder="e.g. Item not as described"
-                  />
+                  <input value={refundReason} onChange={e => setRefundReason(e.target.value)}
+                    placeholder="e.g. Item not as described" />
                 </div>
               </div>
               {refundError && <div className="error-box">{refundError}</div>}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={handleRefundRequest}
-                  disabled={refundSending || !address}
-                  className="btn-primary"
-                  style={{ fontSize: 12, padding: '8px 16px' }}
-                >
+                <button onClick={handleRefundRequest} disabled={refundSending || !address}
+                  className="btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>
                   {refundSending ? <><span className="spinner" />Sending...</> : '📤 Submit refund request'}
                 </button>
-                <button
-                  onClick={() => { setShowRefund(false); setRefundError('') }}
-                  className="btn-ghost"
-                  style={{ fontSize: 12, padding: '8px 14px' }}
-                >
-                  Cancel
-                </button>
+                <button onClick={() => { setShowRefund(false); setRefundError('') }}
+                  className="btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
               </div>
             </div>
           )}

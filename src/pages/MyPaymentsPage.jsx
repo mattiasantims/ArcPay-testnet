@@ -7,9 +7,10 @@ import { wagmiConfig } from '../walletConfig.js'
 import { getPublicClient } from '../utils/wallet.js'
 import { getMerchantByWallet } from '../utils/merchant.js'
 import { isMerchantRegistryConfigured } from '../config.js'
-import { ARCPROOF_ADDRESS, ARCSCAN_BASE, isCommitmentContractConfigured } from '../config.js'
+import { ARCPROOF_ADDRESS, ARCSCAN_BASE, isCommitmentContractConfigured, isRefundContractConfigured } from '../config.js'
 import ArcProofABI from '../abis/ArcProof.json'
 import { getCachedTxHash } from '../utils/paymentRequest.js'
+import { downloadUnifiedCSV } from '../utils/csv.js'
 import {
   fetchCustomerCommitmentIds, fetchCommitment,
   fulfillDelayedCommitment, fulfillTranche,
@@ -78,6 +79,7 @@ export default function MyPaymentsPage() {
   const [commitments, setCommitments] = useState([])
   const [loading,     setLoading]     = useState(false)
   const [acting,      setActing]      = useState(null)
+  const [refunds,     setRefunds]     = useState([])
 
   useEffect(() => {
     if (!isConnected || !address) return
@@ -133,34 +135,23 @@ export default function MyPaymentsPage() {
   }
 
   function exportCSV() {
-    const rows = [
-      ['timestamp','merchantName','merchantWallet','customerWallet','amount','token','network','chainId','paymentRef','purposeCode','description','txHash','arcscanUrl','receiptUrl','status','testnetDisclaimer'],
-      ...payments.map(p => [
-        formatTs(Number(p.timestamp)),
-        p.merchantName || p.payee,
-        p.payee,
-        p.payer,
-        formatUsdc(p.amount),
-        'USDC',
-        'Arc Testnet',
-        '5042002',
-        p.paymentRef || '',
-        p.purposeCode || '',
-        p.description || '',
-        p.txHash || '',
-        p.txHash ? `https://testnet.arcscan.app/tx/${p.txHash}` : '',
-        `https://arc-pay-testnet.vercel.app/receipt/${p.proofId}`,
-        'Confirmed',
-        'TESTNET ONLY. Testnet tokens have no real economic value.',
-      ])
-    ]
-    const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = `arcpay_mypayments_${new Date().toISOString().slice(0,10)}.csv`
-    document.body.appendChild(a); a.click()
-    document.body.removeChild(a); URL.revokeObjectURL(url)
+    const receipts = payments.map(p => ({
+      timestamp_utc:    formatTs(Number(p.timestamp)),
+      merchant_name:    p.merchantName || '',
+      merchant_wallet:  p.payee,
+      customer_wallet:  p.payer,
+      amount:           formatUsdc(p.amount),
+      token_symbol:     'USDC',
+      network:          'Arc Testnet',
+      payment_ref:      p.paymentRef || '',
+      purpose_code:     p.purposeCode || '',
+      description:      p.description || '',
+      transaction_hash: p.txHash || '',
+      arcscan_link:     p.txHash ? `https://testnet.arcscan.app/tx/${p.txHash}` : '',
+      receipt_page:     `https://arc-pay-testnet.vercel.app/receipt/${p.proofId}`,
+      status:           'Confirmed',
+    }))
+    downloadUnifiedCSV({ receipts, commitments, refunds, walletAddress: address, role: 'customer' })
   }
 
   const total = payments.reduce((s, p) => s + Number(formatUsdc(p.amount)), 0).toFixed(2)
