@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -17,7 +17,9 @@ function formatTs(unix) {
   if (!unix || unix === 0) return 'N/A'
   return new Date(unix * 1000).toLocaleString()
 }
+
 function countdown(unix) {
+  if (!unix || unix === 0) return '—'
   const diff = unix * 1000 - Date.now()
   if (diff <= 0) return 'Passed'
   const d = Math.floor(diff / 86400000)
@@ -27,17 +29,16 @@ function countdown(unix) {
 }
 
 export default function CommitmentDetailsPage() {
-  const { id }  = useParams()
-  const [params] = useSearchParams()
+  const { id } = useParams()
   const { address } = useAccount()
   const { open }    = useWeb3Modal()
   const configured  = isCommitmentContractConfigured()
 
-  const [commitment, setCommitment] = useState(null)
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState('')
-  const [acting,     setActing]     = useState(false)
-  const [success,    setSuccess]    = useState('')
+  const [commitment,    setCommitment]    = useState(null)
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState('')
+  const [acting,        setActing]        = useState(false)
+  const [success,       setSuccess]       = useState('')
   const [showRefund,    setShowRefund]    = useState(false)
   const [refundAmount,  setRefundAmount]  = useState('')
   const [refundReason,  setRefundReason]  = useState('')
@@ -50,12 +51,16 @@ export default function CommitmentDetailsPage() {
   useEffect(() => { if (configured) load() }, [id, configured])
 
   async function load() {
-    setLoading(true); setError('')
+    setLoading(true)
+    setError('')
     try {
       const c = await fetchCommitment(id)
       setCommitment(c)
-    } catch { setError('Failed to load commitment.') }
-    finally { setLoading(false) }
+    } catch {
+      setError('Failed to load commitment.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleFulfill() {
@@ -65,8 +70,11 @@ export default function CommitmentDetailsPage() {
       await fulfillDelayedCommitment(address, id)
       setSuccess('Payment fulfilled successfully!')
       await load()
-    } catch (e) { setError(e.message || 'Transaction failed') }
-    finally { setActing(false) }
+    } catch (e) {
+      setError(e.message || 'Transaction failed')
+    } finally {
+      setActing(false)
+    }
   }
 
   async function handleFulfillTranche(idx) {
@@ -76,8 +84,11 @@ export default function CommitmentDetailsPage() {
       await fulfillTranche(address, id, idx)
       setSuccess(`Tranche ${idx + 1} paid!`)
       await load()
-    } catch (e) { setError(e.message || 'Transaction failed') }
-    finally { setActing(false) }
+    } catch (e) {
+      setError(e.message || 'Transaction failed')
+    } finally {
+      setActing(false)
+    }
   }
 
   async function handleCancel() {
@@ -87,8 +98,11 @@ export default function CommitmentDetailsPage() {
       await cancelCommitment(address, id)
       setSuccess('Commitment cancelled.')
       await load()
-    } catch (e) { setError(e.message || 'Cancel failed') }
-    finally { setActing(false) }
+    } catch (e) {
+      setError(e.message || 'Cancel failed')
+    } finally {
+      setActing(false)
+    }
   }
 
   async function handleRefundRequest() {
@@ -106,34 +120,65 @@ export default function CommitmentDetailsPage() {
       })
       setRefundDone('Refund request submitted on-chain. Merchant will review.')
       setShowRefund(false)
-    } catch(e) { setError(e.message || 'Refund request failed') }
-    finally { setRefundSending(false) }
+    } catch (e) {
+      setError(e.message || 'Refund request failed')
+    } finally {
+      setRefundSending(false)
+    }
   }
+
+  // ── Guards ────────────────────────────────────────────────────────────────
 
   if (!configured) return (
     <div className="card fade-up" style={{ padding: 32, textAlign: 'center' }}>
       <p style={{ color: 'var(--yellow)' }}>Commitment contract not yet deployed.</p>
     </div>
   )
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Loading...</div>
-  if (!commitment) return <div className="error-box">{error || 'Commitment not found.'}</div>
 
-  const c   = commitment
-  const now = Math.floor(Date.now() / 1000)
-  const isMerchant = address?.toLowerCase() === c.merchant?.toLowerCase()
-  const isCustomer = address?.toLowerCase() === c.customer?.toLowerCase()
+  if (loading) return (
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Loading...</div>
+  )
+
+  if (!commitment) return (
+    <div className="error-box">{error || 'Commitment not found.'}</div>
+  )
+
+  // ── Role detection (wallet-based, not URL param) ───────────────────────
+
+  const c          = commitment
+  const now        = Math.floor(Date.now() / 1000)
+  const isMerchant = !!address && address.toLowerCase() === c.merchant?.toLowerCase()
+  const isCustomer = !!address && address.toLowerCase() === c.customer?.toLowerCase()
+
+  // Determine which tranches the customer can pay right now.
+  // Because ArcPaymentCommitment has no deadline checks on fulfill,
+  // we show Pay buttons for ALL unpaid tranches when status is Active.
+  const unpaidTranches = c.type === 1
+    ? c.trancheAmounts
+        .map((amt, i) => ({ amt, i }))
+        .filter(({ i }) => !c.tranchePaid[i])
+    : []
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="fade-up" style={{ maxWidth: 680, margin: '0 auto' }}>
 
-      {/* Breadcrumb */}
+      {/* Breadcrumb badges */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, border: '1px solid var(--usdc)', color: 'var(--usdc)' }}>
           {COMMITMENT_TYPE_LABEL[c.type] ?? 'Commitment'}
         </span>
-        <span style={{ fontSize: 12, color: COMMITMENT_STATUS_COLOR[c.status], padding: '3px 10px', borderRadius: 20, background: (COMMITMENT_STATUS_COLOR[c.status] || 'var(--text3)') + '22', border: `1px solid ${(COMMITMENT_STATUS_COLOR[c.status] || 'var(--text3)')}44` }}>
+        <span style={{
+          fontSize: 12, color: COMMITMENT_STATUS_COLOR[c.status],
+          padding: '3px 10px', borderRadius: 20,
+          background: (COMMITMENT_STATUS_COLOR[c.status] || 'var(--text3)') + '22',
+          border: `1px solid ${(COMMITMENT_STATUS_COLOR[c.status] || 'var(--text3)')}44`,
+        }}>
           {COMMITMENT_STATUS_LABEL[c.status]}
         </span>
+        {isMerchant && <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)' }}>Your commitment</span>}
+        {isCustomer && <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)' }}>You owe</span>}
       </div>
 
       <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.5px', marginBottom: 20 }}>
@@ -146,6 +191,7 @@ export default function CommitmentDetailsPage() {
           <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Total</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--usdc)' }}>{c.totalAmount} USDC</div>
         </div>
+
         {c.type === 0 ? (
           <>
             <div className="card" style={{ padding: 14, textAlign: 'center' }}>
@@ -194,14 +240,21 @@ export default function CommitmentDetailsPage() {
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < c.trancheAmounts.length - 1 ? '1px solid var(--border)' : 'none' }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>Tranche {i + 1}</div>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Due: {formatTs(c.trancheDueDates[i])} · Deadline: {formatTs(c.trancheDeadlines[i])}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                  Due: {formatTs(c.trancheDueDates[i])} · Deadline: {formatTs(c.trancheDeadlines[i])}
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{amt} USDC</span>
                 {c.tranchePaid[i] ? (
                   <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ Paid</span>
-                ) : isCustomer && c.status === 0 && !c.tranchePaid[i] ? (
-                  <button onClick={() => handleFulfillTranche(i)} disabled={acting} className="btn-primary" style={{ fontSize: 11, padding: '5px 12px' }}>
+                ) : isCustomer && c.status === 0 ? (
+                  <button
+                    onClick={() => handleFulfillTranche(i)}
+                    disabled={acting}
+                    className="btn-primary"
+                    style={{ fontSize: 11, padding: '5px 12px' }}
+                  >
                     {acting ? '...' : 'Pay now'}
                   </button>
                 ) : (
@@ -219,36 +272,89 @@ export default function CommitmentDetailsPage() {
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Available Actions
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {isCustomer && c.type === 0 && !c.paid && (
-              <button onClick={handleFulfill} disabled={acting} className="btn-primary" style={{ fontSize: 13, padding: '10px 20px' }}>
+
+          {/* Wallet not connected */}
+          {!address && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontSize: 13, color: 'var(--text3)' }}>Connect the customer or merchant wallet to take action.</p>
+              <button onClick={() => open()} className="btn-ghost" style={{ fontSize: 13, padding: '10px 20px', width: 'fit-content' }}>
+                Connect Wallet
+              </button>
+            </div>
+          )}
+
+          {/* Customer — delayed payment: show Pay whenever status is Active (no deadline check, contract allows it) */}
+          {isCustomer && c.type === 0 && !c.paid && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              <button
+                onClick={handleFulfill}
+                disabled={acting}
+                className="btn-primary"
+                style={{ fontSize: 13, padding: '10px 20px' }}
+              >
                 {acting ? <><span className="spinner" />Processing...</> : '✅ Pay now'}
               </button>
-            )}
-            {isMerchant && now >= c.deadline && (
-              <button onClick={handleCancel} disabled={acting}
-                style={{ fontSize: 13, padding: '10px 20px', background: '#1a0808', border: '1px solid #f04f4f', color: '#f08080', borderRadius: 8, cursor: 'pointer' }}>
-                {acting ? '...' : '✕ Cancel commitment'}
-              </button>
-            )}
-            {!isMerchant && !isCustomer && (
-              <p style={{ fontSize: 13, color: 'var(--text3)' }}>Connect the relevant wallet to take action.</p>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Customer — tranche payment: quick-pay buttons for all unpaid tranches */}
+          {isCustomer && c.type === 1 && unpaidTranches.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              {unpaidTranches.map(({ amt, i }) => (
+                <button
+                  key={i}
+                  onClick={() => handleFulfillTranche(i)}
+                  disabled={acting}
+                  className="btn-primary"
+                  style={{ fontSize: 12, padding: '8px 16px' }}
+                >
+                  {acting ? '...' : `✅ Pay tranche ${i + 1} (${amt} USDC)`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Merchant — cancel after deadline */}
+          {isMerchant && now >= c.deadline && (
+            <button
+              onClick={handleCancel}
+              disabled={acting}
+              style={{ fontSize: 13, padding: '10px 20px', background: '#1a0808', border: '1px solid #f04f4f', color: '#f08080', borderRadius: 8, cursor: 'pointer' }}
+            >
+              {acting ? '...' : '✕ Cancel commitment'}
+            </button>
+          )}
+
+          {/* Address is connected but not a party to this commitment */}
+          {address && !isMerchant && !isCustomer && (
+            <p style={{ fontSize: 13, color: 'var(--text3)' }}>Connect the relevant wallet to take action.</p>
+          )}
+
           {error   && <div className="error-box"   style={{ marginTop: 12 }}>{error}</div>}
           {success && <div className="success-box" style={{ marginTop: 12 }}>{success}</div>}
         </div>
       )}
 
-      {/* Refund claim — available from Active and Fulfilled */}
+      {/* Post-active errors/success (e.g. cancel from fulfilled state edge case) */}
+      {c.status !== 0 && (error || success) && (
+        <div style={{ marginBottom: 16 }}>
+          {error   && <div className="error-box">{error}</div>}
+          {success && <div className="success-box">{success}</div>}
+        </div>
+      )}
+
+      {/* Refund claim — available for customer when Active (status 0) or Fulfilled (status 1) */}
       {(c.status === 0 || c.status === 1) && isCustomer && isRefundContractConfigured() && (
         <div className="card" style={{ padding: 16, marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💸 Request Refund</div>
           {refundDone ? (
             <div className="success-box">{refundDone}</div>
           ) : !showRefund ? (
-            <button onClick={() => setShowRefund(true)} className="btn-ghost"
-              style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)' }}>
+            <button
+              onClick={() => setShowRefund(true)}
+              className="btn-ghost"
+              style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)' }}
+            >
               Request refund from merchant
             </button>
           ) : (
@@ -256,24 +362,39 @@ export default function CommitmentDetailsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label className="label">Amount to claim (USDC)</label>
-                  <input type="number" min="0.01" step="0.01" value={refundAmount}
+                  <input
+                    type="number" min="0.01" step="0.01"
+                    value={refundAmount}
                     onChange={e => setRefundAmount(e.target.value)}
-                    placeholder={c.totalAmount} />
+                    placeholder={c.totalAmount}
+                  />
                 </div>
                 <div>
                   <label className="label">Reason</label>
-                  <input value={refundReason} onChange={e => setRefundReason(e.target.value)}
-                    placeholder="e.g. Item not as described" />
+                  <input
+                    value={refundReason}
+                    onChange={e => setRefundReason(e.target.value)}
+                    placeholder="e.g. Item not as described"
+                  />
                 </div>
               </div>
               {error && <div className="error-box">{error}</div>}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={handleRefundRequest} disabled={refundSending} className="btn-primary"
-                  style={{ fontSize: 12, padding: '8px 16px' }}>
+                <button
+                  onClick={handleRefundRequest}
+                  disabled={refundSending}
+                  className="btn-primary"
+                  style={{ fontSize: 12, padding: '8px 16px' }}
+                >
                   {refundSending ? <><span className="spinner" />Sending...</> : '📤 Submit refund request'}
                 </button>
-                <button onClick={() => { setShowRefund(false); setError('') }} className="btn-ghost"
-                  style={{ fontSize: 12, padding: '8px 14px' }}>Cancel</button>
+                <button
+                  onClick={() => { setShowRefund(false); setError('') }}
+                  className="btn-ghost"
+                  style={{ fontSize: 12, padding: '8px 14px' }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           )}
@@ -282,7 +403,9 @@ export default function CommitmentDetailsPage() {
 
       {/* Receipts */}
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Receipts</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Receipts
+        </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => downloadCommitmentPDF(c, txHash)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
             🖨️ PDF
