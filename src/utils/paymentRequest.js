@@ -40,6 +40,14 @@ export function encodePaymentRequest(req) {
       payload.tranches = req.tranches
     }
   }
+  // v3 — refund claim flag (workaround for policy-not-persisting bug)
+  // Encodes the merchant's intent so ReceiptPage can show the refund button
+  // even when the on-chain registry policy hasn't been saved.
+  if (req.allowRefundClaim) {
+    payload.allowRefundClaim       = true
+    payload.refundClaimWindowDays  = req.refundClaimWindowDays  ?? 14
+    payload.refundClaimBps         = req.refundClaimBps         ?? 10000
+  }
   return toBase64url(JSON.stringify(payload))
 }
 
