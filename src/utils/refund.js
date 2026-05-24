@@ -6,7 +6,6 @@ import ERC20 from '../abis/ERC20.json'
 function client() { return getPublicClient() }
 
 // ── Status labels ─────────────────────────────────────────────────────────────
-// v2: status 3 = Direct (merchant-initiated), no Expired state
 export const REFUND_STATUS_LABEL = {
   0: 'Requested',
   1: 'Approved',
@@ -23,18 +22,27 @@ export const REFUND_STATUS_COLOR = {
 function toUsdc(amount) { return BigInt(Math.round(parseFloat(amount) * 1e6)) }
 function fromUsdc(v)    { return (Number(v) / 1e6).toFixed(2) }
 
+// ── Helper: wait for receipt and throw if reverted ────────────────────────────
+async function waitAndCheck(hash, label = 'Transaction') {
+  const receipt = await client().waitForTransactionReceipt({ hash })
+  if (receipt.status === 'reverted') {
+    throw new Error(`${label} reverted on-chain. Check wallet address and USDC balance.`)
+  }
+  return receipt
+}
+
 // ── Customer: request refund ──────────────────────────────────────────────────
-// No expiresAt — merchant has no on-chain deadline to approve/deny.
-// The UI enforces the customer request window (refundClaimWindowDays minutes).
 export async function requestRefund(account, { merchant, amount, proofRef, reason }) {
-  const wc   = getWalletClient()
-  const hash = await wc.writeContract({
+  const wc      = getWalletClient()
+  // Truncate proofRef to 64 chars max (contract limit)
+  const safeRef = (proofRef || '').slice(0, 64)
+  const hash    = await wc.writeContract({
     address: ARC_REFUND_ADDRESS, abi: ABI,
     functionName: 'requestRefund',
-    args: [merchant, toUsdc(amount), proofRef, reason || ''],
+    args: [merchant, toUsdc(amount), safeRef, (reason || '').slice(0, 256)],
     account,
   })
-  const receipt = await client().waitForTransactionReceipt({ hash })
+  const receipt = await waitAndCheck(hash, 'Refund request')
   const id = receipt.logs?.[0]?.topics?.[1]
     ? BigInt(receipt.logs[0].topics[1]).toString()
     : null
@@ -42,7 +50,6 @@ export async function requestRefund(account, { merchant, amount, proofRef, reaso
 }
 
 // ── Merchant: approve customer request ───────────────────────────────────────
-// No time limit. Merchant approves USDC spend then contract transfers to customer.
 export async function approveRefund(account, refundId) {
   const wc     = getWalletClient()
   const refund = await fetchRefundRequest(refundId)
@@ -54,16 +61,16 @@ export async function approveRefund(account, refundId) {
     args: [ARC_REFUND_ADDRESS, toUsdc(refund.amount)],
     account,
   })
-  await client().waitForTransactionReceipt({ hash: approveHash })
+  await waitAndCheck(approveHash, 'USDC approve')
 
-  // Step 2: approve refund — contract pulls USDC from merchant to customer
+  // Step 2: approveRefund
   const hash = await wc.writeContract({
     address: ARC_REFUND_ADDRESS, abi: ABI,
     functionName: 'approveRefund',
     args: [BigInt(refundId)],
     account,
   })
-  await client().waitForTransactionReceipt({ hash })
+  await waitAndCheck(hash, 'Approve refund')
   return hash
 }
 
@@ -76,23 +83,21 @@ export async function denyRefund(account, refundId) {
     args: [BigInt(refundId)],
     account,
   })
-  await client().waitForTransactionReceipt({ hash })
+  await waitAndCheck(hash, 'Deny refund')
   return hash
 }
 
 // ── Merchant: direct refund (no prior request needed) ─────────────────────────
-// Off-chain agreed refund — merchant sends USDC directly.
-// Same pattern as hotel/travel cancellation.
-// Merchant must hold sufficient USDC. Uses USDC.transfer() via contract.
 export async function directRefund(account, { customerWallet, amount, proofRef, reason }) {
-  const wc   = getWalletClient()
-  const hash = await wc.writeContract({
+  const wc      = getWalletClient()
+  const safeRef = (proofRef || '').slice(0, 64)
+  const hash    = await wc.writeContract({
     address: ARC_REFUND_ADDRESS, abi: ABI,
     functionName: 'directRefund',
-    args: [customerWallet, toUsdc(amount), proofRef || '', reason || ''],
+    args: [customerWallet, toUsdc(amount), safeRef, (reason || '').slice(0, 256)],
     account,
   })
-  await client().waitForTransactionReceipt({ hash })
+  await waitAndCheck(hash, 'Direct refund')
   return hash
 }
 

@@ -371,7 +371,13 @@ export default function DashboardPage({ account, onConnect, connecting }) {
       {/* Export / refresh */}
       {receipts.length > 0 && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, justifyContent: 'flex-end' }}>
-          <button onClick={() => downloadUnifiedCSV({ receipts, commitments, refunds, walletAddress: merchantAddr, role: 'merchant' })} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
+          <button onClick={() => {
+              const enriched = receipts.map(r => ({
+                ...r,
+                refundStatus: refundsByRef[r.payment_ref] ? REFUND_STATUS_LABEL[refundsByRef[r.payment_ref].status] : '—',
+              }))
+              downloadUnifiedCSV({ receipts: enriched, commitments, refunds, walletAddress: merchantAddr, role: 'merchant' })
+            }} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             📊 Export CSV
           </button>
           <button onClick={() => load(merchantAddr)} disabled={loading} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>

@@ -12,6 +12,10 @@ import ArcProofABI from '../abis/ArcProof.json'
 import { getCachedTxHash } from '../utils/paymentRequest.js'
 import { downloadUnifiedCSV } from '../utils/csv.js'
 import {
+  fetchCustomerRefundIds, fetchRefundRequest,
+  REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
+} from '../utils/refund.js'
+import {
   fetchCustomerCommitmentIds, fetchCommitment,
   fulfillDelayedCommitment, fulfillTranche,
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
@@ -112,6 +116,21 @@ export default function MyPaymentsPage() {
           setCommitments(list)
         } catch {}
       }
+
+      // Load customer refunds and build proofRef -> refund lookup
+      if (isRefundContractConfigured()) {
+        try {
+          const rIds = await fetchCustomerRefundIds(address)
+          const rList = []
+          const byRef = {}
+          for (const rid of [...rIds].reverse()) {
+            const r = await fetchRefundRequest(rid)
+            if (r) { rList.push(r); if (r.proofRef) byRef[r.proofRef] = r }
+          }
+          setRefunds(rList)
+          setRefundsByRef(byRef)
+        } catch {}
+      }
     }).finally(() => setLoading(false))
   }, [address, isConnected])
 
@@ -151,6 +170,7 @@ export default function MyPaymentsPage() {
       arcscan_link:     p.txHash ? `https://testnet.arcscan.app/tx/${p.txHash}` : '',
       receipt_page:     `https://arc-pay-testnet.vercel.app/receipt/${p.proofId}`,
       status:           'Confirmed',
+      refundStatus:     refundsByRef[p.paymentRef] ? REFUND_STATUS_LABEL[refundsByRef[p.paymentRef].status] : '—',
     }))
     downloadUnifiedCSV({ receipts, commitments, refunds, walletAddress: address, role: 'customer' })
   }

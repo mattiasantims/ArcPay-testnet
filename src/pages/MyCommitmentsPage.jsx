@@ -4,16 +4,38 @@ import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import {
   fetchCustomerCommitmentIds, fetchCommitment,
-  fulfillDelayedCommitment, fulfillTranche,
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
-  getCachedCommitmentTxHash,
 } from '../utils/commitment.js'
-import { downloadCommitmentCSV } from '../utils/commitmentCsv.js'
-import { isCommitmentContractConfigured, ARCSCAN_BASE } from '../config.js'
+import {
+  fetchCustomerRefundIds, fetchRefundRequest,
+  REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
+} from '../utils/refund.js'
+import { downloadUnifiedCSV } from '../utils/csv.js'
+import { isCommitmentContractConfigured, isRefundContractConfigured } from '../config.js'
 
 function formatTs(unix) {
   if (!unix || unix === 0) return '—'
   return new Date(unix * 1000).toLocaleString()
+}
+function countdown(unix) {
+  if (!unix || unix === 0) return '—'
+  const diff = unix * 1000 - Date.now()
+  if (diff <= 0) return 'Passed'
+  const d = Math.floor(diff / 86400000)
+  const h = Math.floor((diff % 86400000) / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  if (d > 0) return `${d}d ${h}h`
+  return `${h}h ${m}m`
+}
+
+function Badge({ label, color }) {
+  const c = color || 'var(--text3)'
+  return (
+    <span style={{
+      fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700,
+      background: c + '22', color: c, border: `1px solid ${c}44`,
+    }}>{label}</span>
+  )
 }
 
 export default function MyCommitmentsPage() {
@@ -21,10 +43,16 @@ export default function MyCommitmentsPage() {
   const { open }    = useWeb3Modal()
   const configured  = isCommitmentContractConfigured()
 
-  const [commitments, setCommitments] = useState([])
-  const [loading,     setLoading]     = useState(false)
-  const [error,       setError]       = useState('')
-  const [acting,      setActing]      = useState(null)
+  const [commitments,  setCommitments]  = useState([])
+  const [refundsByRef, setRefundsByRef] = useState({})
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState('')
+  const [now,          setNow]          = useState(Math.floor(Date.now() / 1000))
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 10000)
+    return () => clearInterval(t)
+  }, [])
 
   useEffect(() => { if (address && configured) load() }, [address, configured])
 
@@ -35,31 +63,38 @@ export default function MyCommitmentsPage() {
       const list = []
       for (const id of [...ids].reverse()) {
         const c = await fetchCommitment(id)
-        if (c) { c.txHash = getCachedCommitmentTxHash(id); list.push(c) }
+        if (c) list.push(c)
       }
       setCommitments(list)
+
+      // Load refunds indexed by proofRef
+      if (isRefundContractConfigured()) {
+        try {
+          const rIds = await fetchCustomerRefundIds(address)
+          const byRef = {}
+          for (const rid of rIds) {
+            const r = await fetchRefundRequest(rid)
+            if (r && r.proofRef) byRef[r.proofRef] = r
+          }
+          setRefundsByRef(byRef)
+        } catch {}
+      }
     } catch { setError('Failed to load. Are you on Arc Testnet?') }
     finally { setLoading(false) }
   }
 
-  async function handlePay(c) {
-    if (!address) return open()
-    setActing(c.commitmentId); setError('')
-    try {
-      await fulfillDelayedCommitment(address, c.commitmentId)
-      await load()
-    } catch (e) { setError(e.message || 'Transaction failed') }
-    finally { setActing(null) }
-  }
-
-  async function handlePayTranche(c, idx) {
-    if (!address) return open()
-    setActing(`${c.commitmentId}-${idx}`); setError('')
-    try {
-      await fulfillTranche(address, c.commitmentId, idx)
-      await load()
-    } catch (e) { setError(e.message || 'Transaction failed') }
-    finally { setActing(null) }
+  function getOverallStatus(c) {
+    const refund = refundsByRef[c.ref]
+    if (refund) {
+      if (refund.status === 1 || refund.status === 3) return { label: 'Refunded', color: 'var(--green)' }
+      if (refund.status === 0) return { label: 'Refund Pending', color: 'var(--yellow)' }
+    }
+    if (c.status === 1) return { label: 'Fulfilled', color: 'var(--green)' }
+    if (c.status === 2 || c.status === 3) return { label: COMMITMENT_STATUS_LABEL[c.status], color: '#f08080' }
+    // Active
+    const isOverdue = now >= (c.deadline || c.trancheDeadlines?.[c.tranchesPaidCount] || 0)
+    if (isOverdue) return { label: 'Overdue', color: '#f08080' }
+    return { label: 'Active', color: 'var(--usdc)' }
   }
 
   if (!configured) return (
@@ -78,92 +113,120 @@ export default function MyCommitmentsPage() {
     </div>
   )
 
-  const now = Math.floor(Date.now() / 1000)
+  const active    = commitments.filter(c => c.status === 0)
+  const fulfilled = commitments.filter(c => c.status === 1)
+  const closed    = commitments.filter(c => c.status === 2 || c.status === 3)
+
+  function CommitmentCard({ c }) {
+    const status = getOverallStatus(c)
+    const refund = refundsByRef[c.ref]
+    const nextUnpaid = c.type === 1 ? c.trancheAmounts.findIndex((_, i) => !c.tranchePaid[i]) : -1
+
+    return (
+      <div className="card" style={{ marginBottom: 10, padding: '16px 18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
+              <Badge label={COMMITMENT_TYPE_LABEL[c.type]} color="var(--usdc)" />
+              <Badge label={status.label} color={status.color} />
+              {refund && <Badge label={`Refund: ${REFUND_STATUS_LABEL[refund.status]}`} color={REFUND_STATUS_COLOR[refund.status]} />}
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2 }}>{c.ref}</div>
+            {c.description && <div style={{ fontSize: 12, color: 'var(--text2)' }}>{c.description}</div>}
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-0.5px' }}>
+              {c.totalAmount} USDC
+            </div>
+            {c.type === 1 && (
+              <div style={{ fontSize: 11, color: 'var(--text2)' }}>{c.tranchesPaidCount}/{c.trancheAmounts.length} paid</div>
+            )}
+          </div>
+        </div>
+
+        {/* Key info */}
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+          {c.type === 0 ? (
+            <>Due: {formatTs(c.dueDate)} · Deadline: {formatTs(c.deadline)}{c.status === 0 && ` · ${countdown(c.deadline)}`}</>
+          ) : nextUnpaid >= 0 ? (
+            <>Next tranche {nextUnpaid + 1}: {c.trancheAmounts[nextUnpaid]} USDC · Due: {formatTs(c.trancheDueDates[nextUnpaid])}{c.status === 0 && ` · ${countdown(c.trancheDueDates[nextUnpaid])}`}</>
+          ) : (
+            <>All {c.trancheAmounts.length} tranches paid</>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link to={`/commitment/${c.commitmentId}`} style={{ textDecoration: 'none' }}>
+            <button className="btn-primary" style={{ fontSize: 12, padding: '6px 16px' }}>View & Pay →</button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fade-up">
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.5px', marginBottom: 6 }}>
-          My Commitments
-        </h1>
-        <p style={{ color: 'var(--text2)', fontSize: 14 }}>Your delayed payments and tranche commitments.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span className="badge badge-blue">Customer</span>
+          <span className="badge badge-gray">My Commitments</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.5px', marginBottom: 4 }}>My Commitments</h1>
+            <p style={{ color: 'var(--text2)', fontSize: 13 }}>Delayed and tranche payments you have signed</p>
+          </div>
+          {commitments.length > 0 && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={load} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>↺ Refresh</button>
+              <button onClick={() => downloadUnifiedCSV({ commitments, refunds: Object.values(refundsByRef), walletAddress: address, role: 'customer' })}
+                className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>📊 Export CSV</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
 
-      {commitments.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button onClick={() => downloadCommitmentCSV(commitments, address)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>📊 Export CSV</button>
-          <button onClick={load} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>↺ Refresh</button>
+      {loading && (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
+          <span className="spinner" /> Loading...
         </div>
       )}
 
-      {loading && <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>Loading...</div>}
-
       {!loading && commitments.length === 0 && (
         <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text3)' }}>
-          <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>📭</div>
+          <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>📋</div>
           <p>No commitments found for this wallet.</p>
         </div>
       )}
 
-      {commitments.map(c => {
-        const isOverdue = c.status === 0 && now >= (c.deadline || c.trancheDeadlines?.[c.tranchesPaidCount] || 0)
-        const nextTranche = c.type === 1 ? c.trancheAmounts.findIndex((_, i) => !c.tranchePaid[i]) : -1
-        const canPayDelayed = c.type === 0 && c.status === 0 && !c.paid && now >= c.dueDate
-        const canPayTranche = c.type === 1 && c.status === 0 && nextTranche >= 0 && now >= (c.trancheDueDates[nextTranche] || 0)
-
-        return (
-          <div key={c.commitmentId} className="card" style={{ marginBottom: 12, padding: '16px 18px', borderColor: isOverdue ? '#f04f4f44' : undefined }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-              <div>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontFamily: 'var(--mono)', fontWeight: 600, background: (COMMITMENT_STATUS_COLOR[c.status] || 'var(--text3)') + '22', color: COMMITMENT_STATUS_COLOR[c.status] || 'var(--text3)', border: `1px solid ${(COMMITMENT_STATUS_COLOR[c.status] || 'var(--text3)')}44` }}>
-                    {COMMITMENT_STATUS_LABEL[c.status]} · {COMMITMENT_TYPE_LABEL[c.type]}
-                  </span>
-                </div>
-                <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2 }}>{c.ref}</div>
-                {c.description && <div style={{ fontSize: 12, color: 'var(--text2)' }}>{c.description}</div>}
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 800, color: 'var(--usdc)', letterSpacing: '-0.5px' }}>
-                  {c.totalAmount} USDC
-                </div>
-                {c.type === 1 && (
-                  <div style={{ fontSize: 11, color: 'var(--text2)' }}>{c.tranchesPaidCount}/{c.trancheAmounts.length} paid</div>
-                )}
-              </div>
-            </div>
-
-            {c.type === 0 && (
-              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-                Due: {formatTs(c.dueDate)} · Deadline: {formatTs(c.deadline)}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Link to={`/commitment/${c.commitmentId}`} style={{ textDecoration: 'none' }}>
-                <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }}>View receipt</button>
-              </Link>
-              {c.txHash && (
-                <a href={`${ARCSCAN_BASE}/tx/${c.txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                  <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }}>ArcScan ↗</button>
-                </a>
-              )}
-              {canPayDelayed && (
-                <button onClick={() => handlePay(c)} disabled={acting === c.commitmentId} className="btn-primary" style={{ fontSize: 12, padding: '6px 16px' }}>
-                  {acting === c.commitmentId ? <><span className="spinner" />Processing...</> : '✅ Pay now'}
-                </button>
-              )}
-              {canPayTranche && (
-                <button onClick={() => handlePayTranche(c, nextTranche)} disabled={acting === `${c.commitmentId}-${nextTranche}`} className="btn-primary" style={{ fontSize: 12, padding: '6px 16px' }}>
-                  {acting === `${c.commitmentId}-${nextTranche}` ? <><span className="spinner" />Processing...</> : `✅ Pay tranche ${nextTranche + 1} (${c.trancheAmounts[nextTranche]} USDC)`}
-                </button>
-              )}
-            </div>
+      {!loading && active.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--usdc)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, padding: '6px 12px', background: 'var(--usdc)18', borderRadius: 6 }}>
+            🔵 Active ({active.length})
           </div>
-        )
-      })}
+          {active.map(c => <CommitmentCard key={c.commitmentId} c={c} />)}
+        </div>
+      )}
+
+      {!loading && fulfilled.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, padding: '6px 12px', background: 'var(--green)18', borderRadius: 6 }}>
+            ✓ Fulfilled ({fulfilled.length})
+          </div>
+          {fulfilled.map(c => <CommitmentCard key={c.commitmentId} c={c} />)}
+        </div>
+      )}
+
+      {!loading && closed.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, padding: '6px 12px', background: 'var(--surface2)', borderRadius: 6 }}>
+            Cancelled / Expired ({closed.length})
+          </div>
+          {closed.map(c => <CommitmentCard key={c.commitmentId} c={c} />)}
+        </div>
+      )}
     </div>
   )
 }

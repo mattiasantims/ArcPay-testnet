@@ -148,10 +148,22 @@ export default function LuxuryRetailPage({ account }) {
       const total = parseFloat(form.amount)
       const t1    = parseFloat((total * tranche1Pct / 100).toFixed(6))
       const t2    = parseFloat((total - t1).toFixed(6))
-      const due1  = Date.now() + 60 * 1000  // 1 min in future for tranche 1
-      const due2  = fromDatetimeLocal(trancheDue) * 1000
-      const ddl1  = fromDatetimeLocal(trancheDeadline) * 1000
-      const ddl2  = ddl1 + (ddl1 - due2)
+      // Recalculate tranche 1 due date fresh at click time (avoids stale datetime)
+      const nowMs = Date.now()
+      const due1  = nowMs + 60 * 1000                          // Tranche 1: 1 min from now
+      const due2  = fromDatetimeLocal(trancheDue) * 1000       // Tranche 2: user input
+      const ddl2  = fromDatetimeLocal(trancheDeadline) * 1000  // Tranche 2 deadline: user input
+      const ddl1  = due2                                        // Tranche 1 deadline = Tranche 2 due
+
+      if (due2 <= due1) {
+        setError('Tranche 2 due date must be at least 2 minutes after now')
+        return
+      }
+      if (ddl2 <= due2) {
+        setError('Tranche 2 deadline must be after its due date')
+        return
+      }
+
       const req = { ...base, type: 'tranche',
         tranches: [
           { amount: t1.toString(), dueDate: due1, deadline: ddl1 },

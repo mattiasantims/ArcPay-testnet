@@ -7,7 +7,7 @@ import {
   fetchProof, formatUsdc, formatTs,
   buildReceiptObject, recoverTxHash,
 } from '../utils/receipts.js'
-import { getCachedTxHash, decodePaymentRequest } from '../utils/paymentRequest.js'
+import { getCachedTxHash } from '../utils/paymentRequest.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured, isRefundContractConfigured } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
@@ -30,32 +30,35 @@ export default function ReceiptPage() {
   const [receipt,         setReceipt]         = useState(null)
   const [merchantProfile, setMerchantProfile] = useState(null)
   const [merchantPolicy,  setMerchantPolicy]  = useState(null)
+  const [existingRefund,  setExistingRefund]  = useState(null)
 
-  // Refund state — customer side
-  const [existingRefund,  setExistingRefund]  = useState(null)  // refund already submitted
-  const [showRefund,      setShowRefund]       = useState(false)
-  const [refundAmount,    setRefundAmount]     = useState('')
-  const [refundReason,    setRefundReason]     = useState('')
-  const [refundSending,   setRefundSending]    = useState(false)
-  const [refundSuccess,   setRefundSuccess]    = useState('')
-  const [refundError,     setRefundError]      = useState('')
+  // Customer refund form
+  const [showRefund,    setShowRefund]    = useState(false)
+  const [refundAmount,  setRefundAmount]  = useState('')
+  const [refundReason,  setRefundReason]  = useState('')
+  const [refundSending, setRefundSending] = useState(false)
+  const [refundSuccess, setRefundSuccess] = useState('')
+  const [refundError,   setRefundError]   = useState('')
 
-  // Direct refund state — merchant side
-  const [showDirect,      setShowDirect]       = useState(false)
-  const [directAmount,    setDirectAmount]     = useState('')
-  const [directReason,    setDirectReason]     = useState('')
-  const [directSending,   setDirectSending]    = useState(false)
-  const [directSuccess,   setDirectSuccess]    = useState('')
-  const [directError,     setDirectError]      = useState('')
+  // Merchant direct refund form
+  const [showDirect,    setShowDirect]    = useState(false)
+  const [directAmount,  setDirectAmount]  = useState('')
+  const [directReason,  setDirectReason]  = useState('')
+  const [directSending, setDirectSending] = useState(false)
+  const [directSuccess, setDirectSuccess] = useState('')
+  const [directError,   setDirectError]   = useState('')
 
-  // Optional frontend-only metadata from URL
+  // URL metadata
   const merchantName = params.get('name') ? decodeURIComponent(params.get('name')) : null
   const description  = params.get('desc') ? decodeURIComponent(params.get('desc')) : null
 
-  // Refund enabled: always show if refund contract configured + proof exists
-  // No URL dependency, no window check — let contract + merchant decide
+  // Refund window params passed by CheckoutPage after immediate payment
+  const urlAllowRefund = params.get('allowRefundClaim') === '1'
+  const urlWindowMin   = params.get('refundWindowMin') ? Number(params.get('refundWindowMin')) : 14
+
   const refundContractReady = isRefundContractConfigured()
 
+  // Load proof
   useEffect(() => {
     async function load() {
       setStatus('loading')
@@ -64,17 +67,13 @@ export default function ReceiptPage() {
         if (!data) { setStatus('notfound'); return }
         setProof(data)
         const cached = getCachedTxHash(id)
-        if (cached) {
-          setTxHash(cached)
-        } else if (data.createdBlock && data.createdBlock > 0n) {
+        if (cached) setTxHash(cached)
+        else if (data.createdBlock && data.createdBlock > 0n) {
           const recovered = await recoverTxHash(id, data.createdBlock)
           if (recovered) setTxHash(recovered)
         }
         setStatus('found')
-      } catch (e) {
-        console.error(e)
-        setStatus('error')
-      }
+      } catch { setStatus('error') }
     }
     load()
   }, [id])
@@ -82,28 +81,21 @@ export default function ReceiptPage() {
   // Load merchant profile + policy
   useEffect(() => {
     if (!proof?.payee || !isMerchantRegistryConfigured()) return
-    getMerchantByWallet(proof.payee).then(m => {
-      if (m && m.active) setMerchantProfile(m)
-    }).catch(() => {})
-    getMerchantPolicyByWallet(proof.payee).then(p => {
-      if (p) setMerchantPolicy(p)
-    }).catch(() => {})
+    getMerchantByWallet(proof.payee).then(m => { if (m && m.active) setMerchantProfile(m) }).catch(() => {})
+    getMerchantPolicyByWallet(proof.payee).then(p => { if (p) setMerchantPolicy(p) }).catch(() => {})
   }, [proof?.payee])
 
-  // Load existing refund for this proof (by proofRef match) — shows status to both parties
+  // Load existing refund for this proof (by paymentRef match)
   useEffect(() => {
     if (!proof || !refundContractReady || !address) return
-    const proofRef = proof.paymentRef || id
-
-    // Try customer side first, then merchant side
+    const proofRef   = proof.paymentRef || id
     const isCustomer = address.toLowerCase() === proof.payer?.toLowerCase()
     const isMerchant = address.toLowerCase() === proof.payee?.toLowerCase()
-
     async function findRefund() {
       try {
-        let ids = []
-        if (isCustomer) ids = await fetchCustomerRefundIds(address)
-        else if (isMerchant) ids = await fetchMerchantRefundIds(address)
+        const ids = isCustomer
+          ? await fetchCustomerRefundIds(address)
+          : isMerchant ? await fetchMerchantRefundIds(address) : []
         for (const rid of [...ids].reverse()) {
           const r = await fetchRefundRequest(rid)
           if (r && r.proofRef === proofRef) { setExistingRefund(r); return }
@@ -116,9 +108,7 @@ export default function ReceiptPage() {
   // Build receipt object
   useEffect(() => {
     if (proof && status === 'found') {
-      setReceipt(buildReceiptObject({
-        proofData: proof, txHash, proofId: id, merchantName, description, merchantProfile,
-      }))
+      setReceipt(buildReceiptObject({ proofData: proof, txHash, proofId: id, merchantName, description, merchantProfile }))
     }
   }, [proof, txHash, status])
 
@@ -131,21 +121,17 @@ export default function ReceiptPage() {
       const result = await requestRefund(address, {
         merchant: proof.payee,
         amount:   refundAmount,
-        proofRef: proof.paymentRef || id,
+        proofRef: (proof.paymentRef || id).slice(0, 64),
         reason:   refundReason,
       })
       setRefundSuccess('Refund request submitted on-chain. Merchant will review.')
       setShowRefund(false)
-      // Reload existing refund
       if (result.refundId) {
         const r = await fetchRefundRequest(result.refundId)
         setExistingRefund(r)
       }
-    } catch (e) {
-      setRefundError(e.message || 'Transaction failed')
-    } finally {
-      setRefundSending(false)
-    }
+    } catch (e) { setRefundError(e.message || 'Transaction failed') }
+    finally { setRefundSending(false) }
   }
 
   async function handleDirectRefund() {
@@ -156,18 +142,23 @@ export default function ReceiptPage() {
       await directRefund(address, {
         customerWallet: proof.payer,
         amount:         directAmount,
-        proofRef:       proof.paymentRef || id,
+        proofRef:       (proof.paymentRef || id).slice(0, 64),
         reason:         directReason || 'Direct refund',
       })
       setDirectSuccess(`Refund of ${directAmount} USDC sent to customer.`)
       setShowDirect(false)
-    } catch (e) {
-      setDirectError(e.message || 'Transaction failed')
-    } finally {
-      setDirectSending(false)
-    }
+      // Reload refund status
+      const rIds = await fetchMerchantRefundIds(address)
+      const proofRef = proof.paymentRef || id
+      for (const rid of [...rIds].reverse()) {
+        const r = await fetchRefundRequest(rid)
+        if (r && r.proofRef === proofRef) { setExistingRefund(r); break }
+      }
+    } catch (e) { setDirectError(e.message || 'Transaction failed') }
+    finally { setDirectSending(false) }
   }
 
+  // ── Guards ────────────────────────────────────────────────────────────────
   if (status === 'loading') return (
     <div style={{ textAlign: 'center', padding: '80px 20px' }}>
       <span className="spinner" style={{ width: 24, height: 24, borderWidth: 3 }} />
@@ -182,9 +173,7 @@ export default function ReceiptPage() {
     </div>
   )
   if (status === 'error') return (
-    <div className="error-box fade-up" style={{ padding: 24 }}>
-      Failed to load receipt. Check your network connection.
-    </div>
+    <div className="error-box fade-up" style={{ padding: 24 }}>Failed to load receipt. Check your connection.</div>
   )
 
   const receiptUrl = window.location.href
@@ -192,9 +181,16 @@ export default function ReceiptPage() {
   const isCustomer = !!address && address.toLowerCase() === proof.payer?.toLowerCase()
   const isMerchant = !!address && address.toLowerCase() === proof.payee?.toLowerCase()
 
-  // Refund status badge color/label
-  const refundStatusColor = existingRefund ? (REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)') : null
-  const refundStatusLabel = existingRefund ? (REFUND_STATUS_LABEL[existingRefund.status] || '') : null
+  // Refund window: merchantPolicy (on-chain) OR URL param (passed by CheckoutPage) OR default 14 min
+  const windowMin      = merchantPolicy?.refundClaimWindowDays ?? urlWindowMin
+  const paymentTimeMs  = proof.timestamp ? Number(proof.timestamp) * 1000 : null
+  const withinWindow   = !paymentTimeMs || (Date.now() - paymentTimeMs) <= windowMin * 60 * 1000
+  const windowClosedAt = paymentTimeMs ? new Date(paymentTimeMs + windowMin * 60 * 1000) : null
+  // Show refund actions when: contract ready AND (on-chain policy OR URL flag)
+  const refundEnabled  = refundContractReady && !!(merchantPolicy?.allowRefundClaim || urlAllowRefund || existingRefund)
+
+  const refundColor = existingRefund ? (REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)') : null
+  const refundLabel = existingRefund ? REFUND_STATUS_LABEL[existingRefund.status] : null
 
   return (
     <div className="fade-up">
@@ -204,12 +200,9 @@ export default function ReceiptPage() {
           <span className="badge badge-green">✓ Verified on-chain</span>
           <span className="badge badge-blue">Arc Testnet</span>
           {existingRefund && (
-            <span style={{
-              fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 700,
-              background: (refundStatusColor) + '22', color: refundStatusColor,
-              border: `1px solid ${refundStatusColor}44`,
-            }}>
-              Refund: {refundStatusLabel}
+            <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 700,
+              background: refundColor + '22', color: refundColor, border: `1px solid ${refundColor}44` }}>
+              Refund: {refundLabel}
             </span>
           )}
         </div>
@@ -231,9 +224,7 @@ export default function ReceiptPage() {
           {isUsdc ? 'USDC' : proof.token}
         </div>
         {proof.timestamp && (
-          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text2)' }}>
-            {formatTs(proof.timestamp)}
-          </div>
+          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text2)' }}>{formatTs(proof.timestamp)}</div>
         )}
         {(merchantName || proof.paymentRef) && (
           <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -265,58 +256,55 @@ export default function ReceiptPage() {
         ].map((row, i, arr) => (
           <div key={row.k} className="field-row" style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
             <span className="field-key">{row.k}</span>
-            <span className={`field-val${row.mono ? '' : ' normal'}`} style={{ fontSize: row.full ? 11 : undefined }}>
-              {row.v}
-            </span>
+            <span className={`field-val${row.mono ? '' : ' normal'}`} style={{ fontSize: row.full ? 11 : undefined }}>{row.v}</span>
           </div>
         ))}
         <div className="field-row" style={{ borderBottom: 'none' }}>
           <span className="field-key">TX Hash</span>
-          {txHash ? (
-            <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent)', textAlign: 'right', wordBreak: 'break-all' }}>
-              {txHash}
-            </a>
-          ) : (
-            <a href={`${ARCSCAN_BASE}/address/${proof.payee}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: 12, color: 'var(--accent)' }}>
-              View merchant on ArcScan ↗
-            </a>
-          )}
+          {txHash
+            ? <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent)', textAlign: 'right', wordBreak: 'break-all' }}>{txHash}</a>
+            : <a href={`${ARCSCAN_BASE}/address/${proof.payee}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 12, color: 'var(--accent)' }}>View merchant on ArcScan ↗</a>
+          }
         </div>
       </div>
 
       {/* Actions */}
-      {receipt && (
-        <div style={{ marginBottom: 16 }}>
-          <ReceiptActions receipt={receipt} />
-        </div>
-      )}
+      {receipt && <div style={{ marginBottom: 16 }}><ReceiptActions receipt={receipt} /></div>}
 
-      {/* ── Available Actions card ── */}
-      {refundContractReady && (isCustomer || isMerchant) && (
+      {/* ── Available Actions (refund) ── */}
+      {refundEnabled && (isCustomer || isMerchant) && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Available Actions
           </div>
 
-          {/* ── Customer: request refund ── */}
-          {isCustomer && (
+          {/* Window closed message */}
+          {!withinWindow && !existingRefund && (
+            <p style={{ fontSize: 13, color: 'var(--text3)' }}>
+              Refund window closed{windowClosedAt ? ` — expired ${windowClosedAt.toLocaleString()}` : ''}.
+            </p>
+          )}
+
+          {/* Existing refund status */}
+          {existingRefund && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: 'var(--text2)' }}>Refund:</span>
+              <span style={{ fontSize: 12, padding: '2px 10px', borderRadius: 20, fontWeight: 700,
+                background: refundColor + '22', color: refundColor, border: `1px solid ${refundColor}44` }}>
+                {refundLabel}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--usdc)', fontWeight: 600 }}>{existingRefund.amount} USDC</span>
+              {existingRefund.reason && <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>"{existingRefund.reason}"</span>}
+            </div>
+          )}
+
+          {/* Customer: request refund */}
+          {isCustomer && withinWindow && !existingRefund && (
             <>
               {refundSuccess && <div className="success-box" style={{ marginBottom: 8 }}>{refundSuccess}</div>}
-              {existingRefund ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Refund request:</span>
-                  <span style={{
-                    fontSize: 12, padding: '2px 10px', borderRadius: 20, fontWeight: 700,
-                    background: (REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)') + '22',
-                    color: REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)',
-                    border: `1px solid ${(REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)')}44`,
-                  }}>
-                    {REFUND_STATUS_LABEL[existingRefund.status]} — {existingRefund.amount} USDC
-                  </span>
-                </div>
-              ) : !showRefund ? (
+              {!showRefund ? (
                 <button onClick={() => setShowRefund(true)} className="btn-ghost"
                   style={{ fontSize: 13, padding: '8px 16px', borderColor: 'var(--yellow)', color: 'var(--yellow)' }}>
                   💸 Request refund from merchant
@@ -355,9 +343,35 @@ export default function ReceiptPage() {
             </>
           )}
 
-          {/* ── Merchant: issue direct refund ── */}
-          {isMerchant && (
-            <div style={{ marginTop: isCustomer ? 16 : 0 }}>
+          {/* Merchant: approve/deny pending request */}
+          {isMerchant && existingRefund && existingRefund.status === 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: existingRefund ? 8 : 0 }}>
+              <button onClick={async () => {
+                try {
+                  const { approveRefund } = await import('../utils/refund.js')
+                  await approveRefund(address, existingRefund.refundId)
+                  const r = await fetchRefundRequest(existingRefund.refundId)
+                  setExistingRefund(r)
+                } catch (e) { setDirectError(e.message || 'Approve failed') }
+              }} className="btn-primary" style={{ fontSize: 12, padding: '8px 16px', background: 'var(--green)', border: 'none' }}>
+                ✓ Approve refund
+              </button>
+              <button onClick={async () => {
+                try {
+                  const { denyRefund } = await import('../utils/refund.js')
+                  await denyRefund(address, existingRefund.refundId)
+                  const r = await fetchRefundRequest(existingRefund.refundId)
+                  setExistingRefund(r)
+                } catch (e) { setDirectError(e.message || 'Deny failed') }
+              }} style={{ fontSize: 12, padding: '8px 16px', background: '#1a0808', border: '1px solid #f04f4f', color: '#f08080', borderRadius: 8, cursor: 'pointer' }}>
+                ✕ Deny
+              </button>
+            </div>
+          )}
+
+          {/* Merchant: direct refund (within window) */}
+          {isMerchant && withinWindow && (
+            <div style={{ marginTop: 12 }}>
               {directSuccess ? (
                 <div className="success-box">{directSuccess}</div>
               ) : !showDirect ? (
@@ -368,7 +382,7 @@ export default function ReceiptPage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                    Off-chain agreed refund — transfers USDC directly to the customer wallet.
+                    Off-chain agreed refund — transfers USDC directly to customer.
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div>
@@ -384,8 +398,7 @@ export default function ReceiptPage() {
                   </div>
                   {directError && <div className="error-box">{directError}</div>}
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={handleDirectRefund} disabled={directSending}
-                      className="btn-primary"
+                    <button onClick={handleDirectRefund} disabled={directSending} className="btn-primary"
                       style={{ fontSize: 12, padding: '8px 16px', background: 'var(--green)', border: 'none' }}>
                       {directSending ? <><span className="spinner" />Sending...</> : '✓ Send refund'}
                     </button>
@@ -397,11 +410,8 @@ export default function ReceiptPage() {
             </div>
           )}
 
-          {/* Neither customer nor merchant — show info */}
           {!isCustomer && !isMerchant && (
-            <p style={{ fontSize: 13, color: 'var(--text3)' }}>
-              Connect the customer or merchant wallet to take action.
-            </p>
+            <p style={{ fontSize: 13, color: 'var(--text3)' }}>Connect the customer or merchant wallet to take action.</p>
           )}
         </div>
       )}
@@ -415,17 +425,13 @@ export default function ReceiptPage() {
           <div style={{ display: 'inline-block', background: '#fff', padding: 16, borderRadius: 12 }}>
             <QRCodeSVG value={receiptUrl} size={160} />
           </div>
-          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 10, fontFamily: 'var(--mono)', wordBreak: 'break-all' }}>
-            {receiptUrl}
-          </p>
+          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 10, fontFamily: 'var(--mono)', wordBreak: 'break-all' }}>{receiptUrl}</p>
         </div>
       </div>
 
-      {/* Disclaimer */}
       <div style={{ padding: 14, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
         <strong style={{ color: 'var(--text2)' }}>TESTNET ONLY.</strong> Testnet tokens have no real economic value.
         This is not a financial instrument, tax document, or compliance record.
-        ArcPay does not perform AML, KYC, or risk scoring.
       </div>
     </div>
   )

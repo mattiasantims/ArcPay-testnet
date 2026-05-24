@@ -29,17 +29,24 @@ export const COMMITMENT_STATUS_COLOR = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function toUsdc(amount) { return BigInt(Math.round(parseFloat(amount) * 1e6)) }
 
+async function waitAndCheck(hash, label = 'Transaction') {
+  const receipt = await client().waitForTransactionReceipt({ hash })
+  if (receipt.status === 'reverted') {
+    throw new Error(`${label} reverted on-chain. Check wallet and USDC balance.`)
+  }
+  return receipt
+}
+
 async function approveCommitmentUsdc(account, amountHuman) {
-  const wc = getWalletClient()
+  const wc  = getWalletClient()
   const amt = parseUnits(amountHuman.toString(), USDC_DECIMALS)
   const hash = await wc.writeContract({
-    address: USDC_ADDRESS,
-    abi: ERC20,
+    address: USDC_ADDRESS, abi: ERC20,
     functionName: 'approve',
     args: [ARC_COMMITMENT_ADDRESS, amt],
     account,
   })
-  await client().waitForTransactionReceipt({ hash })
+  await waitAndCheck(hash, 'USDC approve')
   return hash
 }
 
@@ -49,10 +56,20 @@ export function formatCommitmentRef(id, type) {
   return `${prefix}-${date}-${String(id).padStart(4, '0')}`
 }
 
-// ── Tx hash cache (localStorage-free, module-level map) ───────────────────────
-const _txCache = new Map()
-export function cacheCommitmentTxHash(id, hash) { _txCache.set(String(id), hash) }
-export function getCachedCommitmentTxHash(id)   { return _txCache.get(String(id)) || null }
+// ── TX hash cache (module-level maps, session-only) ───────────────────────────
+const _txCache       = new Map() // commitmentId -> creation TX hash
+const _fulfillCache  = new Map() // commitmentId -> fulfill TX hash
+const _trancheCache  = new Map() // `${commitmentId}-${trancheIndex}` -> TX hash
+const _cancelCache   = new Map() // commitmentId -> cancel TX hash
+
+export function cacheCommitmentTxHash(id, hash)            { _txCache.set(String(id), hash) }
+export function getCachedCommitmentTxHash(id)               { return _txCache.get(String(id)) || null }
+export function cacheFulfillTxHash(id, hash)               { _fulfillCache.set(String(id), hash) }
+export function getCachedFulfillTxHash(id)                  { return _fulfillCache.get(String(id)) || null }
+export function cacheTrancheTxHash(id, idx, hash)          { _trancheCache.set(`${id}-${idx}`, hash) }
+export function getCachedTrancheTxHash(id, idx)             { return _trancheCache.get(`${id}-${idx}`) || null }
+export function cacheCancelTxHash(id, hash)                { _cancelCache.set(String(id), hash) }
+export function getCachedCancelTxHash(id)                   { return _cancelCache.get(String(id)) || null }
 
 // ── Write functions ───────────────────────────────────────────────────────────
 
@@ -74,7 +91,7 @@ export async function createDelayedCommitment(account, {
     ],
     account,
   })
-  const receipt = await client().waitForTransactionReceipt({ hash })
+  const receipt = await waitAndCheck(hash, 'Create delayed commitment')
   const id = receipt.logs?.[0]?.topics?.[1]
     ? BigInt(receipt.logs[0].topics[1]).toString()
     : null
@@ -100,7 +117,7 @@ export async function createTrancheCommitment(account, {
     ],
     account,
   })
-  const receipt = await client().waitForTransactionReceipt({ hash })
+  const receipt = await waitAndCheck(hash, 'Create tranche commitment')
   const id = receipt.logs?.[0]?.topics?.[1]
     ? BigInt(receipt.logs[0].topics[1]).toString()
     : null
@@ -120,7 +137,8 @@ export async function fulfillDelayedCommitment(account, commitmentId) {
     args: [BigInt(commitmentId)],
     account,
   })
-  await client().waitForTransactionReceipt({ hash })
+  await waitAndCheck(hash, 'Fulfill payment')
+  cacheFulfillTxHash(commitmentId, hash)
   return hash
 }
 
@@ -138,7 +156,8 @@ export async function fulfillTranche(account, commitmentId, trancheIndex) {
     args: [BigInt(commitmentId), BigInt(trancheIndex)],
     account,
   })
-  await client().waitForTransactionReceipt({ hash })
+  await waitAndCheck(hash, `Fulfill tranche ${Number(trancheIndex) + 1}`)
+  cacheTrancheTxHash(commitmentId, trancheIndex, hash)
   return hash
 }
 
@@ -150,7 +169,8 @@ export async function cancelCommitment(account, commitmentId) {
     args: [BigInt(commitmentId)],
     account,
   })
-  await client().waitForTransactionReceipt({ hash })
+  await waitAndCheck(hash, 'Cancel commitment')
+  cacheCancelTxHash(commitmentId, hash)
   return hash
 }
 
@@ -198,25 +218,25 @@ function parseCommitment(raw, id) {
   if (!raw) return null
   const fromUsdc = v => (Number(v) / 1e6).toFixed(2)
   return {
-    commitmentId:    id.toString(),
-    merchant:        raw.merchant,
-    customer:        raw.customer,
-    totalAmount:     fromUsdc(raw.totalAmount),
-    ref:             raw.ref,
-    description:     raw.description,
-    metadataHash:    raw.metadataHash,
-    type:            Number(raw.commitmentType),
-    status:          Number(raw.status),
-    createdAt:       Number(raw.createdAt),
+    commitmentId:     id.toString(),
+    merchant:         raw.merchant,
+    customer:         raw.customer,
+    totalAmount:      fromUsdc(raw.totalAmount),
+    ref:              raw.ref,
+    description:      raw.description,
+    metadataHash:     raw.metadataHash,
+    type:             Number(raw.commitmentType),
+    status:           Number(raw.status),
+    createdAt:        Number(raw.createdAt),
     // Delayed
-    dueDate:         Number(raw.dueDate),
-    deadline:        Number(raw.deadline),
-    paid:            raw.paid,
+    dueDate:          Number(raw.dueDate),
+    deadline:         Number(raw.deadline),
+    paid:             raw.paid,
     // Tranche
-    trancheAmounts:  raw.trancheAmounts?.map(a => fromUsdc(a)) ?? [],
-    trancheDueDates: raw.trancheDueDates?.map(d => Number(d)) ?? [],
-    trancheDeadlines:raw.trancheDeadlines?.map(d => Number(d)) ?? [],
-    tranchePaid:     raw.tranchePaid ?? [],
+    trancheAmounts:   raw.trancheAmounts?.map(a => fromUsdc(a)) ?? [],
+    trancheDueDates:  raw.trancheDueDates?.map(d => Number(d)) ?? [],
+    trancheDeadlines: raw.trancheDeadlines?.map(d => Number(d)) ?? [],
+    tranchePaid:      raw.tranchePaid ?? [],
     tranchesPaidCount: Number(raw.tranchesPaidCount ?? 0),
   }
 }
