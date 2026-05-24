@@ -70,13 +70,19 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
   if (refunds.length > 0) {
     lines.push('"=== REFUND REQUESTS ==="')
     lines.push(csvRow(['requestedAt','processedAt','refundStatus','refundId',
-      'proofRef','reason','merchantWallet','customerWallet','amount']))
+      'proofRef','reason','note','merchantWallet','customerWallet','amount',
+      'requestTxHash','processTxHash','requestArcScan','processArcScan']))
     for (const r of refunds) {
+      const reqTx  = r.requestTxHash  || ''
+      const procTx = r.processTxHash  || ''
       lines.push(csvRow([
         formatTs(r.requestedAt), formatTs(r.processedAt),
         REFUND_STATUS_LABEL[r.status] ?? '',
-        r.refundId ?? '', r.proofRef ?? '', r.reason ?? '',
+        r.refundId ?? '', r.proofRef ?? '', r.reason ?? '', r.note ?? '',
         r.merchant ?? '', r.customer ?? '', r.amount ?? '',
+        reqTx,  procTx,
+        reqTx  ? `https://testnet.arcscan.app/tx/${reqTx}`  : '',
+        procTx ? `https://testnet.arcscan.app/tx/${procTx}` : '',
       ]))
     }
     lines.push('')

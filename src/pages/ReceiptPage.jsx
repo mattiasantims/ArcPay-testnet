@@ -14,6 +14,7 @@ import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchan
 import {
   requestRefund, directRefund,
   fetchCustomerRefundIds, fetchMerchantRefundIds, fetchRefundRequest,
+  fetchRefundTxHashes,
   REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 import ReceiptActions from '../components/ReceiptActions.jsx'
@@ -31,8 +32,9 @@ export default function ReceiptPage() {
   const [receipt,         setReceipt]         = useState(null)
   const [merchantProfile, setMerchantProfile] = useState(null)
   const [merchantPolicy,  setMerchantPolicy]  = useState(null)
-  const [existingRefund,  setExistingRefund]  = useState(null)
-  const [refundTxHash,    setRefundTxHash]    = useState(null)
+  const [existingRefund,    setExistingRefund]    = useState(null)
+  const [refundRequestTx,   setRefundRequestTx]   = useState(null)
+  const [refundProcessTx,   setRefundProcessTx]   = useState(null)
 
   // Customer refund form
   const [showRefund,    setShowRefund]    = useState(false)
@@ -100,7 +102,15 @@ export default function ReceiptPage() {
           : isMerchant ? await fetchMerchantRefundIds(address) : []
         for (const rid of [...ids].reverse()) {
           const r = await fetchRefundRequest(rid)
-          if (r && r.proofRef === proofRef) { setExistingRefund(r); return }
+          if (r && r.proofRef === proofRef) {
+            setExistingRefund(r)
+            // Load TX hashes from on-chain logs
+            fetchRefundTxHashes(r).then(({ requestTxHash, processTxHash }) => {
+              if (requestTxHash) setRefundRequestTx(requestTxHash)
+              if (processTxHash) setRefundProcessTx(processTxHash)
+            }).catch(() => {})
+            return
+          }
         }
       } catch {}
     }
@@ -131,6 +141,7 @@ export default function ReceiptPage() {
       if (result.refundId) {
         const r = await fetchRefundRequest(result.refundId)
         setExistingRefund(r)
+        if (result.hash) setRefundRequestTx(result.hash)
       }
     } catch (e) { setRefundError(e.message || 'Transaction failed') }
     finally { setRefundSending(false) }
@@ -440,36 +451,41 @@ export default function ReceiptPage() {
 
             // Event 2+: Refund events
             if (existingRefund) {
+              const ARCSCAN = 'https://testnet.arcscan.app'
               if (existingRefund.requestedAt) {
                 events.push({
                   label:     'Refund Requested',
-                  txHash:    null,
+                  txHash:    refundRequestTx,
                   timestamp: new Date(existingRefund.requestedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC',
                   detail:    `${existingRefund.amount} USDC${existingRefund.reason ? ' · "' + existingRefund.reason + '"' : ''}`,
+                  note:      existingRefund.reason || null,
                 })
               }
               if (existingRefund.status === 1) {
                 events.push({
                   label:     'Refund Approved',
-                  txHash:    null,
+                  txHash:    refundProcessTx,
                   timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
-                  detail:    `${existingRefund.amount} USDC refunded to customer`,
+                  detail:    `${existingRefund.amount} USDC transferred from merchant to customer`,
+                  note:      null,
                 })
               }
               if (existingRefund.status === 2) {
                 events.push({
                   label:     'Refund Denied',
-                  txHash:    null,
+                  txHash:    refundProcessTx,
                   timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
                   detail:    'Merchant denied the refund request',
+                  note:      null,
                 })
               }
               if (existingRefund.status === 3) {
                 events.push({
                   label:     'Direct Refund',
-                  txHash:    null,
+                  txHash:    refundProcessTx,
                   timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
-                  detail:    `${existingRefund.amount} USDC sent directly by merchant${existingRefund.reason ? ' · "' + existingRefund.reason + '"' : ''}`,
+                  detail:    `${existingRefund.amount} USDC sent directly by merchant`,
+                  note:      existingRefund.reason || null,
                 })
               }
             }
@@ -484,19 +500,24 @@ export default function ReceiptPage() {
                       padding: '10px 0', borderBottom: i < events.length - 1 ? '1px solid var(--border)' : 'none',
                       flexWrap: 'wrap', gap: 8,
                     }}>
-                      <div>
+                      <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{ev.label}</div>
-                        {ev.detail && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ev.detail}</div>}
+                        {ev.detail && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{ev.detail}</div>}
+                        {ev.note  && <div style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Note: "{ev.note}"</div>}
                         {ev.timestamp && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ev.timestamp}</div>}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                         {ev.txHash && (
+                          <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 3, wordBreak: 'break-all' }}>
+                            TX: {ev.txHash}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 8 }}>
+                        {ev.txHash ? (
                           <a href={`${ARCSCAN_BASE}/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
                             <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>ArcScan ↗</button>
                           </a>
-                        )}
-                        {!ev.txHash && (
-                          <span style={{ fontSize: 11, color: 'var(--text3)', padding: '4px 0' }}>No TX hash</span>
+                        ) : (
+                          <span style={{ fontSize: 11, color: 'var(--text3)', padding: '4px 0', fontStyle: 'italic' }}>recovering TX...</span>
                         )}
                       </div>
                     </div>

@@ -22,19 +22,109 @@ export const REFUND_STATUS_COLOR = {
 function toUsdc(amount) { return BigInt(Math.round(parseFloat(amount) * 1e6)) }
 function fromUsdc(v)    { return (Number(v) / 1e6).toFixed(2) }
 
-// ── Helper: wait for receipt and throw if reverted ────────────────────────────
+// ── Revert detection ──────────────────────────────────────────────────────────
 async function waitAndCheck(hash, label = 'Transaction') {
   const receipt = await client().waitForTransactionReceipt({ hash })
   if (receipt.status === 'reverted') {
-    throw new Error(`${label} reverted on-chain. Check wallet address and USDC balance.`)
+    throw new Error(`${label} reverted on-chain. Check wallet and USDC balance.`)
   }
   return receipt
 }
 
-// ── Customer: request refund ──────────────────────────────────────────────────
+// ── TX hash cache (session-only, lost on page refresh) ────────────────────────
+const _requestCache = new Map()  // refundId -> requestTxHash
+const _processCache = new Map()  // refundId -> approve/deny/direct TxHash
+
+export function cacheRefundRequestTx(refundId, hash)  { _requestCache.set(String(refundId), hash) }
+export function cacheRefundProcessTx(refundId, hash)  { _processCache.set(String(refundId), hash) }
+export function getCachedRefundRequestTx(refundId)    { return _requestCache.get(String(refundId)) || null }
+export function getCachedRefundProcessTx(refundId)    { return _processCache.get(String(refundId)) || null }
+
+// ── On-chain event log recovery ───────────────────────────────────────────────
+// Arc Testnet: ~0.51 sec/block → ~2 blocks/sec
+// We search ±600 blocks (~5 min window) around the estimated block
+const BLOCKS_PER_SEC = 2n
+const SEARCH_WINDOW  = 600n
+
+async function estimateBlock(unixTimestamp) {
+  if (!unixTimestamp || unixTimestamp === 0) return null
+  try {
+    const pc           = client()
+    const latestBlock  = await pc.getBlock({ blockTag: 'latest' })
+    const latestTs     = Number(latestBlock.timestamp)
+    const latestNum    = latestBlock.number
+    const diffSec      = BigInt(latestTs - unixTimestamp)
+    const estimated    = latestNum - diffSec * BLOCKS_PER_SEC
+    return estimated > 0n ? estimated : 1n
+  } catch { return null }
+}
+
+async function findEventTxHash(eventName, refundIdBigInt, timestamp) {
+  // 1. Try cache first
+  const cached = eventName === 'RefundRequested'
+    ? getCachedRefundRequestTx(refundIdBigInt.toString())
+    : getCachedRefundProcessTx(refundIdBigInt.toString())
+  if (cached) return cached
+
+  // 2. Search on-chain logs
+  try {
+    const estimatedBlock = await estimateBlock(timestamp)
+    if (!estimatedBlock) return null
+
+    const fromBlock = estimatedBlock > SEARCH_WINDOW ? estimatedBlock - SEARCH_WINDOW : 1n
+    const toBlock   = estimatedBlock + SEARCH_WINDOW
+
+    const pc      = client()
+    const eventAbi = ABI.find(x => x.type === 'event' && x.name === eventName)
+    if (!eventAbi) return null
+
+    const logs = await pc.getLogs({
+      address:   ARC_REFUND_ADDRESS,
+      event:     eventAbi,
+      args:      { refundId: refundIdBigInt },
+      fromBlock,
+      toBlock,
+    })
+
+    if (logs.length > 0) {
+      const hash = logs[0].transactionHash
+      // Cache the result
+      if (eventName === 'RefundRequested') cacheRefundRequestTx(refundIdBigInt.toString(), hash)
+      else cacheRefundProcessTx(refundIdBigInt.toString(), hash)
+      return hash
+    }
+    return null
+  } catch { return null }
+}
+
+// ── Main event fetcher ────────────────────────────────────────────────────────
+// Returns { requestTxHash, processTxHash } for a given refund
+export async function fetchRefundTxHashes(refund) {
+  if (!refund) return { requestTxHash: null, processTxHash: null }
+  const id = BigInt(refund.refundId)
+
+  const [requestTxHash, processTxHash] = await Promise.all([
+    refund.requestedAt
+      ? findEventTxHash('RefundRequested', id, refund.requestedAt)
+      : Promise.resolve(null),
+    refund.processedAt
+      ? findEventTxHash(
+          refund.status === 1 ? 'RefundApproved'
+          : refund.status === 2 ? 'RefundDenied'
+          : 'DirectRefund',
+          id,
+          refund.processedAt
+        )
+      : Promise.resolve(null),
+  ])
+
+  return { requestTxHash, processTxHash }
+}
+
+// ── Write functions ───────────────────────────────────────────────────────────
+
 export async function requestRefund(account, { merchant, amount, proofRef, reason }) {
   const wc      = getWalletClient()
-  // Truncate proofRef to 64 chars max (contract limit)
   const safeRef = (proofRef || '').slice(0, 64)
   const hash    = await wc.writeContract({
     address: ARC_REFUND_ADDRESS, abi: ABI,
@@ -46,15 +136,14 @@ export async function requestRefund(account, { merchant, amount, proofRef, reaso
   const id = receipt.logs?.[0]?.topics?.[1]
     ? BigInt(receipt.logs[0].topics[1]).toString()
     : null
+  if (id) cacheRefundRequestTx(id, hash)
   return { hash, refundId: id }
 }
 
-// ── Merchant: approve customer request ───────────────────────────────────────
 export async function approveRefund(account, refundId) {
   const wc     = getWalletClient()
   const refund = await fetchRefundRequest(refundId)
 
-  // Step 1: approve USDC spend
   const approveHash = await wc.writeContract({
     address: USDC_ADDRESS, abi: ERC20,
     functionName: 'approve',
@@ -63,7 +152,6 @@ export async function approveRefund(account, refundId) {
   })
   await waitAndCheck(approveHash, 'USDC approve')
 
-  // Step 2: approveRefund
   const hash = await wc.writeContract({
     address: ARC_REFUND_ADDRESS, abi: ABI,
     functionName: 'approveRefund',
@@ -71,10 +159,10 @@ export async function approveRefund(account, refundId) {
     account,
   })
   await waitAndCheck(hash, 'Approve refund')
+  cacheRefundProcessTx(refundId, hash)
   return hash
 }
 
-// ── Merchant: deny customer request ──────────────────────────────────────────
 export async function denyRefund(account, refundId) {
   const wc   = getWalletClient()
   const hash = await wc.writeContract({
@@ -84,16 +172,14 @@ export async function denyRefund(account, refundId) {
     account,
   })
   await waitAndCheck(hash, 'Deny refund')
+  cacheRefundProcessTx(refundId, hash)
   return hash
 }
 
-// ── Merchant: direct refund (no prior request needed) ─────────────────────────
-// Merchant must approve USDC spend before the contract can transferFrom.
 export async function directRefund(account, { customerWallet, amount, proofRef, reason }) {
   const wc      = getWalletClient()
   const safeRef = (proofRef || '').slice(0, 64)
 
-  // Step 1: approve USDC spend from merchant to ArcRefund contract
   const approveHash = await wc.writeContract({
     address: USDC_ADDRESS, abi: ERC20,
     functionName: 'approve',
@@ -102,7 +188,6 @@ export async function directRefund(account, { customerWallet, amount, proofRef, 
   })
   await waitAndCheck(approveHash, 'USDC approve for direct refund')
 
-  // Step 2: directRefund — contract pulls USDC from merchant to customer
   const hash = await wc.writeContract({
     address: ARC_REFUND_ADDRESS, abi: ABI,
     functionName: 'directRefund',
@@ -110,6 +195,7 @@ export async function directRefund(account, { customerWallet, amount, proofRef, 
     account,
   })
   await waitAndCheck(hash, 'Direct refund')
+  cacheRefundProcessTx('direct', hash) // keyed separately for direct refunds
   return hash
 }
 
@@ -148,7 +234,6 @@ export async function totalRefunds() {
   })
 }
 
-// ── Parser ────────────────────────────────────────────────────────────────────
 function parseRefund(raw, id) {
   if (!raw) return null
   return {

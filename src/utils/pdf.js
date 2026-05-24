@@ -211,7 +211,13 @@ export function downloadFullReceiptPDF(receipt, events = []) {
       }
       if (ev.detail) {
         doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(120, 120, 120)
-        doc.text(ev.detail, margin + 3, y); y += 5
+        const detailLines = doc.splitTextToSize(ev.detail, 160)
+        doc.text(detailLines, margin + 3, y); y += detailLines.length * 4 + 1
+      }
+      if (ev.note) {
+        doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(100, 100, 150)
+        const noteLines = doc.splitTextToSize(`Note: "${ev.note}"`, 160)
+        doc.text(noteLines, margin + 3, y); y += noteLines.length * 4 + 1
       }
       y += 4
     })
