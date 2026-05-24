@@ -311,6 +311,18 @@ export default function DashboardPage({ account, onConnect, connecting }) {
             {isPending && !account && (
               <span style={{ fontSize: 11, color: 'var(--text3)' }}>Connect wallet to act</span>
             )}
+            {/* View Receipt link — find proofId from receipts by matching payment_ref */}
+            {(() => {
+              const matched = receipts.find(rx => rx.payment_ref === r.proofRef)
+              if (!matched) return null
+              return (
+                <Link to={`/receipt/${matched.receipt_id}`} style={{ textDecoration: 'none' }}>
+                  <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 10px' }}>
+                    View receipt →
+                  </button>
+                </Link>
+              )
+            })()}
           </div>
         </div>
       </div>
@@ -371,13 +383,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
       {/* Export / refresh */}
       {receipts.length > 0 && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, justifyContent: 'flex-end' }}>
-          <button onClick={() => {
-              const enriched = receipts.map(r => ({
-                ...r,
-                refundStatus: refundsByRef[r.payment_ref] ? REFUND_STATUS_LABEL[refundsByRef[r.payment_ref].status] : '—',
-              }))
-              downloadUnifiedCSV({ receipts: enriched, commitments, refunds, walletAddress: merchantAddr, role: 'merchant' })
-            }} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
+          <button onClick={() => downloadUnifiedCSV({ receipts, commitments, refunds, walletAddress: merchantAddr, role: 'merchant' })} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             📊 Export CSV
           </button>
           <button onClick={() => load(merchantAddr)} disabled={loading} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>

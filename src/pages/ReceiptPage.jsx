@@ -17,6 +17,7 @@ import {
   REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 import ReceiptActions from '../components/ReceiptActions.jsx'
+import { downloadReceiptPDF, downloadFullReceiptPDF } from '../utils/pdf.js'
 
 export default function ReceiptPage() {
   const { id }   = useParams()
@@ -31,6 +32,7 @@ export default function ReceiptPage() {
   const [merchantProfile, setMerchantProfile] = useState(null)
   const [merchantPolicy,  setMerchantPolicy]  = useState(null)
   const [existingRefund,  setExistingRefund]  = useState(null)
+  const [refundTxHash,    setRefundTxHash]    = useState(null)
 
   // Customer refund form
   const [showRefund,    setShowRefund]    = useState(false)
@@ -414,6 +416,114 @@ export default function ReceiptPage() {
           {!isCustomer && !isMerchant && (
             <p style={{ fontSize: 13, color: 'var(--text3)' }}>Connect the customer or merchant wallet to take action.</p>
           )}
+        </div>
+      )}
+
+      {/* ── Receipts & Events ── */}
+      {proof && (
+        <div className="card" style={{ marginBottom: 16, padding: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Receipts & Events
+          </div>
+
+          {/* Build events list */}
+          {(() => {
+            const events = []
+
+            // Event 1: Payment
+            events.push({
+              label:     'Payment',
+              txHash:    txHash,
+              timestamp: proof.timestamp ? new Date(Number(proof.timestamp) * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
+              detail:    `${formatUsdc(proof.amount)} USDC · ${proof.paymentRef || ''}`,
+            })
+
+            // Event 2+: Refund events
+            if (existingRefund) {
+              if (existingRefund.requestedAt) {
+                events.push({
+                  label:     'Refund Requested',
+                  txHash:    null,
+                  timestamp: new Date(existingRefund.requestedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC',
+                  detail:    `${existingRefund.amount} USDC${existingRefund.reason ? ' · "' + existingRefund.reason + '"' : ''}`,
+                })
+              }
+              if (existingRefund.status === 1) {
+                events.push({
+                  label:     'Refund Approved',
+                  txHash:    null,
+                  timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
+                  detail:    `${existingRefund.amount} USDC refunded to customer`,
+                })
+              }
+              if (existingRefund.status === 2) {
+                events.push({
+                  label:     'Refund Denied',
+                  txHash:    null,
+                  timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
+                  detail:    'Merchant denied the refund request',
+                })
+              }
+              if (existingRefund.status === 3) {
+                events.push({
+                  label:     'Direct Refund',
+                  txHash:    null,
+                  timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
+                  detail:    `${existingRefund.amount} USDC sent directly by merchant${existingRefund.reason ? ' · "' + existingRefund.reason + '"' : ''}`,
+                })
+              }
+            }
+
+            return (
+              <>
+                {/* Event rows */}
+                <div style={{ marginBottom: 14 }}>
+                  {events.map((ev, i) => (
+                    <div key={i} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                      padding: '10px 0', borderBottom: i < events.length - 1 ? '1px solid var(--border)' : 'none',
+                      flexWrap: 'wrap', gap: 8,
+                    }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{ev.label}</div>
+                        {ev.detail && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ev.detail}</div>}
+                        {ev.timestamp && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ev.timestamp}</div>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                        {ev.txHash && (
+                          <a href={`${ARCSCAN_BASE}/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                            <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>ArcScan ↗</button>
+                          </a>
+                        )}
+                        {!ev.txHash && (
+                          <span style={{ fontSize: 11, color: 'var(--text3)', padding: '4px 0' }}>No TX hash</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Download buttons */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => downloadFullReceiptPDF(receipt, events)}
+                    className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                    🖨️ Full PDF (all events)
+                  </button>
+                  <button
+                    onClick={() => downloadReceiptPDF(receipt)}
+                    className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                    🖨️ Payment PDF
+                  </button>
+                  {txHash && (
+                    <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                      <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>Payment TX ↗</button>
+                    </a>
+                  )}
+                </div>
+              </>
+            )
+          })()}
         </div>
       )}
 
