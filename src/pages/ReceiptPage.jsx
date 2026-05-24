@@ -187,7 +187,8 @@ export default function ReceiptPage() {
   const withinWindow   = !paymentTimeMs || (Date.now() - paymentTimeMs) <= windowMin * 60 * 1000
   const windowClosedAt = paymentTimeMs ? new Date(paymentTimeMs + windowMin * 60 * 1000) : null
   // Show refund actions when: contract ready AND (on-chain policy OR URL flag)
-  const refundEnabled  = refundContractReady && !!(merchantPolicy?.allowRefundClaim || urlAllowRefund || existingRefund)
+  // Show refund actions for any payment — no allowRefundClaim gate on the UI
+  const refundEnabled  = refundContractReady
 
   const refundColor = existingRefund ? (REFUND_STATUS_COLOR[existingRefund.status] || 'var(--text3)') : null
   const refundLabel = existingRefund ? REFUND_STATUS_LABEL[existingRefund.status] : null

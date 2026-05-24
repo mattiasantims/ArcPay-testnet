@@ -88,10 +88,22 @@ export async function denyRefund(account, refundId) {
 }
 
 // ── Merchant: direct refund (no prior request needed) ─────────────────────────
+// Merchant must approve USDC spend before the contract can transferFrom.
 export async function directRefund(account, { customerWallet, amount, proofRef, reason }) {
   const wc      = getWalletClient()
   const safeRef = (proofRef || '').slice(0, 64)
-  const hash    = await wc.writeContract({
+
+  // Step 1: approve USDC spend from merchant to ArcRefund contract
+  const approveHash = await wc.writeContract({
+    address: USDC_ADDRESS, abi: ERC20,
+    functionName: 'approve',
+    args: [ARC_REFUND_ADDRESS, toUsdc(amount)],
+    account,
+  })
+  await waitAndCheck(approveHash, 'USDC approve for direct refund')
+
+  // Step 2: directRefund — contract pulls USDC from merchant to customer
+  const hash = await wc.writeContract({
     address: ARC_REFUND_ADDRESS, abi: ABI,
     functionName: 'directRefund',
     args: [customerWallet, toUsdc(amount), safeRef, (reason || '').slice(0, 256)],
