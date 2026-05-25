@@ -17,7 +17,7 @@ import {
 } from '../utils/commitment.js'
 import {
   fetchMerchantRefundIds, fetchCustomerRefundIds, fetchRefundRequest, approveRefund, denyRefund,
-  REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
+  fetchRefundTxHashes, REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 
 // ── Shared badge components ──────────────────────────────────────────────────
@@ -168,10 +168,15 @@ export default function DashboardPage({ account, onConnect, connecting }) {
             const r = await fetchRefundRequest(id)
             if (r) refundList.push(r)
           }
-          setRefunds(refundList)
+          // Enrich refunds with TX hashes from on-chain logs
+          const enriched = await Promise.all(refundList.map(async r => {
+            const { requestTxHash, processTxHash } = await fetchRefundTxHashes(r)
+            return { ...r, requestTxHash, processTxHash }
+          }))
+          setRefunds(enriched)
           // Build lookup: proofRef -> most recent refund
           const byRef = {}
-          for (const r of refundList) { if (r.proofRef) byRef[r.proofRef] = r }
+          for (const r of enriched) { if (r.proofRef) byRef[r.proofRef] = r }
           setRefundsByRef(byRef)
         } catch {}
       }
@@ -383,7 +388,15 @@ export default function DashboardPage({ account, onConnect, connecting }) {
       {/* Export / refresh */}
       {receipts.length > 0 && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, justifyContent: 'flex-end' }}>
-          <button onClick={() => downloadUnifiedCSV({ receipts, commitments, refunds, walletAddress: merchantAddr, role: 'merchant' })} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
+          <button onClick={() => {
+              const enrichedReceipts = receipts.map(r => ({
+                ...r,
+                refundStatus: refundsByRef[r.payment_ref]
+                  ? REFUND_STATUS_LABEL[refundsByRef[r.payment_ref].status]
+                  : '—',
+              }))
+              downloadUnifiedCSV({ receipts: enrichedReceipts, commitments, refunds, walletAddress: merchantAddr, role: 'merchant' })
+            }} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             📊 Export CSV
           </button>
           <button onClick={() => load(merchantAddr)} disabled={loading} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>

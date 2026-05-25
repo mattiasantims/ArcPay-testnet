@@ -127,8 +127,15 @@ export default function MyPaymentsPage() {
             const r = await fetchRefundRequest(rid)
             if (r) { rList.push(r); if (r.proofRef) byRef[r.proofRef] = r }
           }
-          setRefunds(rList)
-          setRefundsByRef(byRef)
+          // Enrich refunds with TX hashes from on-chain logs
+          const enrichedR = await Promise.all(rList.map(async r => {
+            const { requestTxHash, processTxHash } = await fetchRefundTxHashes(r)
+            return { ...r, requestTxHash, processTxHash }
+          }))
+          setRefunds(enrichedR)
+          const enrichedByRef = {}
+          for (const r of enrichedR) { if (r.proofRef) enrichedByRef[r.proofRef] = r }
+          setRefundsByRef(enrichedByRef)
         } catch {}
       }
     }).finally(() => setLoading(false))
