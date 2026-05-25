@@ -99,6 +99,9 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
           create_tx_hash:  createTxHash,
           cancel_tx_hash:  cancelTxHash,
           release_tx_hash: releaseTxHash,
+          _raw:  booking,
+          _id:   id,
+          _name: localReq?.merchantName || null,
           role,
           merchant_booking_number: totalMerchantBookings - idx,
         }
