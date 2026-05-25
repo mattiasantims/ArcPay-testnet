@@ -59,7 +59,7 @@ async function estimateBlock(unixTimestamp) {
   } catch { return null }
 }
 
-async function findEventTxHash(eventName, refundIdBigInt, timestamp) {
+async function findEventTxHash(eventName, refundIdBigInt, timestamp, requestedAt = null) {
   // 1. Try cache first
   const cached = eventName === 'RefundRequested'
     ? getCachedRefundRequestTx(refundIdBigInt.toString())
@@ -68,11 +68,22 @@ async function findEventTxHash(eventName, refundIdBigInt, timestamp) {
 
   // 2. Search on-chain logs
   try {
-    const estimatedBlock = await estimateBlock(timestamp)
-    if (!estimatedBlock) return null
-
-    const fromBlock = estimatedBlock > SEARCH_WINDOW ? estimatedBlock - SEARCH_WINDOW : 1n
-    const toBlock   = estimatedBlock + SEARCH_WINDOW
+    let fromBlock, toBlock
+    if (timestamp) {
+      const estimatedBlock = await estimateBlock(timestamp)
+      if (!estimatedBlock) return null
+      fromBlock = estimatedBlock > SEARCH_WINDOW ? estimatedBlock - SEARCH_WINDOW : 1n
+      toBlock   = estimatedBlock + SEARCH_WINDOW
+    } else if (requestedAt) {
+      // Wide search from requestedAt to now
+      const fromEstimated = await estimateBlock(requestedAt)
+      const pc = client()
+      const latest = await pc.getBlock({ blockTag: 'latest' })
+      fromBlock = fromEstimated && fromEstimated > 0n ? fromEstimated : 1n
+      toBlock   = latest.number
+    } else {
+      return null
+    }
 
     const pc      = client()
     const eventAbi = ABI.find(x => x.type === 'event' && x.name === eventName)
@@ -105,7 +116,7 @@ export async function fetchRefundTxHashes(refund) {
 
   const [requestTxHash, processTxHash] = await Promise.all([
     refund.requestedAt
-      ? findEventTxHash('RefundRequested', id, refund.requestedAt)
+      ? findEventTxHash('RefundRequested', id, refund.requestedAt, refund.requestedAt)
       : Promise.resolve(null),
     refund.processedAt
       ? findEventTxHash(
@@ -113,7 +124,8 @@ export async function fetchRefundTxHashes(refund) {
           : refund.status === 2 ? 'RefundDenied'
           : 'DirectRefund',
           id,
-          refund.processedAt
+          refund.processedAt,
+          refund.requestedAt || refund.processedAt
         )
       : Promise.resolve(null),
   ])

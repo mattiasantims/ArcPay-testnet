@@ -258,15 +258,27 @@ async function _estimateBlock(unixTimestamp) {
   } catch { return null }
 }
 
-async function _findEventTxHash(eventName, args, timestamp, cachedHash) {
+async function _findEventTxHash(eventName, args, timestamp, cachedHash, createdAt = null) {
   if (cachedHash) return cachedHash
   try {
-    const estimatedBlock = await _estimateBlock(timestamp)
-    if (!estimatedBlock) return null
-    const fromBlock = estimatedBlock > _SEARCH_WINDOW ? estimatedBlock - _SEARCH_WINDOW : 1n
-    const toBlock   = estimatedBlock + _SEARCH_WINDOW
-    const pc        = client()
-    const eventAbi  = ABI.find(x => x.type === 'event' && x.name === eventName)
+    const pc = client()
+    let fromBlock, toBlock
+    if (timestamp) {
+      // Precise search: ±600 blocks around estimated block
+      const estimatedBlock = await _estimateBlock(timestamp)
+      if (!estimatedBlock) return null
+      fromBlock = estimatedBlock > _SEARCH_WINDOW ? estimatedBlock - _SEARCH_WINDOW : 1n
+      toBlock   = estimatedBlock + _SEARCH_WINDOW
+    } else if (createdAt) {
+      // Wide search: from commitment creation to now
+      const fromEstimated = await _estimateBlock(createdAt)
+      const latest = await pc.getBlock({ blockTag: 'latest' })
+      fromBlock = fromEstimated && fromEstimated > 0n ? fromEstimated : 1n
+      toBlock   = latest.number
+    } else {
+      return null
+    }
+    const eventAbi = ABI.find(x => x.type === 'event' && x.name === eventName)
     if (!eventAbi) return null
     const logs = await pc.getLogs({ address: ARC_COMMITMENT_ADDRESS, event: eventAbi, args, fromBlock, toBlock })
     return logs.length > 0 ? logs[0].transactionHash : null
@@ -283,12 +295,12 @@ export async function fetchCommitmentTxHashes(c) {
   const id = BigInt(c.commitmentId)
 
   const [createHash, fulfillHash, cancelHash] = await Promise.all([
-    _findEventTxHash('CommitmentCreated', { commitmentId: id }, c.createdAt, getCachedCommitmentTxHash(c.commitmentId)),
+    _findEventTxHash('CommitmentCreated', { commitmentId: id }, c.createdAt, getCachedCommitmentTxHash(c.commitmentId), c.createdAt),
     c.type === 0 && c.paid
-      ? _findEventTxHash('CommitmentFulfilled', { commitmentId: id }, null, getCachedFulfillTxHash(c.commitmentId))
+      ? _findEventTxHash('CommitmentFulfilled', { commitmentId: id }, null, getCachedFulfillTxHash(c.commitmentId), c.createdAt)
       : Promise.resolve(null),
     c.status === 2 || c.status === 3
-      ? _findEventTxHash('CommitmentCancelled', { commitmentId: id }, null, getCachedCancelTxHash(c.commitmentId))
+      ? _findEventTxHash('CommitmentCancelled', { commitmentId: id }, null, getCachedCancelTxHash(c.commitmentId), c.createdAt)
       : Promise.resolve(null),
   ])
 
@@ -301,7 +313,8 @@ export async function fetchCommitmentTxHashes(c) {
           'TrancheFulfilled',
           { commitmentId: id, trancheIndex: BigInt(i) },
           null,
-          getCachedTrancheTxHash(c.commitmentId, i)
+          getCachedTrancheTxHash(c.commitmentId, i),
+          c.createdAt
         )
         trancheHashes.push(h)
       } else {

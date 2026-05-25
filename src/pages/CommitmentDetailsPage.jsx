@@ -279,7 +279,7 @@ export default function CommitmentDetailsPage() {
             Payment Schedule
           </div>
           {c.trancheAmounts.map((amt, i) => {
-            const trancheHash = getCachedTrancheTxHash(id, i)
+            const trancheHash = txHashes.trancheHashes[i] || getCachedTrancheTxHash(id, i)
             return (
               <div key={i} style={{ padding: '10px 0', borderBottom: i < c.trancheAmounts.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
