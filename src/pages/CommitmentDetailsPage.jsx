@@ -290,8 +290,21 @@ export default function CommitmentDetailsPage() {
                       Due: {formatTs(c.trancheDueDates[i])} · Deadline: {formatTs(c.trancheDeadlines[i])}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--usdc)' }}>{amt} USDC</span>
+                    {/* Only show Pay button for the NEXT unpaid tranche (contract enforces order) */}
+                    {!c.tranchePaid[i] && isCustomer && isActive && i === c.tranchesPaidCount && (
+                      <button
+                        onClick={() => act(() => fulfillTranche(address, id, i), `Tranche${i+1}`)}
+                        disabled={!!acting}
+                        className="btn-primary"
+                        style={{ fontSize: 11, padding: '5px 12px' }}>
+                        {acting === `Tranche${i+1}` ? '...' : 'Pay now'}
+                      </button>
+                    )}
+                    {!c.tranchePaid[i] && i > c.tranchesPaidCount && (
+                      <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>🔒 Pay tranche {c.tranchesPaidCount + 1} first</span>
+                    )}
                     {trancheHash && (
                       <a href={`${ARCSCAN_BASE}/tx/${trancheHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
                         <button className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>ArcScan ↗</button>
@@ -365,16 +378,21 @@ export default function CommitmentDetailsPage() {
             )}
 
             {/* Customer — pay tranche(s) */}
-            {isCustomer && isActive && c.type === 1 && c.trancheAmounts
-              .map((amt, i) => ({ amt, i }))
-              .filter(({ i }) => !c.tranchePaid[i])
-              .map(({ amt, i }) => (
-                <button key={i}
-                  onClick={() => act(() => fulfillTranche(address, id, i), `Tranche${i+1}`)}
+            {isCustomer && isActive && c.type === 1 && (() => {
+              // Contract requires tranches paid in order — only show next unpaid tranche
+              const nextIdx = c.tranchesPaidCount
+              if (nextIdx >= c.trancheAmounts.length) return null
+              const amt = c.trancheAmounts[nextIdx]
+              return (
+                <button
+                  onClick={() => act(() => fulfillTranche(address, id, nextIdx), `Tranche${nextIdx+1}`)}
                   disabled={!!acting} className="btn-primary" style={{ fontSize: 12, padding: '9px 16px' }}>
-                  {acting === `Tranche${i+1}` ? <><span className="spinner" />...</> : `✅ Pay tranche ${i+1} (${amt} USDC)`}
+                  {acting === `Tranche${nextIdx+1}`
+                    ? <><span className="spinner" />...</>
+                    : `✅ Pay tranche ${nextIdx+1} of ${c.trancheAmounts.length} (${amt} USDC)`}
                 </button>
-              ))}
+              )
+            })()}
 
             {/* Merchant — cancel after deadline */}
             {isMerchant && isActive && afterDeadline && (
