@@ -235,21 +235,53 @@ async function _findBookingEventTxHash(eventName, bookingIdBigInt, timestamp, cr
 
 export async function fetchBookingTxHashes(booking) {
   if (!booking) return { createHash: null, cancelHash: null, releaseHash: null }
-  const id           = BigInt(booking.bookingId || booking.id || 0)
-  const createdAt    = Number(booking.createdAt  || 0)
-  const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
+  const id        = BigInt(booking.bookingId || booking.id || 0)
+  const createdAt = Number(booking.createdAt || 0)
+  const closedAt  = Number(booking.closedAt  || 0)
+  const status    = Number(booking.status    || 0)
 
-  // Use same ±600 block approach for all events (works reliably on Arc Testnet)
-  const [createHash, cancelHash, releaseHash] = await Promise.all([
-    _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt,
-      getCachedBookingTxHash(id.toString())),
-    Number(booking.status) === 1
-      ? _findBookingEventTxHash('BookingCancelledBeforeDeadline', id, null, createdAt,
-          getCachedCancelBookingTxHash(id.toString()))
+  // BookingCreated: try createdBlock exact, then ±100 around it, then timestamp fallback
+  let createHash = getCachedBookingTxHash(id.toString())
+  if (!createHash && createdAt) {
+    try {
+      const pc       = getPublicClient()
+      const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === 'BookingCreated')
+      if (eventAbi) {
+        const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
+        if (createdBlock && createdBlock > 0n) {
+          // Try exact block ±2
+          const logs = await pc.getLogs({
+            address: ARCBOOKING_ADDRESS, event: eventAbi, args: { bookingId: id },
+            fromBlock: createdBlock > 2n ? createdBlock - 2n : 1n,
+            toBlock:   createdBlock + 2n,
+          }).catch(() => [])
+          if (logs.length) createHash = logs[0].transactionHash
+          // If not found, try ±200 blocks
+          if (!createHash) {
+            const logs2 = await pc.getLogs({
+              address: ARCBOOKING_ADDRESS, event: eventAbi, args: { bookingId: id },
+              fromBlock: createdBlock > 200n ? createdBlock - 200n : 1n,
+              toBlock:   createdBlock + 200n,
+            }).catch(() => [])
+            if (logs2.length) createHash = logs2[0].transactionHash
+          }
+        }
+        // Fallback: timestamp ±600
+        if (!createHash) {
+          createHash = await _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt, null)
+        }
+      }
+    } catch {}
+  }
+
+  const [cancelHash, releaseHash] = await Promise.all([
+    status === 1
+      ? _findBookingEventTxHash('BookingCancelledBeforeDeadline', id,
+          closedAt || createdAt, createdAt, getCachedCancelBookingTxHash(id.toString()))
       : Promise.resolve(null),
-    Number(booking.status) === 2
-      ? _findBookingEventTxHash('BookingReleasedToMerchant', id, null, createdAt,
-          getCachedReleaseBookingTxHash(id.toString()))
+    status === 2
+      ? _findBookingEventTxHash('BookingReleasedToMerchant', id,
+          closedAt || createdAt, createdAt, getCachedReleaseBookingTxHash(id.toString()))
       : Promise.resolve(null),
   ])
   return { createHash, cancelHash, releaseHash }
