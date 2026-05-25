@@ -235,17 +235,38 @@ async function _findBookingEventTxHash(eventName, bookingIdBigInt, timestamp, cr
 
 export async function fetchBookingTxHashes(booking) {
   if (!booking) return { createHash: null, cancelHash: null, releaseHash: null }
-  const id        = BigInt(booking.bookingId || booking.id || 0)
-  const createdAt = Number(booking.createdAt || 0)
+  const id           = BigInt(booking.bookingId || booking.id || 0)
+  const createdAt    = Number(booking.createdAt  || 0)
+  const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
 
-  const [createHash, cancelHash, releaseHash] = await Promise.all([
-    _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt,
-      getCachedBookingTxHash(id.toString())),
-    booking.status === 1
+  // BookingCreated: use exact createdBlock if available (most reliable)
+  let createHash = getCachedBookingTxHash(id.toString())
+  if (!createHash) {
+    try {
+      const pc       = getPublicClient()
+      const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === 'BookingCreated')
+      if (eventAbi && createdBlock) {
+        // Exact block search
+        const logs = await pc.getLogs({
+          address: ARCBOOKING_ADDRESS, event: eventAbi,
+          args: { bookingId: id },
+          fromBlock: createdBlock, toBlock: createdBlock,
+        })
+        if (logs.length > 0) createHash = logs[0].transactionHash
+      }
+      if (!createHash && createdAt) {
+        // Fallback: wide search from createdAt to now
+        createHash = await _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt, null)
+      }
+    } catch {}
+  }
+
+  const [cancelHash, releaseHash] = await Promise.all([
+    Number(booking.status) === 1
       ? _findBookingEventTxHash('BookingCancelledBeforeDeadline', id, null, createdAt,
           getCachedCancelBookingTxHash(id.toString()))
       : Promise.resolve(null),
-    booking.status === 2
+    Number(booking.status) === 2
       ? _findBookingEventTxHash('BookingReleasedToMerchant', id, null, createdAt,
           getCachedReleaseBookingTxHash(id.toString()))
       : Promise.resolve(null),
