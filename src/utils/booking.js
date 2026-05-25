@@ -240,38 +240,35 @@ export async function fetchBookingTxHashes(booking) {
   const closedAt  = Number(booking.closedAt  || 0)
   const status    = Number(booking.status    || 0)
 
-  // BookingCreated: try createdBlock exact, then ±100 around it, then timestamp fallback
+  // BookingCreated: cache -> getBlock scan -> getLogs fallback
+  const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
   let createHash = getCachedBookingTxHash(id.toString())
-  if (!createHash && createdAt) {
+
+  if (!createHash && createdBlock && createdBlock > 0n) {
+    // Scan the exact block - no getLogs, just read block transactions
     try {
-      const pc       = getPublicClient()
-      const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === 'BookingCreated')
-      if (eventAbi) {
-        const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
-        if (createdBlock && createdBlock > 0n) {
-          // Try exact block ±2
-          const logs = await pc.getLogs({
-            address: ARCBOOKING_ADDRESS, event: eventAbi, args: { bookingId: id },
-            fromBlock: createdBlock > 2n ? createdBlock - 2n : 1n,
-            toBlock:   createdBlock + 2n,
-          }).catch(() => [])
-          if (logs.length) createHash = logs[0].transactionHash
-          // If not found, try ±200 blocks
-          if (!createHash) {
-            const logs2 = await pc.getLogs({
-              address: ARCBOOKING_ADDRESS, event: eventAbi, args: { bookingId: id },
-              fromBlock: createdBlock > 200n ? createdBlock - 200n : 1n,
-              toBlock:   createdBlock + 200n,
-            }).catch(() => [])
-            if (logs2.length) createHash = logs2[0].transactionHash
-          }
-        }
-        // Fallback: timestamp ±600
-        if (!createHash) {
-          createHash = await _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt, null)
+      const pc    = getPublicClient()
+      const block = await pc.getBlock({ blockNumber: createdBlock, includeTransactions: true })
+      for (const tx of (block?.transactions || [])) {
+        if (tx.to?.toLowerCase() === ARCBOOKING_ADDRESS.toLowerCase()) {
+          try {
+            const receipt = await pc.getTransactionReceipt({ hash: tx.hash })
+            for (const log of receipt.logs) {
+              if (log.address?.toLowerCase() === ARCBOOKING_ADDRESS.toLowerCase()) {
+                const idHex = '0x' + id.toString(16).padStart(64, '0')
+                if (log.topics?.[1] === idHex) { createHash = tx.hash; break }
+              }
+            }
+          } catch {}
+          if (createHash) break
         }
       }
     } catch {}
+  }
+
+  // Final fallback: getLogs with timestamp
+  if (!createHash && createdAt) {
+    createHash = await _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt, null)
   }
 
   const [cancelHash, releaseHash] = await Promise.all([
