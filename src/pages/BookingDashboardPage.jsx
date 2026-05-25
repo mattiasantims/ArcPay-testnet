@@ -85,7 +85,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
         const localReq = localReqs.find(r => r.bookingRef === booking.bookingRef)
         let createTxHash = null, cancelTxHash = null, releaseTxHash = null
         try {
-          const hashes = await fetchBookingTxHashes({ ...booking, bookingId: id })
+          const hashes = await fetchBookingTxHashes(booking)
           createTxHash  = hashes.createHash
           cancelTxHash  = hashes.cancelHash
           releaseTxHash = hashes.releaseHash
@@ -231,45 +231,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
       {/* Export + Refresh */}
       {receipts.length > 0 && (
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button onClick={() => {
-              const ARCSCAN = 'https://testnet.arcscan.app'
-              const APP_URL = 'https://arc-pay-testnet.vercel.app'
-              const headers = ['timestamp','status','guestWallet','merchantWallet','merchantName','totalAmount','nonRefundable','refundable','nonRefundablePct','bookingRef','cancellationDeadline','checkInDate','createdAt','createTxHash','createArcScan','cancelTxHash','cancelArcScan','releaseTxHash','releaseArcScan','bookingUrl','network','testnetDisclaimer']
-              const rows = bookings.map(({ id, booking: b }) => {
-                const r   = receipts.find(rc => String(rc.booking_id) === String(id)) || {}
-                const cTx = r.create_tx_hash  || ''
-                const xTx = r.cancel_tx_hash  || ''
-                const rTx = r.release_tx_hash || ''
-                return [
-                  b.createdAt ? new Date(Number(b.createdAt)*1000).toISOString().replace('T',' ').slice(0,19)+' UTC' : '',
-                  ['Active','Cancelled','Released to Hotel'][Number(b.status)] ?? '',
-                  b.guest    ?? '',
-                  b.merchant ?? '',
-                  receipts.find(rc => String(rc.booking_id) === String(id))?.merchant_name || '',
-                  b.totalAmount         ? (Number(b.totalAmount)/1e6).toFixed(2)+' USDC' : '',
-                  b.nonRefundableAmount ? (Number(b.nonRefundableAmount)/1e6).toFixed(2)+' USDC' : '',
-                  b.refundableAmount    ? (Number(b.refundableAmount)/1e6).toFixed(2)+' USDC' : '',
-                  b.nonRefundableBps    ? (Number(b.nonRefundableBps)/100).toFixed(0)+'%' : '',
-                  b.bookingRef ?? '',
-                  b.cancellationDeadline ? new Date(Number(b.cancellationDeadline)*1000).toISOString() : '',
-                  b.checkInDate          ? new Date(Number(b.checkInDate)*1000).toISOString()          : '',
-                  b.createdAt            ? new Date(Number(b.createdAt)*1000).toISOString()            : '',
-                  cTx, cTx ? `${ARCSCAN}/tx/${cTx}` : '',
-                  xTx, xTx ? `${ARCSCAN}/tx/${xTx}` : '',
-                  rTx, rTx ? `${ARCSCAN}/tx/${rTx}` : '',
-                  `${APP_URL}/booking/${id}`,
-                  'Arc Testnet (Chain ID: 5042002)',
-                  'TESTNET ONLY. Testnet tokens have no real economic value.',
-                ]
-              })
-              const csv  = [headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
-              const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'})
-              const url  = URL.createObjectURL(blob)
-              const a    = document.createElement('a')
-              a.href=url; a.download=`arcpay_bookings_${addr.slice(0,8)}_${new Date().toISOString().slice(0,10)}.csv`
-              document.body.appendChild(a); a.click(); document.body.removeChild(a)
-              URL.revokeObjectURL(url)
-            }} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
+          <button onClick={() => downloadBookingCSV(receipts, addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             📊 Export CSV
           </button>
           <button onClick={() => load(addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
