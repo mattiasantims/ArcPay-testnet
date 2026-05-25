@@ -1,4 +1,4 @@
-export function downloadBookingPDF(receipt) {
+export function downloadBookingPDF(receipt, txHashOverride = null) {
   if (typeof window === 'undefined' || !window.jspdf) {
     alert('PDF not available. Try JSON download.')
     return
@@ -59,8 +59,9 @@ export function downloadBookingPDF(receipt) {
   addField('Cancel Deadline', receipt.cancellation_deadline)
   addField('Check-in Date',   receipt.check_in_date)
   addDivider()
-  addField('TX Hash',         receipt.transaction_hash || 'See ArcScan')
-  addField('ArcScan',         receipt.arcscan_link)
+  const txHashFinal = txHashOverride || receipt.create_tx_hash || receipt.transaction_hash
+  addField('TX Hash', txHashFinal || '—')
+  addField('ArcScan', txHashFinal ? `https://testnet.arcscan.app/tx/${txHashFinal}` : receipt.arcscan_link)
   addField('Network',         receipt.network)
   addField('Contract',        receipt.contract_address)
 

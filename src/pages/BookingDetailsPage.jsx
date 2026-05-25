@@ -90,7 +90,12 @@ export default function BookingDetailsPage() {
     finally { setLoading(false) }
   }
 
-  const receipt = booking ? buildBookingReceiptObject({ booking, txHash, bookingId: id, merchantName: merchantProfile?.tradingName || merchantName, description, merchantProfile }) : null
+  const receipt = booking ? {
+    ...buildBookingReceiptObject({ booking, txHash: txHash || txHashes.createHash, bookingId: id, merchantName: merchantProfile?.tradingName || merchantName, description, merchantProfile }),
+    create_tx_hash:  txHashes.createHash,
+    cancel_tx_hash:  txHashes.cancelHash,
+    release_tx_hash: txHashes.releaseHash,
+  } : null
 
   function downloadJSON() {
     if (!receipt) return
@@ -260,7 +265,7 @@ export default function BookingDetailsPage() {
           txHash:   createHash,
           timestamp: ts(booking.createdAt),
           detail:   `${formatUsdc(booking.totalAmount)} USDC · ${booking.bookingRef}`,
-          pdf:      () => downloadBookingPDF(receipt),
+          pdf:      () => downloadBookingPDF(receipt, txHashes.createHash),
         })
         // 2. Cancelled
         if (booking.status === 1) {
