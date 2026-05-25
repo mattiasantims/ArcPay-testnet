@@ -228,11 +228,9 @@ async function _findBookingEventTxHash(eventName, bookingIdBigInt, timestamp, cr
     } else { return null }
     const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === eventName)
     if (!eventAbi) return null
-    console.log('[BK] getLogs', eventName, 'id:', bookingIdBigInt.toString(), fromBlock?.toString(), toBlock?.toString())
     const logs = await pc.getLogs({ address: ARCBOOKING_ADDRESS, event: eventAbi, args: { bookingId: bookingIdBigInt }, fromBlock, toBlock })
-    console.log('[BK] result:', logs.length, 'logs')
     return logs.length > 0 ? logs[0].transactionHash : null
-  } catch (e) { console.error('[BK] error', eventName, e?.message); return null }
+  } catch { return null }
 }
 
 export async function fetchBookingTxHashes(booking) {
@@ -241,31 +239,10 @@ export async function fetchBookingTxHashes(booking) {
   const createdAt    = Number(booking.createdAt  || 0)
   const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
 
-  // BookingCreated: use exact createdBlock if available (most reliable)
-  let createHash = getCachedBookingTxHash(id.toString())
-  if (!createHash) {
-    try {
-      const pc       = getPublicClient()
-      const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === 'BookingCreated')
-      if (eventAbi && createdBlock) {
-        // Exact block search
-        console.log('[BK] BookingCreated exact block', createdBlock?.toString(), 'id', id.toString())
-        const logs = await pc.getLogs({
-          address: ARCBOOKING_ADDRESS, event: eventAbi,
-          args: { bookingId: id },
-          fromBlock: createdBlock, toBlock: createdBlock,
-        })
-        console.log('[BK] BookingCreated logs:', logs.length)
-        if (logs.length > 0) createHash = logs[0].transactionHash
-      }
-      if (!createHash && createdAt) {
-        // Fallback: wide search from createdAt to now
-        createHash = await _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt, null)
-      }
-    } catch {}
-  }
-
-  const [cancelHash, releaseHash] = await Promise.all([
+  // Use same ±600 block approach for all events (works reliably on Arc Testnet)
+  const [createHash, cancelHash, releaseHash] = await Promise.all([
+    _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt,
+      getCachedBookingTxHash(id.toString())),
     Number(booking.status) === 1
       ? _findBookingEventTxHash('BookingCancelledBeforeDeadline', id, null, createdAt,
           getCachedCancelBookingTxHash(id.toString()))
