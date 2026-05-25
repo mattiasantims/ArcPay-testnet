@@ -57,7 +57,7 @@ export default function BookingDetailsPage() {
   // Load TX hashes from on-chain logs
   useEffect(() => {
     if (!booking) return
-    fetchBookingTxHashes(booking).then(hashes => setTxHashes(hashes)).catch(() => {})
+    fetchBookingTxHashes({ ...booking, bookingId: id }).then(hashes => setTxHashes(hashes)).catch(() => {})
   }, [booking?.bookingId, booking?.status])
 
   async function load() {
