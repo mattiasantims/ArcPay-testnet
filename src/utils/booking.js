@@ -239,16 +239,16 @@ export async function fetchBookingTxHashes(booking) {
   const createdAt = Number(booking.createdAt || 0)
   const closedAt  = Number(booking.closedAt  || 0)
   const status    = Number(booking.status    || 0)
-
-  // BookingCreated: cache -> getBlock scan -> getLogs fallback
   const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
+
   let createHash = getCachedBookingTxHash(id.toString())
+  console.log('[BK]', id.toString(), 'createdBlock:', createdBlock?.toString(), 'cached:', !!createHash)
 
   if (!createHash && createdBlock && createdBlock > 0n) {
-    // Scan the exact block - no getLogs, just read block transactions
     try {
       const pc    = getPublicClient()
       const block = await pc.getBlock({ blockNumber: createdBlock, includeTransactions: true })
+      console.log('[BK] block', createdBlock.toString(), 'txs:', block?.transactions?.length)
       for (const tx of (block?.transactions || [])) {
         if (tx.to?.toLowerCase() === ARCBOOKING_ADDRESS.toLowerCase()) {
           try {
@@ -259,16 +259,17 @@ export async function fetchBookingTxHashes(booking) {
                 if (log.topics?.[1] === idHex) { createHash = tx.hash; break }
               }
             }
-          } catch {}
+          } catch (e) { console.error('[BK] receipt err:', e?.message) }
           if (createHash) break
         }
       }
-    } catch {}
+      console.log('[BK] after block scan:', createHash)
+    } catch (e) { console.error('[BK] getBlock err:', e?.message) }
   }
 
-  // Final fallback: getLogs with timestamp
   if (!createHash && createdAt) {
     createHash = await _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt, null)
+    console.log('[BK] after getLogs:', createHash)
   }
 
   const [cancelHash, releaseHash] = await Promise.all([
@@ -281,5 +282,6 @@ export async function fetchBookingTxHashes(booking) {
           closedAt || createdAt, createdAt, getCachedReleaseBookingTxHash(id.toString()))
       : Promise.resolve(null),
   ])
+  console.log('[BK] done:', id.toString(), !!createHash, !!cancelHash, !!releaseHash)
   return { createHash, cancelHash, releaseHash }
 }
