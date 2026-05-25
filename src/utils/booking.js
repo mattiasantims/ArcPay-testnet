@@ -228,65 +228,51 @@ async function _findBookingEventTxHash(eventName, bookingIdBigInt, timestamp, cr
     } else { return null }
     const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === eventName)
     if (!eventAbi) return null
+    console.log('[BK] getLogs', eventName, 'id:', bookingIdBigInt.toString(), fromBlock?.toString(), toBlock?.toString())
     const logs = await pc.getLogs({ address: ARCBOOKING_ADDRESS, event: eventAbi, args: { bookingId: bookingIdBigInt }, fromBlock, toBlock })
+    console.log('[BK] result:', logs.length, 'logs')
     return logs.length > 0 ? logs[0].transactionHash : null
-  } catch { return null }
+  } catch (e) { console.error('[BK] error', eventName, e?.message); return null }
 }
 
 export async function fetchBookingTxHashes(booking) {
   if (!booking) return { createHash: null, cancelHash: null, releaseHash: null }
   const id           = BigInt(booking.bookingId || booking.id || 0)
   const createdAt    = Number(booking.createdAt  || 0)
-  const closedAt     = Number(booking.closedAt   || 0)
   const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
 
-  async function getLogsForEvent(eventName, blockHint, tsHint) {
-    const cachedFn = eventName === 'BookingCreated'
-      ? () => getCachedBookingTxHash(id.toString())
-      : eventName === 'BookingCancelledBeforeDeadline'
-        ? () => getCachedCancelBookingTxHash(id.toString())
-        : () => getCachedReleaseBookingTxHash(id.toString())
-
-    const cached = cachedFn()
-    if (cached) return cached
-
+  // BookingCreated: use exact createdBlock if available (most reliable)
+  let createHash = getCachedBookingTxHash(id.toString())
+  if (!createHash) {
     try {
       const pc       = getPublicClient()
-      const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === eventName)
-      if (!eventAbi) return null
-
-      let fromBlock, toBlock
-      if (blockHint) {
-        // Exact block (for BookingCreated with createdBlock)
-        fromBlock = blockHint
-        toBlock   = blockHint
-      } else if (tsHint) {
-        // Estimate block from timestamp, search ±600 blocks (~5 min)
-        const latest = await pc.getBlock({ blockTag: 'latest' })
-        const diff   = BigInt(Number(latest.timestamp) - tsHint)
-        const est    = latest.number - diff * 2n
-        fromBlock    = est > 600n ? est - 600n : 1n
-        toBlock      = est + 600n
-      } else {
-        return null
+      const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === 'BookingCreated')
+      if (eventAbi && createdBlock) {
+        // Exact block search
+        console.log('[BK] BookingCreated exact block', createdBlock?.toString(), 'id', id.toString())
+        const logs = await pc.getLogs({
+          address: ARCBOOKING_ADDRESS, event: eventAbi,
+          args: { bookingId: id },
+          fromBlock: createdBlock, toBlock: createdBlock,
+        })
+        console.log('[BK] BookingCreated logs:', logs.length)
+        if (logs.length > 0) createHash = logs[0].transactionHash
       }
-
-      const logs = await pc.getLogs({
-        address: ARCBOOKING_ADDRESS, event: eventAbi,
-        args: { bookingId: id },
-        fromBlock, toBlock,
-      })
-      return logs.length > 0 ? logs[0].transactionHash : null
-    } catch { return null }
+      if (!createHash && createdAt) {
+        // Fallback: wide search from createdAt to now
+        createHash = await _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt, null)
+      }
+    } catch {}
   }
 
-  const [createHash, cancelHash, releaseHash] = await Promise.all([
-    getLogsForEvent('BookingCreated',                 createdBlock, createdAt),
+  const [cancelHash, releaseHash] = await Promise.all([
     Number(booking.status) === 1
-      ? getLogsForEvent('BookingCancelledBeforeDeadline', null, closedAt || createdAt)
+      ? _findBookingEventTxHash('BookingCancelledBeforeDeadline', id, null, createdAt,
+          getCachedCancelBookingTxHash(id.toString()))
       : Promise.resolve(null),
     Number(booking.status) === 2
-      ? getLogsForEvent('BookingReleasedToMerchant',      null, closedAt || createdAt)
+      ? _findBookingEventTxHash('BookingReleasedToMerchant', id, null, createdAt,
+          getCachedReleaseBookingTxHash(id.toString()))
       : Promise.resolve(null),
   ])
   return { createHash, cancelHash, releaseHash }
