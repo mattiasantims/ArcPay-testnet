@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
-import { fetchGuestBookingIds, fetchBooking, formatUsdc, formatTs } from '../utils/booking.js'
+import { fetchGuestBookingIds, fetchBooking, fetchBookingTxHashes, formatUsdc, formatTs } from '../utils/booking.js'
 import { shortAddress } from '../utils/wallet.js'
 import { isBookingContractConfigured, isMerchantRegistryConfigured } from '../config.js'
 import { getMerchantByWallet } from '../utils/merchant.js'
@@ -35,7 +35,14 @@ export default function MyBookingsPage() {
             if (m && m.tradingName) merchantName = m.tradingName
           } catch {}
         }
-        return { ...b, merchantName }
+        let createTxHash = null, cancelTxHash = null, releaseTxHash = null
+        try {
+          const hashes = await fetchBookingTxHashes(b)
+          createTxHash  = hashes.createHash
+          cancelTxHash  = hashes.cancelHash
+          releaseTxHash = hashes.releaseHash
+        } catch {}
+        return { ...b, merchantName, createTxHash, cancelTxHash, releaseTxHash }
       }))
       setBookings(withNames)
     }).finally(() => setLoading(false))
@@ -51,7 +58,7 @@ export default function MyBookingsPage() {
 
   function exportCSV() {
     if (!bookings.length) return
-    const headers = ['timestamp','status','guestWallet','merchantWallet','merchantName','totalAmount','nonRefundable','refundable','nonRefundablePct','bookingRef','cancellationDeadline','checkInDate','createdAt','txHash','arcscanUrl','bookingUrl','network','testnetDisclaimer']
+    const headers = ['timestamp','status','guestWallet','merchantWallet','merchantName','totalAmount','nonRefundable','refundable','nonRefundablePct','bookingRef','cancellationDeadline','checkInDate','createdAt','createTxHash','createArcScan','cancelTxHash','cancelArcScan','releaseTxHash','releaseArcScan','bookingUrl','network','testnetDisclaimer']
     const rows = bookings.map(b => [
       b.createdAt ? new Date(Number(b.createdAt)*1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : '',
       ['Active','Cancelled','Released to Hotel'][Number(b.status)] ?? '',
@@ -66,8 +73,12 @@ export default function MyBookingsPage() {
       b.cancellationDeadline ? new Date(Number(b.cancellationDeadline)*1000).toISOString() : '',
       b.checkInDate ? new Date(Number(b.checkInDate)*1000).toISOString() : '',
       b.createdAt ? new Date(Number(b.createdAt)*1000).toISOString() : '',
-      '',
-      `https://testnet.arcscan.app/address/${b.merchant}`,
+      b.createTxHash  || '',
+      b.createTxHash  ? `https://testnet.arcscan.app/tx/${b.createTxHash}`  : '',
+      b.cancelTxHash  || '',
+      b.cancelTxHash  ? `https://testnet.arcscan.app/tx/${b.cancelTxHash}`  : '',
+      b.releaseTxHash || '',
+      b.releaseTxHash ? `https://testnet.arcscan.app/tx/${b.releaseTxHash}` : '',
       `https://arc-pay-testnet.vercel.app/booking/${b.bookingId}`,
       'Arc Testnet (Chain ID: 5042002)',
       'TESTNET ONLY. Testnet tokens have no real economic value.',

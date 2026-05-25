@@ -7,12 +7,13 @@ import {
   executeReleaseAfterDeadline, BOOKING_STATUS_LABEL,
 } from '../utils/booking.js'
 import { getCachedBookingTxHash } from '../utils/bookingRequest.js'
+import { fetchBookingTxHashes, getCachedCancelBookingTxHash, getCachedReleaseBookingTxHash } from '../utils/booking.js'
 import { shortAddress } from '../utils/wallet.js'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { useAccount } from 'wagmi'
 import { isMerchantRegistryConfigured, APP_URL } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
-import { downloadBookingPDF } from '../utils/bookingPdf.js'
+import { downloadBookingPDF, downloadCancelBookingPDF, downloadReleaseBookingPDF, downloadFullBookingPDF } from '../utils/bookingPdf.js'
 import { ARCSCAN_BASE, isBookingContractConfigured } from '../config.js'
 import BookingStatusBadge from '../components/BookingStatusBadge.jsx'
 import BookingActions from '../components/BookingActions.jsx'
@@ -26,6 +27,7 @@ export default function BookingDetailsPage() {
   const [booking,  setBooking]  = useState(null)
   const [status,   setStatus]   = useState('loading')
   const [txHash,   setTxHash]   = useState(null)
+  const [txHashes, setTxHashes] = useState({ createHash: null, cancelHash: null, releaseHash: null })
   const { address: connectedAddress } = useAccount()
   const { open } = useWeb3Modal()
   const account = connectedAddress || null
@@ -51,6 +53,12 @@ export default function BookingDetailsPage() {
     const t = setInterval(() => setNow(Math.floor(Date.now()/1000)), 1000)
     return () => clearInterval(t)
   }, [])
+
+  // Load TX hashes from on-chain logs
+  useEffect(() => {
+    if (!booking) return
+    fetchBookingTxHashes(booking).then(hashes => setTxHashes(hashes)).catch(() => {})
+  }, [booking?.bookingId, booking?.status])
 
   async function load() {
     setStatus('loading')
@@ -239,32 +247,96 @@ export default function BookingDetailsPage() {
         {success && <div className="success-box" style={{ marginTop: 10 }}>✓ {success}</div>}
       </div>
 
-      {/* Receipts — stile TravelDetailsPage */}
-      {receipt && (
-        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Receipts</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => downloadBookingPDF(receipt)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-              🖨️ Booking PDF
-            </button>
-            <button onClick={downloadJSON} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-              📄 Booking JSON
-            </button>
-            <button onClick={() => navigator.clipboard.writeText(`${APP_URL}/booking/${id}`)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-              🔗 Copy link
-            </button>
-            {txHash ? (
-              <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>🔍 ArcScan ↗</button>
-              </a>
-            ) : (
-              <a href={`${ARCSCAN_BASE}/address/${booking?.merchant}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>🔍 ArcScan ↗</button>
-              </a>
-            )}
+      {/* ── Receipts & Events ── */}
+      {receipt && (() => {
+        const { createHash, cancelHash, releaseHash } = txHashes
+        const ARCSCAN = 'https://testnet.arcscan.app'
+        const ts = (unix) => unix && Number(unix) > 0 ? new Date(Number(unix) * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null
+
+        const events = []
+        // 1. Booking created
+        events.push({
+          label:    'Booking Created',
+          txHash:   createHash,
+          timestamp: ts(booking.createdAt),
+          detail:   `${formatUsdc(booking.totalAmount)} USDC · ${booking.bookingRef}`,
+          pdf:      () => downloadBookingPDF(receipt),
+        })
+        // 2. Cancelled
+        if (booking.status === 1) {
+          events.push({
+            label:    'Booking Cancelled',
+            txHash:   cancelHash,
+            timestamp: ts(booking.closedAt),
+            detail:   `${formatUsdc(booking.refundableAmount)} USDC refunded to guest`,
+            pdf:      () => downloadCancelBookingPDF(receipt, cancelHash),
+          })
+        }
+        // 3. Released
+        if (booking.status === 2) {
+          events.push({
+            label:    'Escrow Released to Hotel',
+            txHash:   releaseHash,
+            timestamp: ts(booking.closedAt),
+            detail:   `${formatUsdc(booking.refundableAmount)} USDC released to hotel`,
+            pdf:      () => downloadReleaseBookingPDF(receipt, releaseHash),
+          })
+        }
+
+        return (
+          <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Receipts & Events
+            </div>
+
+            {/* Event rows */}
+            <div style={{ marginBottom: 14 }}>
+              {events.map((ev, i) => (
+                <div key={i} style={{
+                  padding: '11px 0',
+                  borderBottom: i < events.length - 1 ? '1px solid var(--border)' : 'none',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                  gap: 8, flexWrap: 'wrap',
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{ev.label}</div>
+                    {ev.detail    && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{ev.detail}</div>}
+                    {ev.timestamp && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ev.timestamp}</div>}
+                    {ev.txHash    && (
+                      <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 3, wordBreak: 'break-all' }}>
+                        TX: {ev.txHash}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    {ev.pdf && (
+                      <button onClick={ev.pdf} className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>🖨️ PDF</button>
+                    )}
+                    {ev.txHash ? (
+                      <a href={`${ARCSCAN}/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                        <button className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>ArcScan ↗</button>
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: 10, color: 'var(--text3)', padding: '3px 0', fontStyle: 'italic' }}>recovering...</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => downloadFullBookingPDF(receipt, events)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                🖨️ Full PDF (all events)
+              </button>
+              <button onClick={downloadJSON} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>📄 JSON</button>
+              <button onClick={() => navigator.clipboard.writeText(`${APP_URL}/booking/${id}`)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                🔗 Copy link
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* QR — share receipt */}
       <div className="card" style={{ padding: 24, marginBottom: 16 }}>

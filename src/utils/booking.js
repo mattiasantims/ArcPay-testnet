@@ -3,7 +3,7 @@ import { ARCBOOKING_ADDRESS, USDC_ADDRESS, USDC_DECIMALS, ARCSCAN_BASE, APP_URL 
 import ArcBookingEscrowABI from '../abis/ArcBookingEscrow.json'
 import ERC20ABI            from '../abis/ERC20.json'
 import { getPublicClient, getWalletClient } from './wallet.js'
-import { cacheBookingTxHash } from './bookingRequest.js'
+import { cacheBookingTxHash, getCachedBookingTxHash } from './bookingRequest.js'
 
 export const BOOKING_STATUS = { Active: 0, CancelledBeforeDeadline: 1, ReleasedToMerchant: 2 }
 export const BOOKING_STATUS_LABEL = ['Active', 'Cancelled', 'Released to Hotel']
@@ -100,6 +100,7 @@ export async function executeCancelBeforeDeadline(account, bookingId) {
   })
   const txHash = await wc.writeContract(request)
   await pc.waitForTransactionReceipt({ hash: txHash })
+  cacheCancelBookingTxHash(bookingId, txHash)
   return txHash
 }
 
@@ -112,6 +113,7 @@ export async function executeReleaseAfterDeadline(account, bookingId) {
   })
   const txHash = await wc.writeContract(request)
   await pc.waitForTransactionReceipt({ hash: txHash })
+  cacheReleaseBookingTxHash(bookingId, txHash)
   return txHash
 }
 
@@ -177,5 +179,76 @@ export function buildBookingReceiptObject({ booking, txHash, bookingId, merchant
     network:              'Arc Testnet (Chain ID: 5042002)',
     contract_address:     ARCBOOKING_ADDRESS,
     disclaimer:           'TESTNET ONLY. Not a regulated escrow or travel booking service. Testnet tokens have no real economic value.',
+    // TX hashes — populated externally by BookingDetailsPage/Dashboard after fetchBookingTxHashes
+    create_tx_hash:       txHash || null,
+    cancel_tx_hash:       null,
+    release_tx_hash:      null,
   }
+}
+
+// ── Cancel/Release TX hash cache ─────────────────────────────────────────────
+const _cancelBookingCache  = new Map()
+const _releaseBookingCache = new Map()
+
+export function cacheCancelBookingTxHash(bookingId, hash)  { _cancelBookingCache.set(String(bookingId), hash) }
+export function cacheReleaseBookingTxHash(bookingId, hash) { _releaseBookingCache.set(String(bookingId), hash) }
+export function getCachedCancelBookingTxHash(bookingId)    { return _cancelBookingCache.get(String(bookingId)) || null }
+export function getCachedReleaseBookingTxHash(bookingId)   { return _releaseBookingCache.get(String(bookingId)) || null }
+
+// ── On-chain TX hash recovery ─────────────────────────────────────────────────
+const _BK_BLOCKS_PER_SEC = 2n
+const _BK_SEARCH_WINDOW  = 600n
+
+async function _estimateBookingBlock(unixTimestamp) {
+  if (!unixTimestamp || unixTimestamp === 0) return null
+  try {
+    const pc     = getPublicClient()
+    const latest = await pc.getBlock({ blockTag: 'latest' })
+    const diff   = BigInt(Number(latest.timestamp) - unixTimestamp)
+    const est    = latest.number - diff * _BK_BLOCKS_PER_SEC
+    return est > 0n ? est : 1n
+  } catch { return null }
+}
+
+async function _findBookingEventTxHash(eventName, bookingIdBigInt, timestamp, createdAt, cachedHash) {
+  if (cachedHash) return cachedHash
+  try {
+    const pc = getPublicClient()
+    let fromBlock, toBlock
+    if (timestamp) {
+      const est = await _estimateBookingBlock(timestamp)
+      if (!est) return null
+      fromBlock = est > _BK_SEARCH_WINDOW ? est - _BK_SEARCH_WINDOW : 1n
+      toBlock   = est + _BK_SEARCH_WINDOW
+    } else if (createdAt) {
+      const fromEst = await _estimateBookingBlock(createdAt)
+      const latest  = await pc.getBlock({ blockTag: 'latest' })
+      fromBlock = fromEst && fromEst > 0n ? fromEst : 1n
+      toBlock   = latest.number
+    } else { return null }
+    const eventAbi = ArcBookingEscrowABI.find(x => x.type === 'event' && x.name === eventName)
+    if (!eventAbi) return null
+    const logs = await pc.getLogs({ address: ARCBOOKING_ADDRESS, event: eventAbi, args: { bookingId: bookingIdBigInt }, fromBlock, toBlock })
+    return logs.length > 0 ? logs[0].transactionHash : null
+  } catch { return null }
+}
+
+export async function fetchBookingTxHashes(booking) {
+  if (!booking) return { createHash: null, cancelHash: null, releaseHash: null }
+  const id        = BigInt(booking.bookingId || booking.id || 0)
+  const createdAt = Number(booking.createdAt || 0)
+
+  const [createHash, cancelHash, releaseHash] = await Promise.all([
+    _findBookingEventTxHash('BookingCreated', id, createdAt, createdAt,
+      getCachedBookingTxHash(id.toString())),
+    booking.status === 1
+      ? _findBookingEventTxHash('BookingCancelledBeforeDeadline', id, null, createdAt,
+          getCachedCancelBookingTxHash(id.toString()))
+      : Promise.resolve(null),
+    booking.status === 2
+      ? _findBookingEventTxHash('BookingReleasedToMerchant', id, null, createdAt,
+          getCachedReleaseBookingTxHash(id.toString()))
+      : Promise.resolve(null),
+  ])
+  return { createHash, cancelHash, releaseHash }
 }
