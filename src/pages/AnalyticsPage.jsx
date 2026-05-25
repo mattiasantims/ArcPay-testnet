@@ -13,6 +13,9 @@ import { ARCSCAN_BASE, isBookingContractConfigured, isTravelContractConfigured }
 import {
   computeAnalytics, generateAiAnswer, TIME_FILTER_LABELS,
 } from '../utils/analytics.js'
+import { fetchMerchantCommitmentIds, fetchCommitment, isCommitmentContractConfigured } from '../utils/commitment.js'
+import { fetchMerchantRefundIds, fetchRefundRequest } from '../utils/refund.js'
+import { isRefundContractConfigured } from '../config.js'
 import { Link } from 'react-router-dom'
 
 const TABS = ['Overview', 'Luxury Retail', 'Online Payments', 'Hotel Booking', 'Travel Agency', 'Ask ArcPay AI', 'Coming Soon']
@@ -110,6 +113,9 @@ const AI_QUESTIONS = {
     'What is my average luxury ticket?',
     'What was my largest luxury sale?',
     'How much did luxury checkout generate?',
+    'How are delayed payments performing?',
+    'How are tranche payments performing?',
+    'How many refunds were requested?',
   ],
   'Online Payments': [
     'How are Online Payments performing?',
@@ -213,10 +219,12 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
-  const [rawReceipts, setRawReceipts] = useState([])
-  const [rawBookings, setRawBookings] = useState([])
+  const [rawReceipts,       setRawReceipts]       = useState([])
+  const [rawBookings,       setRawBookings]       = useState([])
   const [rawTravelBookings, setRawTravelBookings] = useState([])
-  const [metrics,     setMetrics]     = useState(null)
+  const [rawCommitments,    setRawCommitments]    = useState([])
+  const [rawRefunds,        setRawRefunds]        = useState([])
+  const [metrics,           setMetrics]           = useState(null)
 
   const bookingConfigured = isBookingContractConfigured()
   const travelConfigured = isTravelContractConfigured()
@@ -230,7 +238,7 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
   useEffect(() => {
     // Always compute metrics, including the empty-data state.
     // This keeps /analytics usable for a new merchant wallet with no payments yet.
-    setMetrics(computeAnalytics({ receipts: rawReceipts, bookings: rawBookings, travelBookings: rawTravelBookings, timeFilter }))
+    setMetrics(computeAnalytics({ receipts: rawReceipts, bookings: rawBookings, travelBookings: rawTravelBookings, commitments: rawCommitments, refunds: rawRefunds, timeFilter }))
   }, [rawReceipts, rawBookings, rawTravelBookings, timeFilter])
 
   const loadData = useCallback(async (a) => {
@@ -273,6 +281,32 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
         }
       }
       setRawTravelBookings(travelBookings)
+      // Load luxury commitments
+      if (isCommitmentContractConfigured()) {
+        try {
+          const cIds = await fetchMerchantCommitmentIds(a)
+          const cList = []
+          for (const id of [...cIds].reverse()) {
+            const cm = await fetchCommitment(id.toString())
+            if (cm) cList.push(cm)
+          }
+          setRawCommitments(cList)
+        } catch {}
+      }
+
+      // Load refunds
+      if (isRefundContractConfigured()) {
+        try {
+          const rIds = await fetchMerchantRefundIds(a)
+          const rList = []
+          for (const id of [...rIds].reverse()) {
+            const r = await fetchRefundRequest(id.toString())
+            if (r) rList.push(r)
+          }
+          setRawRefunds(rList)
+        } catch {}
+      }
+
       setLastUpdated(new Date())
     } catch (e) {
       setError('Failed to load data. Check your wallet is on Arc Testnet.')
@@ -441,12 +475,14 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
           {tab === 'Luxury Retail' && (
             <div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
-                <MetricCard label="Luxury Volume"    value={`${parseFloat(m.luxuryVolume).toFixed(2)} USDC`} color="#a78bfa" />
-                <MetricCard label="Payments"         value={m.luxuryCount} />
+                <MetricCard label="Instant Volume"   value={`${parseFloat(m.luxuryVolume).toFixed(2)} USDC`} color="#a78bfa" sub={`${m.luxuryCount} payments`} />
                 <MetricCard label="Average Ticket"   value={`${parseFloat(m.luxuryAvg).toFixed(2)} USDC`} />
                 <MetricCard label="Largest Sale"     value={`${parseFloat(m.luxuryMax).toFixed(2)} USDC`} />
                 <MetricCard label="Unique Buyers"    value={m.luxuryPayers} />
                 <MetricCard label="High Value (≥500 USDC)" value={m.luxuryHighVal} color="var(--yellow)" />
+                <MetricCard label="Delayed active"   value={m.luxuryDelayedActive.length} color="var(--usdc)" sub={`${m.luxuryDelayedFulfilled.length} fulfilled`} />
+                <MetricCard label="Tranche active"   value={m.luxuryTrancheActive.length} color="var(--usdc)" sub={`${m.luxuryTrancheFulfilled.length} fulfilled`} />
+                <MetricCard label="Refunds pending"  value={m.luxuryRefundRequested.length} color={m.luxuryRefundRequested.length > 0 ? 'var(--yellow)' : 'var(--text3)'} />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
@@ -476,10 +512,56 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
                 </ChartCard>
               </div>
 
-              <div className="card" style={{ padding: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Recent luxury payments</div>
+              {/* ── Summary by type ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 20 }}>
+                <MetricCard label="Total Luxury Volume" value={`${parseFloat(m.luxuryTotalVolume).toFixed(2)} USDC`} color="#a78bfa" />
+                <MetricCard label="Instant Paid"        value={`${parseFloat(m.luxuryVolume).toFixed(2)} USDC`} sub={`${m.luxuryCount} payments`} />
+                <MetricCard label="Delayed Paid"        value={`${parseFloat(m.luxuryDelayedVolume).toFixed(2)} USDC`} sub={`${m.luxuryDelayedFulfilled.length} fulfilled · ${m.luxuryDelayedActive.length} active`} />
+                <MetricCard label="Tranche Paid"        value={`${parseFloat(m.luxuryTranchePaid).toFixed(2)} USDC`} sub={`${m.luxuryTrancheProgress}/${m.luxuryTrancheTotal} tranches`} />
+                <MetricCard label="Pending (delayed)"   value={`${parseFloat(m.luxuryDelayedPending).toFixed(2)} USDC`} color="var(--yellow)" sub={`${m.luxuryDelayedActive.length} active`} />
+                <MetricCard label="Pending (tranche)"   value={`${parseFloat(m.luxuryTranchePending).toFixed(2)} USDC`} color="var(--yellow)" sub={`${m.luxuryTrancheActive.length} active`} />
+                <MetricCard label="Refunded"            value={`${parseFloat(m.luxuryRefundedVolume).toFixed(2)} USDC`} color="#f08080" sub={`${m.luxuryRefundApproved.length} approved · ${m.luxuryRefundRequested.length} pending`} />
+                <MetricCard label="Overdue"             value={`${m.luxuryDelayedOverdue.length + m.luxuryTrancheOverdue.length}`} color={m.luxuryDelayedOverdue.length + m.luxuryTrancheOverdue.length > 0 ? '#f08080' : 'var(--text3)'} sub="delayed + tranche" />
+              </div>
+
+              {/* Overdue alerts */}
+              {(m.luxuryDelayedOverdue.length > 0 || m.luxuryTrancheOverdue.length > 0) && (
+                <div style={{ background: '#1a0808', border: '1px solid #f04f4f44', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#f08080', marginBottom: 8 }}>
+                    ⚠️ {m.luxuryDelayedOverdue.length + m.luxuryTrancheOverdue.length} overdue commitment{m.luxuryDelayedOverdue.length + m.luxuryTrancheOverdue.length !== 1 ? 's' : ''}
+                  </div>
+                  {[...m.luxuryDelayedOverdue, ...m.luxuryTrancheOverdue].slice(0, 5).map(c => (
+                    <div key={c.commitmentId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{c.ref}</span>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, color: '#f08080' }}>{c.totalAmount} USDC</span>
+                        <Link to={`/commitment/${c.commitmentId}`}><button className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>View →</button></Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Refund requests pending */}
+              {m.luxuryRefundRequested.length > 0 && (
+                <div style={{ background: '#1a1200', border: '1px solid #f0c04044', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow)', marginBottom: 8 }}>
+                    💸 {m.luxuryRefundRequested.length} refund request{m.luxuryRefundRequested.length !== 1 ? 's' : ''} pending — {parseFloat(m.luxuryRefundPendingVol).toFixed(2)} USDC
+                  </div>
+                  {m.luxuryRefundRequested.slice(0, 3).map((r, i) => (
+                    <div key={i} style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 2 }}>
+                      {r.proofRef} · {r.amount} USDC · "{r.reason}"
+                    </div>
+                  ))}
+                  <Link to="/dashboard"><button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px', marginTop: 6 }}>Go to Dashboard →</button></Link>
+                </div>
+              )}
+
+              {/* ── Instant payments table ── */}
+              <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>⚡ Instant payments</div>
                 {!m.luxuryReceipts.length ? (
-                  <div style={{ color: 'var(--text3)', fontSize: 13, textAlign: 'center', padding: 24 }}>No luxury retail payments in this period.</div>
+                  <div style={{ color: 'var(--text3)', fontSize: 13, textAlign: 'center', padding: 20 }}>No instant luxury payments in this period.</div>
                 ) : (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -489,6 +571,77 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
                   </>
                 )}
               </div>
+
+              {/* ── Delayed payments table ── */}
+              {m.luxuryDelayed.length > 0 && (
+                <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>📅 Delayed payments ({m.luxuryDelayed.length})</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div>Reference</div><div>Amount</div><div>Status</div><div>Due date</div><div>Link</div>
+                  </div>
+                  {m.luxuryDelayed.slice(0, 20).map(c => {
+                    const isOverdue = c.status === 0 && Math.floor(Date.now()/1000) >= (c.deadline || 0)
+                    const statusLabel = c.status === 1 ? 'Fulfilled' : c.status === 2 || c.status === 3 ? 'Cancelled' : isOverdue ? 'Overdue' : 'Active'
+                    const statusColor = c.status === 1 ? 'var(--green)' : c.status === 2 ? 'var(--text3)' : isOverdue ? '#f08080' : 'var(--usdc)'
+                    return (
+                      <div key={c.commitmentId} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 12, alignItems: 'center' }}>
+                        <div style={{ fontFamily: 'var(--mono)', color: 'var(--text2)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ref}</div>
+                        <div style={{ color: 'var(--usdc)', fontWeight: 600 }}>{c.totalAmount} USDC</div>
+                        <div style={{ color: statusColor, fontWeight: 600 }}>{statusLabel}</div>
+                        <div style={{ color: 'var(--text3)', fontSize: 11 }}>{c.dueDate ? new Date(c.dueDate * 1000).toISOString().slice(0,10) : '—'}</div>
+                        <Link to={`/commitment/${c.commitmentId}`} style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'none' }}>View</Link>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* ── Tranche payments table ── */}
+              {m.luxuryTranche.length > 0 && (
+                <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>📊 Tranche payments ({m.luxuryTranche.length})</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div>Reference</div><div>Total</div><div>Progress</div><div>Status</div><div>Link</div>
+                  </div>
+                  {m.luxuryTranche.slice(0, 20).map(c => {
+                    const isOverdue = c.status === 0 && Math.floor(Date.now()/1000) >= (c.trancheDeadlines?.[c.tranchesPaidCount] || 0)
+                    const statusLabel = c.status === 1 ? 'Fulfilled' : c.status === 2 || c.status === 3 ? 'Cancelled' : isOverdue ? 'Overdue' : 'Active'
+                    const statusColor = c.status === 1 ? 'var(--green)' : c.status === 2 ? 'var(--text3)' : isOverdue ? '#f08080' : 'var(--usdc)'
+                    return (
+                      <div key={c.commitmentId} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 12, alignItems: 'center' }}>
+                        <div style={{ fontFamily: 'var(--mono)', color: 'var(--text2)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ref}</div>
+                        <div style={{ color: 'var(--usdc)', fontWeight: 600 }}>{c.totalAmount} USDC</div>
+                        <div style={{ color: 'var(--text2)' }}>{c.tranchesPaidCount}/{c.trancheAmounts?.length} paid</div>
+                        <div style={{ color: statusColor, fontWeight: 600 }}>{statusLabel}</div>
+                        <Link to={`/commitment/${c.commitmentId}`} style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'none' }}>View</Link>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* ── Refunds table ── */}
+              {m.luxuryRefunds.length > 0 && (
+                <div className="card" style={{ padding: 20 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>💸 Refunds ({m.luxuryRefunds.length})</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div>Reference</div><div>Amount</div><div>Status</div><div>Date</div>
+                  </div>
+                  {m.luxuryRefunds.slice(0, 20).map((r, i) => {
+                    const statusLabel = ['Requested','Approved','Denied','Direct'][r.status] || '?'
+                    const statusColor = r.status === 1 || r.status === 3 ? 'var(--green)' : r.status === 2 ? '#f08080' : 'var(--yellow)'
+                    const ts = (r.processedAt || r.requestedAt) ? new Date((r.processedAt || r.requestedAt) * 1000).toISOString().slice(0,10) : '—'
+                    return (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 12, alignItems: 'center' }}>
+                        <div style={{ fontFamily: 'var(--mono)', color: 'var(--text2)', fontSize: 11 }}>{r.proofRef || '—'}</div>
+                        <div style={{ color: 'var(--usdc)', fontWeight: 600 }}>{r.amount} USDC</div>
+                        <div style={{ color: statusColor, fontWeight: 600 }}>{statusLabel}</div>
+                        <div style={{ color: 'var(--text3)', fontSize: 11 }}>{ts}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 

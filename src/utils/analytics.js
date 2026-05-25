@@ -73,7 +73,7 @@ function tsToDate(ts) {
   return n > 1e10 ? new Date(n) : new Date(n * 1000)
 }
 
-export function computeAnalytics({ receipts = [], bookings = [], travelBookings = [], timeFilter }) {
+export function computeAnalytics({ receipts = [], bookings = [], travelBookings = [], commitments = [], refunds = [], timeFilter }) {
   const start       = getTimeFilterStart(timeFilter)
   const localReqs   = getPaymentRequests()
   const localBReqs  = getBookingRequests()
@@ -198,6 +198,58 @@ export function computeAnalytics({ receipts = [], bookings = [], travelBookings 
   const luxuryPayers   = new Set(luxuryReceipts.map(r => r.proof?.payer?.toLowerCase()).filter(Boolean)).size
   const luxuryHighVal  = luxuryReceipts.filter(r => r.amount >= 500).length
 
+  // ── Luxury commitment metrics (delayed + tranche) ──
+  const now2 = Math.floor(Date.now() / 1000)
+
+  const luxuryCommitments = commitments.filter(c => {
+    const d = c.createdAt ? new Date(c.createdAt * 1000) : null
+    return d && d >= start
+  })
+
+  // Delayed payments
+  const luxuryDelayed         = luxuryCommitments.filter(c => c.type === 0)
+  const luxuryDelayedActive   = luxuryDelayed.filter(c => c.status === 0)
+  const luxuryDelayedFulfilled= luxuryDelayed.filter(c => c.status === 1)
+  const luxuryDelayedCancelled= luxuryDelayed.filter(c => c.status === 2 || c.status === 3)
+  const luxuryDelayedOverdue  = luxuryDelayedActive.filter(c => now2 >= (c.deadline || 0))
+  const luxuryDelayedVolume   = luxuryDelayedFulfilled.reduce((s, c) => s + parseFloat(c.totalAmount || 0), 0)
+  const luxuryDelayedPending  = luxuryDelayedActive.reduce((s, c) => s + parseFloat(c.totalAmount || 0), 0)
+
+  // Tranche payments
+  const luxuryTranche         = luxuryCommitments.filter(c => c.type === 1)
+  const luxuryTrancheActive   = luxuryTranche.filter(c => c.status === 0)
+  const luxuryTrancheFulfilled= luxuryTranche.filter(c => c.status === 1)
+  const luxuryTrancheCancelled= luxuryTranche.filter(c => c.status === 2 || c.status === 3)
+  const luxuryTrancheOverdue  = luxuryTrancheActive.filter(c => now2 >= (c.trancheDeadlines?.[c.tranchesPaidCount] || 0))
+  // Paid tranche volume = sum of paid tranches across all tranche commitments
+  const luxuryTranchePaid     = luxuryTranche.reduce((s, c) => {
+    const paid = (c.trancheAmounts || []).reduce((ts, amt, i) => ts + (c.tranchePaid?.[i] ? parseFloat(amt || 0) : 0), 0)
+    return s + paid
+  }, 0)
+  const luxuryTranchePending  = luxuryTrancheActive.reduce((s, c) => {
+    const unpaid = (c.trancheAmounts || []).reduce((ts, amt, i) => ts + (!c.tranchePaid?.[i] ? parseFloat(amt || 0) : 0), 0)
+    return s + unpaid
+  }, 0)
+  const luxuryTrancheProgress = luxuryTranche.reduce((s, c) => s + (c.tranchesPaidCount || 0), 0)
+  const luxuryTrancheTotal    = luxuryTranche.reduce((s, c) => s + (c.trancheAmounts?.length || 0), 0)
+
+  // Refunds
+  const luxuryRefunds         = refunds.filter(r => {
+    // Match refunds to luxury commitments by proofRef
+    const isLuxury = luxuryCommitments.some(c => c.ref === r.proofRef) ||
+                     luxuryReceipts.some(rx => (rx.proof?.paymentRef || rx.id) === r.proofRef)
+    const d = r.requestedAt ? new Date(r.requestedAt * 1000) : (r.processedAt ? new Date(r.processedAt * 1000) : null)
+    return isLuxury && (!d || d >= start)
+  })
+  const luxuryRefundRequested = luxuryRefunds.filter(r => r.status === 0)
+  const luxuryRefundApproved  = luxuryRefunds.filter(r => r.status === 1 || r.status === 3)
+  const luxuryRefundDenied    = luxuryRefunds.filter(r => r.status === 2)
+  const luxuryRefundedVolume  = luxuryRefundApproved.reduce((s, r) => s + parseFloat(r.amount || 0), 0)
+  const luxuryRefundPendingVol= luxuryRefundRequested.reduce((s, r) => s + parseFloat(r.amount || 0), 0)
+
+  // Combined luxury total volume (instant paid + delayed fulfilled + tranche paid)
+  const luxuryTotalVolume     = luxuryVolume + luxuryDelayedVolume + luxuryTranchePaid
+
   // ── Online metrics ──
   const onlineVolume   = onlineReceipts.reduce((s, r) => s + r.amount, 0)
   const onlineCount    = onlineReceipts.length
@@ -263,6 +315,14 @@ export function computeAnalytics({ receipts = [], bookings = [], travelBookings 
     travelReleasable, enrichedTravelBookings, travelReceipts,
     // luxury
     luxuryVolume, luxuryCount, luxuryAvg, luxuryMax, luxuryMin, luxuryPayers, luxuryHighVal,
+    luxuryTotalVolume,
+    luxuryDelayed, luxuryDelayedActive, luxuryDelayedFulfilled, luxuryDelayedCancelled,
+    luxuryDelayedOverdue, luxuryDelayedVolume, luxuryDelayedPending,
+    luxuryTranche, luxuryTrancheActive, luxuryTrancheFulfilled, luxuryTrancheCancelled,
+    luxuryTrancheOverdue, luxuryTranchePaid, luxuryTranchePending,
+    luxuryTrancheProgress, luxuryTrancheTotal,
+    luxuryRefunds, luxuryRefundRequested, luxuryRefundApproved, luxuryRefundDenied,
+    luxuryRefundedVolume, luxuryRefundPendingVol,
     luxuryReceipts,
     // online
     onlineVolume, onlineCount, onlineAvg, onlineMax, onlinePayers, purposeCodes,
@@ -317,9 +377,18 @@ export function generateAiAnswer(question, metrics, timeFilter) {
 
   // Luxury questions
   if (q.includes('luxury')) {
-    if (metrics.luxuryCount === 0) return `No Luxury Retail payments found for ${tf}.`
+    if (metrics.luxuryCount === 0 && metrics.luxuryDelayed.length === 0 && metrics.luxuryTranche.length === 0) return `No Luxury Retail payments found for ${tf}.`
     if (q.includes('summarize') || q.includes('performing')) {
-      return `Luxury Retail over ${tf}: ${metrics.luxuryCount} payment${metrics.luxuryCount !== 1 ? 's' : ''} totalling ${fmt(metrics.luxuryVolume)} USDC. Average ticket: ${fmt(metrics.luxuryAvg)} USDC. Largest sale: ${fmt(metrics.luxuryMax)} USDC. ${metrics.luxuryPayers} unique buyer${metrics.luxuryPayers !== 1 ? 's' : ''}.`
+      return `Luxury Retail over ${tf}: ${fmt(metrics.luxuryTotalVolume)} USDC total. Instant: ${metrics.luxuryCount} payments (${fmt(metrics.luxuryVolume)} USDC). Delayed: ${metrics.luxuryDelayed.length} commitments — ${metrics.luxuryDelayedFulfilled.length} fulfilled (${fmt(metrics.luxuryDelayedVolume)} USDC), ${metrics.luxuryDelayedActive.length} active (${fmt(metrics.luxuryDelayedPending)} USDC pending). Tranche: ${metrics.luxuryTranche.length} commitments — ${fmt(metrics.luxuryTranchePaid)} USDC paid, ${fmt(metrics.luxuryTranchePending)} USDC pending. Refunds: ${metrics.luxuryRefunds.length} (${metrics.luxuryRefundApproved.length} approved, ${fmt(metrics.luxuryRefundedVolume)} USDC refunded).`
+    }
+    if (q.includes('delayed') || q.includes('commitment')) {
+      return `Luxury Delayed Payments over ${tf}: ${metrics.luxuryDelayed.length} total. Active: ${metrics.luxuryDelayedActive.length} (${fmt(metrics.luxuryDelayedPending)} USDC pending). Fulfilled: ${metrics.luxuryDelayedFulfilled.length} (${fmt(metrics.luxuryDelayedVolume)} USDC). Overdue: ${metrics.luxuryDelayedOverdue.length}.`
+    }
+    if (q.includes('tranche')) {
+      return `Luxury Tranche Payments over ${tf}: ${metrics.luxuryTranche.length} total. Progress: ${metrics.luxuryTrancheProgress}/${metrics.luxuryTrancheTotal} tranches paid. Paid: ${fmt(metrics.luxuryTranchePaid)} USDC. Pending: ${fmt(metrics.luxuryTranchePending)} USDC. Overdue: ${metrics.luxuryTrancheOverdue.length}.`
+    }
+    if (q.includes('refund')) {
+      return `Luxury Refunds over ${tf}: ${metrics.luxuryRefunds.length} requests. Approved/Direct: ${metrics.luxuryRefundApproved.length} (${fmt(metrics.luxuryRefundedVolume)} USDC). Pending: ${metrics.luxuryRefundRequested.length} (${fmt(metrics.luxuryRefundPendingVol)} USDC). Denied: ${metrics.luxuryRefundDenied.length}.`
     }
     if (q.includes('average') || q.includes('ticket')) return `Luxury Retail average ticket over ${tf}: ${fmt(metrics.luxuryAvg)} USDC.`
     if (q.includes('largest') || q.includes('biggest')) return `Largest Luxury Retail sale over ${tf}: ${fmt(metrics.luxuryMax)} USDC.`
