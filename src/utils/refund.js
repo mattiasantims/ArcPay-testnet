@@ -206,8 +206,12 @@ export async function directRefund(account, { customerWallet, amount, proofRef, 
     args: [customerWallet, toUsdc(amount), safeRef, (reason || '').slice(0, 256)],
     account,
   })
-  await waitAndCheck(hash, 'Direct refund')
-  cacheRefundProcessTx('direct', hash) // keyed separately for direct refunds
+  const receipt = await waitAndCheck(hash, 'Direct refund')
+  // Cache with real refundId so fetchRefundTxHashes can find it
+  const refundId = receipt.logs?.[0]?.topics?.[1]
+    ? BigInt(receipt.logs[0].topics[1]).toString()
+    : null
+  if (refundId) cacheRefundProcessTx(refundId, hash)
   return hash
 }
 

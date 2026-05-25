@@ -165,7 +165,15 @@ export default function ReceiptPage() {
       const proofRef = proof.paymentRef || id
       for (const rid of [...rIds].reverse()) {
         const r = await fetchRefundRequest(rid)
-        if (r && r.proofRef === proofRef) { setExistingRefund(r); break }
+        if (r && r.proofRef === proofRef) {
+          setExistingRefund(r)
+          // Load TX hashes for the new direct refund
+          fetchRefundTxHashes(r).then(({ requestTxHash, processTxHash }) => {
+            if (requestTxHash) setRefundRequestTx(requestTxHash)
+            if (processTxHash) setRefundProcessTx(processTxHash)
+          }).catch(() => {})
+          break
+        }
       }
     } catch (e) { setDirectError(e.message || 'Transaction failed') }
     finally { setDirectSending(false) }

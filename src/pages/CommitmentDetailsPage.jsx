@@ -18,7 +18,7 @@ import {
 import {
   requestRefund, directRefund,
   fetchCustomerRefundIds, fetchMerchantRefundIds, fetchRefundRequest,
-  REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
+  fetchRefundTxHashes, REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured, isRefundContractConfigured } from '../config.js'
@@ -109,6 +109,15 @@ export default function CommitmentDetailsPage() {
     }
     findRefund()
   }, [c, address])
+
+  // Load refund TX hashes when refund is found
+  useEffect(() => {
+    if (!refund) return
+    fetchRefundTxHashes(refund).then(({ requestTxHash, processTxHash }) => {
+      if (requestTxHash) setRefundRequestTx(requestTxHash)
+      if (processTxHash) setRefundProcessTx(processTxHash)
+    }).catch(() => {})
+  }, [refund?.refundId, refund?.status])
 
   async function act(fn, label) {
     setActing(label); setError(''); setSuccess('')
@@ -609,7 +618,7 @@ export default function CommitmentDetailsPage() {
             if (refund.requestedAt) {
               events.push({
                 label:    'Refund Requested',
-                txHash:   null,
+                txHash:   refundRequestTx,
                 timestamp: ts(refund.requestedAt),
                 detail:   `${refund.amount} USDC`,
                 note:     refund.reason || null,
@@ -619,31 +628,31 @@ export default function CommitmentDetailsPage() {
             if (refund.status === 1) {
               events.push({
                 label:    'Refund Approved',
-                txHash:   null,
+                txHash:   refundProcessTx,
                 timestamp: ts(refund.processedAt),
                 detail:   `${refund.amount} USDC transferred to customer`,
                 note:     null,
-                pdf:      () => downloadRefundPDF(c, refund, null),
+                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx),
               })
             }
             if (refund.status === 2) {
               events.push({
                 label:    'Refund Denied',
-                txHash:   null,
+                txHash:   refundProcessTx,
                 timestamp: ts(refund.processedAt),
                 detail:   'Merchant denied the refund request',
                 note:     null,
-                pdf:      () => downloadRefundPDF(c, refund, null),
+                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx),
               })
             }
             if (refund.status === 3) {
               events.push({
                 label:    'Direct Refund',
-                txHash:   null,
+                txHash:   refundProcessTx,
                 timestamp: ts(refund.processedAt),
                 detail:   `${refund.amount} USDC sent directly to customer`,
                 note:     refund.reason || null,
-                pdf:      () => downloadRefundPDF(c, refund, null),
+                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx),
               })
             }
           }
