@@ -13,9 +13,9 @@ import { ARCSCAN_BASE, isBookingContractConfigured, isTravelContractConfigured }
 import {
   computeAnalytics, generateAiAnswer, TIME_FILTER_LABELS,
 } from '../utils/analytics.js'
-import { fetchMerchantCommitmentIds, fetchCommitment, isCommitmentContractConfigured } from '../utils/commitment.js'
+import { fetchMerchantCommitmentIds, fetchCommitment } from '../utils/commitment.js'
 import { fetchMerchantRefundIds, fetchRefundRequest } from '../utils/refund.js'
-import { isRefundContractConfigured } from '../config.js'
+import { isRefundContractConfigured, isCommitmentContractConfigured } from '../config.js'
 import { Link } from 'react-router-dom'
 
 const TABS = ['Overview', 'Luxury Retail', 'Online Payments', 'Hotel Booking', 'Travel Agency', 'Ask ArcPay AI', 'Coming Soon']
