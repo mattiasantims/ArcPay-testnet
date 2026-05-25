@@ -393,7 +393,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
       )}
 
       {/* Export / refresh */}
-      {receipts.length > 0 && (
+      {(receipts.length > 0 || commitments.length > 0 || refunds.length > 0) && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, justifyContent: 'flex-end' }}>
           <button onClick={() => {
               const enrichedReceipts = receipts.map(r => ({

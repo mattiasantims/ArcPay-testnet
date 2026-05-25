@@ -54,6 +54,8 @@ export default function CommitmentDetailsPage() {
   const [now,        setNow]        = useState(Math.floor(Date.now() / 1000))
   const [refund,     setRefund]     = useState(null)
   const [txHashes,   setTxHashes]   = useState({ createHash: null, fulfillHash: null, trancheHashes: [], cancelHash: null })  // existing refund for this commitment
+  const [refundRequestTx, setRefundRequestTx] = useState(null)
+  const [refundProcessTx, setRefundProcessTx] = useState(null)
 
   // Refund request form
   const [showRefund,    setShowRefund]    = useState(false)
