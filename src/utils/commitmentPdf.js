@@ -226,3 +226,112 @@ export function downloadRefundPDF(c, refund, txHash) {
   addDisclaimer(270)
   doc.save(`arcpay_refund_${(c.ref || c.commitmentId).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`)
 }
+
+
+// ── Full commitment PDF with all events ───────────────────────────────────────
+// events: [{ label, txHash, timestamp, detail, note }]
+export function downloadFullCommitmentPDF(c, events = []) {
+  if (!c) return
+  if (typeof window === 'undefined' || !window.jspdf) {
+    alert('PDF generation not available.')
+    return
+  }
+  const { jsPDF } = window.jspdf
+  const doc    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const margin = 20
+  let y        = margin
+
+  const addField = (key, value) => {
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(100, 100, 100)
+    doc.text(key, margin, y)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(17, 17, 17)
+    const lines = doc.splitTextToSize(String(value || '—'), 130)
+    doc.text(lines, 70, y)
+    y += Math.max(lines.length * 5, 7)
+  }
+  const addDivider = () => {
+    doc.setDrawColor(220, 220, 220); doc.line(margin, y, 190, y); y += 5
+  }
+  const addSectionTitle = (title) => {
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(39, 117, 202)
+    doc.text(title, margin, y); y += 7
+  }
+
+  // Header
+  doc.setFillColor(17, 17, 17); doc.rect(0, 0, 210, 25, 'F')
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
+  doc.text('ArcPay', margin, 14)
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(180, 180, 180)
+  doc.text('Commitment Receipt + Event History · Arc Testnet', margin, 20)
+  doc.setFillColor(255, 200, 0); doc.roundedRect(155, 8, 40, 8, 2, 2, 'F')
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(80, 60, 0)
+  doc.text('TESTNET ONLY', 157, 13.5)
+  y = 35
+
+  // Title
+  const typeLabel = c.type === 0 ? 'Delayed Payment' : 'Tranche Payment'
+  doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(17, 17, 17)
+  doc.text(`${typeLabel} · ${c.ref}`, margin, y); y += 8
+  doc.setFontSize(26); doc.setFont('helvetica', 'bold'); doc.setTextColor(39, 117, 202)
+  doc.text(`${c.totalAmount} USDC`, margin, y); y += 10
+  addDivider()
+
+  // Commitment details
+  addSectionTitle('Commitment Details')
+  addField('Type',         typeLabel)
+  addField('Ref',          c.ref)
+  if (c.description) addField('Description', c.description)
+  addField('Merchant',     c.merchant)
+  addField('Customer',     c.customer)
+  addField('Total Amount', `${c.totalAmount} USDC`)
+  addField('Created',      c.createdAt ? new Date(c.createdAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : '—')
+  addField('Network',      'Arc Testnet · Chain ID 5042002')
+  addDivider()
+
+  // Event history
+  addSectionTitle(`Event History (${events.length} event${events.length !== 1 ? 's' : ''})`)
+  if (events.length === 0) {
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150)
+    doc.text('No events recorded.', margin, y); y += 8
+  } else {
+    events.forEach((ev, i) => {
+      if (y > 260) { doc.addPage(); y = 20 }
+      doc.setFillColor(245, 245, 245); doc.roundedRect(margin, y - 4, 170, ev.txHash ? 20 : 12, 2, 2, 'F')
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(17, 17, 17)
+      doc.text(`${i + 1}. ${ev.label}`, margin + 3, y + 1)
+      if (ev.timestamp) {
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 100, 100)
+        doc.text(ev.timestamp, 140, y + 1)
+      }
+      y += 7
+      if (ev.detail) {
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80)
+        const dl = doc.splitTextToSize(ev.detail, 162)
+        doc.text(dl, margin + 3, y); y += dl.length * 4 + 1
+      }
+      if (ev.note) {
+        doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(100, 100, 150)
+        const nl = doc.splitTextToSize(`Note: "${ev.note}"`, 162)
+        doc.text(nl, margin + 3, y); y += nl.length * 4 + 1
+      }
+      if (ev.txHash) {
+        doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(39, 117, 202)
+        const tl = doc.splitTextToSize(`TX: ${ev.txHash}`, 162)
+        doc.text(tl, margin + 3, y); y += tl.length * 4 + 1
+        const al = doc.splitTextToSize(`ArcScan: https://testnet.arcscan.app/tx/${ev.txHash}`, 162)
+        doc.text(al, margin + 3, y); y += al.length * 4 + 1
+      }
+      y += 4
+    })
+  }
+  addDivider()
+  addField('Receipt URL', `https://arc-pay-testnet.vercel.app/commitment/${c.commitmentId}`)
+
+  // Footer
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150)
+  const disc = doc.splitTextToSize('TESTNET ONLY. Testnet tokens have no real economic value. Not a financial instrument or compliance record.', 170)
+  doc.text(disc, margin, 272)
+  doc.text(`Generated by ArcPay v0.1 · ${new Date().toISOString()}`, margin, 272 + disc.length * 4 + 2)
+
+  doc.save(`arcpay_full_${(c.ref || c.commitmentId).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`)
+}

@@ -12,7 +12,7 @@ import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
 import { downloadCSV, downloadUnifiedCSV } from '../utils/csv.js'
 import { downloadReceiptPDF } from '../utils/pdf.js'
 import {
-  fetchMerchantCommitmentIds, fetchCommitment,
+  fetchMerchantCommitmentIds, fetchCommitment, fetchCommitmentTxHashes,
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
 } from '../utils/commitment.js'
 import {
@@ -150,7 +150,14 @@ export default function DashboardPage({ account, onConnect, connecting }) {
             const cm = await fetchCommitment(id)
             if (cm) commitmentList.push(cm)
           }
-          setCommitments(commitmentList)
+          // Enrich commitments with TX hashes for CSV export
+          const enrichedC = await Promise.all(commitmentList.map(async cm => {
+            try {
+              const hashes = await fetchCommitmentTxHashes(cm)
+              return { ...cm, createTxHash: hashes.createHash, fulfillTxHash: hashes.fulfillHash, cancelTxHash: hashes.cancelHash }
+            } catch { return cm }
+          }))
+          setCommitments(enrichedC)
         } catch {}
       }
 

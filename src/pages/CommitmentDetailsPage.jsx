@@ -9,10 +9,11 @@ import {
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
   getCachedCommitmentTxHash, getCachedFulfillTxHash,
   getCachedTrancheTxHash, getCachedCancelTxHash,
+  fetchCommitmentTxHashes,
 } from '../utils/commitment.js'
 import {
   downloadCommitmentPDF, downloadFulfillPDF,
-  downloadCancelPDF, downloadRefundPDF,
+  downloadCancelPDF, downloadRefundPDF, downloadFullCommitmentPDF,
 } from '../utils/commitmentPdf.js'
 import {
   requestRefund, directRefund,
@@ -51,7 +52,8 @@ export default function CommitmentDetailsPage() {
   const [success,    setSuccess]    = useState('')
   const [acting,     setActing]     = useState(null)
   const [now,        setNow]        = useState(Math.floor(Date.now() / 1000))
-  const [refund,     setRefund]     = useState(null)  // existing refund for this commitment
+  const [refund,     setRefund]     = useState(null)
+  const [txHashes,   setTxHashes]   = useState({ createHash: null, fulfillHash: null, trancheHashes: [], cancelHash: null })  // existing refund for this commitment
 
   // Refund request form
   const [showRefund,    setShowRefund]    = useState(false)
@@ -72,6 +74,12 @@ export default function CommitmentDetailsPage() {
   }, [])
 
   useEffect(() => { if (configured) load() }, [id, configured])
+
+  // Load TX hashes from on-chain logs after commitment is set
+  useEffect(() => {
+    if (!c) return
+    fetchCommitmentTxHashes(c).then(hashes => setTxHashes(hashes)).catch(() => {})
+  }, [c?.commitmentId, c?.status, c?.tranchesPaidCount])
 
   async function load() {
     setLoading(true); setError('')
@@ -175,9 +183,6 @@ export default function CommitmentDetailsPage() {
   const refundWindowEnd = new Date(createdMs + refundWindowMs)
 
   // TX hashes
-  const createHash  = getCachedCommitmentTxHash(id)
-  const fulfillHash = getCachedFulfillTxHash(id)
-  const cancelHash  = getCachedCancelTxHash(id)
 
   const receiptUrl  = `${APP_URL}/commitment/${id}`
 
@@ -537,61 +542,166 @@ export default function CommitmentDetailsPage() {
       )}
 
       {/* ── Receipts & Events ── */}
-      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           Receipts & Events
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {/* Commitment creation */}
-          <button onClick={() => downloadCommitmentPDF(c, createHash)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-            🖨️ Commitment PDF
-          </button>
-          {createHash && (
-            <a href={`${ARCSCAN_BASE}/tx/${createHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-              <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>Creation TX ↗</button>
-            </a>
-          )}
+        {(() => {
+          const { createHash, fulfillHash, trancheHashes, cancelHash } = txHashes
+          const ARCSCAN = 'https://testnet.arcscan.app'
+          const ts = (unix) => unix ? new Date(unix * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null
 
-          {/* Delayed fulfill */}
-          {c.type === 0 && c.paid && (
+          // Build events array
+          const events = []
+
+          // 1. Commitment created
+          events.push({
+            label:    'Commitment Created',
+            txHash:   createHash,
+            timestamp: ts(c.createdAt),
+            detail:   `${c.totalAmount} USDC · ${c.ref}`,
+            note:     null,
+            pdf:      () => downloadCommitmentPDF(c, createHash),
+          })
+
+          // 2. Delayed payment fulfilled
+          if (c.type === 0 && c.paid) {
+            events.push({
+              label:    'Payment Fulfilled',
+              txHash:   fulfillHash,
+              timestamp: null,
+              detail:   `${c.totalAmount} USDC transferred to merchant`,
+              note:     null,
+              pdf:      () => downloadFulfillPDF(c, fulfillHash),
+            })
+          }
+
+          // 3. Tranche payments (each paid tranche)
+          if (c.type === 1) {
+            c.trancheAmounts.forEach((amt, i) => {
+              if (c.tranchePaid[i]) {
+                events.push({
+                  label:    `Tranche ${i + 1} of ${c.trancheAmounts.length} Paid`,
+                  txHash:   trancheHashes[i] || null,
+                  timestamp: null,
+                  detail:   `${amt} USDC`,
+                  note:     null,
+                  pdf:      () => downloadFulfillPDF(c, trancheHashes[i] || null, i),
+                })
+              }
+            })
+          }
+
+          // 4. Cancellation
+          if (c.status === 2 || c.status === 3) {
+            events.push({
+              label:    c.status === 2 ? 'Commitment Cancelled' : 'Commitment Expired',
+              txHash:   cancelHash,
+              timestamp: null,
+              detail:   `${c.totalAmount} USDC · ${c.ref}`,
+              note:     null,
+              pdf:      () => downloadCancelPDF(c, cancelHash),
+            })
+          }
+
+          // 5. Refund events
+          if (refund) {
+            if (refund.requestedAt) {
+              events.push({
+                label:    'Refund Requested',
+                txHash:   null,
+                timestamp: ts(refund.requestedAt),
+                detail:   `${refund.amount} USDC`,
+                note:     refund.reason || null,
+                pdf:      null,
+              })
+            }
+            if (refund.status === 1) {
+              events.push({
+                label:    'Refund Approved',
+                txHash:   null,
+                timestamp: ts(refund.processedAt),
+                detail:   `${refund.amount} USDC transferred to customer`,
+                note:     null,
+                pdf:      () => downloadRefundPDF(c, refund, null),
+              })
+            }
+            if (refund.status === 2) {
+              events.push({
+                label:    'Refund Denied',
+                txHash:   null,
+                timestamp: ts(refund.processedAt),
+                detail:   'Merchant denied the refund request',
+                note:     null,
+                pdf:      () => downloadRefundPDF(c, refund, null),
+              })
+            }
+            if (refund.status === 3) {
+              events.push({
+                label:    'Direct Refund',
+                txHash:   null,
+                timestamp: ts(refund.processedAt),
+                detail:   `${refund.amount} USDC sent directly to customer`,
+                note:     refund.reason || null,
+                pdf:      () => downloadRefundPDF(c, refund, null),
+              })
+            }
+          }
+
+          return (
             <>
-              <button onClick={() => downloadFulfillPDF(c, fulfillHash)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-                🖨️ Payment PDF
-              </button>
-              {fulfillHash && (
-                <a href={`${ARCSCAN_BASE}/tx/${fulfillHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                  <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>Payment TX ↗</button>
-                </a>
-              )}
+              {/* Event rows */}
+              <div style={{ marginBottom: 14 }}>
+                {events.map((ev, i) => (
+                  <div key={i} style={{
+                    padding: '11px 0',
+                    borderBottom: i < events.length - 1 ? '1px solid var(--border)' : 'none',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    gap: 8, flexWrap: 'wrap',
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{ev.label}</div>
+                      {ev.detail    && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{ev.detail}</div>}
+                      {ev.note      && <div style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Note: "{ev.note}"</div>}
+                      {ev.timestamp && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ev.timestamp}</div>}
+                      {ev.txHash    && (
+                        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 3, wordBreak: 'break-all' }}>
+                          TX: {ev.txHash}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      {ev.pdf && (
+                        <button onClick={ev.pdf} className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>
+                          🖨️ PDF
+                        </button>
+                      )}
+                      {ev.txHash ? (
+                        <a href={`${ARCSCAN}/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                          <button className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>ArcScan ↗</button>
+                        </a>
+                      ) : (
+                        <span style={{ fontSize: 10, color: 'var(--text3)', padding: '3px 0', fontStyle: 'italic' }}>
+                          {ev.label === 'Commitment Created' || ev.label.includes('Paid') || ev.label.includes('Fulfilled') || ev.label.includes('Cancel') ? 'recovering...' : 'off-chain'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => downloadFullCommitmentPDF(c, events)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                  🖨️ Full PDF (all events)
+                </button>
+                <button onClick={() => navigator.clipboard.writeText(receiptUrl)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                  🔗 Copy link
+                </button>
+              </div>
             </>
-          )}
-
-          {/* Cancel */}
-          {(c.status === 2 || c.status === 3) && (
-            <>
-              <button onClick={() => downloadCancelPDF(c, cancelHash)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-                🖨️ Cancel PDF
-              </button>
-              {cancelHash && (
-                <a href={`${ARCSCAN_BASE}/tx/${cancelHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                  <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>Cancel TX ↗</button>
-                </a>
-              )}
-            </>
-          )}
-
-          {/* Refund */}
-          {refund && (refund.status === 1 || refund.status === 3) && (
-            <button onClick={() => downloadRefundPDF(c, refund, null)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-              🖨️ Refund PDF
-            </button>
-          )}
-
-          {/* Share */}
-          <button onClick={() => navigator.clipboard.writeText(receiptUrl)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-            🔗 Copy link
-          </button>
-        </div>
+          )
+        })()}
       </div>
 
       {/* ── Details ── */}

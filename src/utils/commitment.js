@@ -240,3 +240,75 @@ function parseCommitment(raw, id) {
     tranchesPaidCount: Number(raw.tranchesPaidCount ?? 0),
   }
 }
+
+// ── On-chain TX hash recovery ─────────────────────────────────────────────────
+// Arc Testnet: ~0.51 sec/block → ~2 blocks/sec
+// Search ±600 blocks (~5 min window) around estimated block from timestamp
+const _BLOCKS_PER_SEC = 2n
+const _SEARCH_WINDOW  = 600n
+
+async function _estimateBlock(unixTimestamp) {
+  if (!unixTimestamp || unixTimestamp === 0) return null
+  try {
+    const pc          = client()
+    const latest      = await pc.getBlock({ blockTag: 'latest' })
+    const diffSec     = BigInt(Number(latest.timestamp) - unixTimestamp)
+    const estimated   = latest.number - diffSec * _BLOCKS_PER_SEC
+    return estimated > 0n ? estimated : 1n
+  } catch { return null }
+}
+
+async function _findEventTxHash(eventName, args, timestamp, cachedHash) {
+  if (cachedHash) return cachedHash
+  try {
+    const estimatedBlock = await _estimateBlock(timestamp)
+    if (!estimatedBlock) return null
+    const fromBlock = estimatedBlock > _SEARCH_WINDOW ? estimatedBlock - _SEARCH_WINDOW : 1n
+    const toBlock   = estimatedBlock + _SEARCH_WINDOW
+    const pc        = client()
+    const eventAbi  = ABI.find(x => x.type === 'event' && x.name === eventName)
+    if (!eventAbi) return null
+    const logs = await pc.getLogs({ address: ARC_COMMITMENT_ADDRESS, event: eventAbi, args, fromBlock, toBlock })
+    return logs.length > 0 ? logs[0].transactionHash : null
+  } catch { return null }
+}
+
+/**
+ * Returns all TX hashes for a commitment's lifecycle events.
+ * Uses session cache first, falls back to on-chain getLogs.
+ * Returns: { createHash, fulfillHash, trancheHashes: string[], cancelHash }
+ */
+export async function fetchCommitmentTxHashes(c) {
+  if (!c) return { createHash: null, fulfillHash: null, trancheHashes: [], cancelHash: null }
+  const id = BigInt(c.commitmentId)
+
+  const [createHash, fulfillHash, cancelHash] = await Promise.all([
+    _findEventTxHash('CommitmentCreated', { commitmentId: id }, c.createdAt, getCachedCommitmentTxHash(c.commitmentId)),
+    c.type === 0 && c.paid
+      ? _findEventTxHash('CommitmentFulfilled', { commitmentId: id }, null, getCachedFulfillTxHash(c.commitmentId))
+      : Promise.resolve(null),
+    c.status === 2 || c.status === 3
+      ? _findEventTxHash('CommitmentCancelled', { commitmentId: id }, null, getCachedCancelTxHash(c.commitmentId))
+      : Promise.resolve(null),
+  ])
+
+  // For tranches: recover each paid tranche TX
+  const trancheHashes = []
+  if (c.type === 1) {
+    for (let i = 0; i < c.trancheAmounts.length; i++) {
+      if (c.tranchePaid[i]) {
+        const h = await _findEventTxHash(
+          'TrancheFulfilled',
+          { commitmentId: id, trancheIndex: BigInt(i) },
+          null,
+          getCachedTrancheTxHash(c.commitmentId, i)
+        )
+        trancheHashes.push(h)
+      } else {
+        trancheHashes.push(null)
+      }
+    }
+  }
+
+  return { createHash, fulfillHash, trancheHashes, cancelHash }
+}

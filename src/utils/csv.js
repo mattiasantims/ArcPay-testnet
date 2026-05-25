@@ -68,9 +68,15 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
       'createdAt', 'type', 'commitmentStatus', 'ref', 'description',
       'merchantWallet', 'customerWallet', 'totalAmount',
       'dueDate', 'deadline', 'trancheCount', 'tranchesPaid',
+      'createTxHash', 'createArcScan',
+      'fulfillTxHash', 'fulfillArcScan',
+      'cancelTxHash', 'cancelArcScan',
       'commitmentUrl',
     ]))
     for (const c of commitments) {
+      const cTx = c.createTxHash  || ''
+      const fTx = c.fulfillTxHash || ''
+      const xTx = c.cancelTxHash  || ''
       lines.push(csvRow([
         formatTs(c.createdAt),
         COMMITMENT_TYPE_LABEL[c.type]    ?? '',
@@ -84,6 +90,9 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
         formatTs(c.deadline),
         c.trancheAmounts?.length  ?? 0,
         c.tranchesPaidCount       ?? 0,
+        cTx, cTx ? `${ARCSCAN}/tx/${cTx}` : '',
+        fTx, fTx ? `${ARCSCAN}/tx/${fTx}` : '',
+        xTx, xTx ? `${ARCSCAN}/tx/${xTx}` : '',
         `${APP_URL}/commitment/${c.commitmentId}`,
       ]))
     }
