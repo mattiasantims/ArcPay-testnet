@@ -1,42 +1,57 @@
+// Merchant booking CSV — same structure as guest MyBookingsPage CSV
 export function downloadBookingCSV(bookings, walletAddress) {
   if (!bookings || bookings.length === 0) return
+
+  const ARCSCAN  = 'https://testnet.arcscan.app'
+  const APP_URL  = 'https://arc-pay-testnet.vercel.app'
+
   const headers = [
     'timestamp','status','guestWallet','merchantWallet','merchantName',
-    'totalAmount','nonRefundableAmount','refundableAmount','nonRefundablePct',
-    'bookingRef','description','cancellationDeadline','checkInDate',
-    'metadataHash','createdAt','closedAt',
-    'createTxHash','createArcScan','cancelTxHash','cancelArcScan','releaseTxHash','releaseArcScan',
-    'bookingUrl','network','contractAddress','testnetDisclaimer',
+    'totalAmount','nonRefundable','refundable','nonRefundablePct',
+    'bookingRef','cancellationDeadline','checkInDate','createdAt',
+    'createTxHash','createArcScan',
+    'cancelTxHash','cancelArcScan',
+    'releaseTxHash','releaseArcScan',
+    'bookingUrl','network','testnetDisclaimer',
   ]
-  const rows = bookings.map(b => [
-    b.created_at ?? '',
-    b.status               ?? '',
-    b.guest_wallet         ?? '',
-    b.merchant_wallet      ?? '',
-    b.merchant_name        ?? '',
-    b.total_amount         ?? '',
-    b.non_refundable_amount ?? '',
-    b.refundable_amount    ?? '',
-    b.non_refundable_pct   ?? '',
-    b.booking_ref          ?? '',
-    b.description          ?? '',
-    b.cancellation_deadline ?? '',
-    b.check_in_date        ?? '',
-    b.metadata_hash        ?? '',
-    b.created_at           ?? '',
-    b.closed_at            ?? '',
-    b.create_tx_hash   ?? '',
-    b.create_tx_hash   ? `https://testnet.arcscan.app/tx/${b.create_tx_hash}`  : '',
-    b.cancel_tx_hash   ?? '',
-    b.cancel_tx_hash   ? `https://testnet.arcscan.app/tx/${b.cancel_tx_hash}`  : '',
-    b.release_tx_hash  ?? '',
-    b.release_tx_hash  ? `https://testnet.arcscan.app/tx/${b.release_tx_hash}` : '',
-    b.arcscan_link         ?? '',
-    b.booking_page         ?? '',
-    b.network              ?? '',
-    b.contract_address     ?? '',
-    b.disclaimer           ?? '',
-  ])
+
+  const rows = bookings.map(b => {
+    // b is a buildBookingReceiptObject — fields use snake_case
+    const ts     = v => v ? new Date(Number(v) * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : ''
+    const usdc   = v => v ? (Number(v) / 1e6).toFixed(2) + ' USDC' : ''
+    const status = ['Active','Cancelled','Released to Hotel'][Number(b.status ?? 0)] ?? ''
+
+    // TX hashes: enriched externally by BookingDashboardPage
+    const cTx = b.create_tx_hash  || ''
+    const xTx = b.cancel_tx_hash  || ''
+    const rTx = b.release_tx_hash || ''
+
+    return [
+      b.created_at            ?? '',
+      status,
+      b.guest_wallet          ?? '',
+      b.merchant_wallet       ?? '',
+      b.merchant_name         ?? '',
+      b.total_amount          ?? '',
+      b.non_refundable_amount ?? '',
+      b.refundable_amount     ?? '',
+      b.non_refundable_pct    ?? '',
+      b.booking_ref           ?? '',
+      b.cancellation_deadline ?? '',
+      b.check_in_date         ?? '',
+      b.created_at            ?? '',
+      cTx,
+      cTx ? `${ARCSCAN}/tx/${cTx}` : '',
+      xTx,
+      xTx ? `${ARCSCAN}/tx/${xTx}` : '',
+      rTx,
+      rTx ? `${ARCSCAN}/tx/${rTx}` : '',
+      b.booking_page          ?? `${APP_URL}/booking/${b.booking_id}`,
+      'Arc Testnet (Chain ID: 5042002)',
+      'TESTNET ONLY. Testnet tokens have no real economic value.',
+    ]
+  })
+
   const csv  = [headers, ...rows]
     .map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
     .join('\n')

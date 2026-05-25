@@ -83,18 +83,20 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
       const built = await Promise.all(fetched.map(async ({ id, booking }, idx) => {
         const txHash   = getCachedBookingTxHash(id)
         const localReq = localReqs.find(r => r.bookingRef === booking.bookingRef)
-        let cancelTxHash = null, releaseTxHash = null
+        let createTxHash = null, cancelTxHash = null, releaseTxHash = null
         try {
           const hashes = await fetchBookingTxHashes({ ...booking, bookingId: id })
+          createTxHash  = hashes.createHash
           cancelTxHash  = hashes.cancelHash
           releaseTxHash = hashes.releaseHash
         } catch {}
         return {
           ...buildBookingReceiptObject({
-            booking, txHash, bookingId: id,
+            booking, txHash: txHash || createTxHash, bookingId: id,
             merchantName: localReq?.merchantName || null,
             description:  localReq?.description  || null,
           }),
+          create_tx_hash:  createTxHash,
           cancel_tx_hash:  cancelTxHash,
           release_tx_hash: releaseTxHash,
           role,
