@@ -335,7 +335,7 @@ export default function LandingPage() {
               Visit the Arc testnet faucet to get free test USDC for transactions.
             </p>
             <a href="https://faucet.arc.network" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-              <button className="btn-ghost" style={{ fontSize: 13, padding: '7px 14px' }}>Open faucet ↗</button>
+              <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>Open faucet ↗</button>
             </a>
           </div>
         </div>
