@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import {
   fetchMerchantTravelIds, fetchCustomerTravelIds,
-  fetchTravelBooking, fromUsdc,
+  fetchTravelBooking, fetchTravelTxHashes, fromUsdc,
   TRAVEL_STATUS_LABEL, TRAVEL_STATUS_COLOR,
   getCachedTravelTxHash,
 } from '../utils/travel.js'
@@ -21,7 +21,8 @@ export default function TravelDashboardPage({ account }) {
   const [role,     setRole]     = useState('merchant')
   const [addrInput, setAddrInput] = useState('')
   const [addr,     setAddr]     = useState('')
-  const [bookings, setBookings] = useState([])
+  const [bookings,      setBookings]      = useState([])
+  const [txHashesReady, setTxHashesReady] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [linkedWallets, setLinkedWallets] = useState([])
   const [error,    setError]    = useState('')
@@ -68,6 +69,7 @@ export default function TravelDashboardPage({ account }) {
       } else {
         ids = await fetchCustomerTravelIds(addr)
       }
+      setTxHashesReady(false)
       const fetched = []
       for (const id of [...ids].reverse()) {
         try {
@@ -76,6 +78,22 @@ export default function TravelDashboardPage({ account }) {
         } catch {}
       }
       setBookings(fetched)
+      // Enrich with TX hashes from scanBlock
+      const enriched = await Promise.all(fetched.map(async t => {
+        try {
+          const h = await fetchTravelTxHashes(t)
+          return {
+            ...t,
+            createTxHash:         h.createHash,
+            cancelTxHash:         h.cancelHash,
+            releaseTxHash:        h.releaseHash,
+            trancheRequestTxHash: h.trancheReqHash,
+            tranchePaidTxHash:    h.tranchePaidHash,
+          }
+        } catch { return t }
+      }))
+      setBookings(enriched)
+      setTxHashesReady(true)
     } catch { setError('Failed to load. Are you on Arc Testnet?') }
     finally { setLoading(false) }
   }
@@ -200,8 +218,8 @@ export default function TravelDashboardPage({ account }) {
       {/* Export + Refresh */}
       {bookings.length > 0 && (
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button onClick={() => downloadTravelCSV(bookings, addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
-            📊 Export CSV
+          <button onClick={() => downloadTravelCSV(bookings, addr)} disabled={!txHashesReady} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px', opacity: txHashesReady ? 1 : 0.5 }}>
+            {txHashesReady ? '📊 Export CSV' : '⏳ Loading TX hashes...'}
           </button>
           <button onClick={() => setAddr(addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             ↺ Refresh

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
-import { fetchCustomerTravelIds, fetchTravelBooking } from '../utils/travel.js'
+import { fetchCustomerTravelIds, fetchTravelBooking, fetchTravelTxHashes } from '../utils/travel.js'
 import { formatUsdc, formatTs } from '../utils/booking.js'
 import { shortAddress } from '../utils/wallet.js'
 import { isTravelContractConfigured, isMerchantRegistryConfigured } from '../config.js'
@@ -37,7 +37,16 @@ export default function MyTravelPage() {
             if (m && m.tradingName) merchantName = m.tradingName
           } catch {}
         }
-        return { ...b, merchantName }
+        let createTxHash = null, cancelTxHash = null, releaseTxHash = null, trancheRequestTxHash = null, tranchePaidTxHash = null
+        try {
+          const h = await fetchTravelTxHashes(b)
+          createTxHash         = h.createHash
+          cancelTxHash         = h.cancelHash
+          releaseTxHash        = h.releaseHash
+          trancheRequestTxHash = h.trancheReqHash
+          tranchePaidTxHash    = h.tranchePaidHash
+        } catch {}
+        return { ...b, merchantName, createTxHash, cancelTxHash, releaseTxHash, trancheRequestTxHash, tranchePaidTxHash }
       }))
       setBookings(withNames)
     }).finally(() => setLoading(false))
@@ -53,27 +62,49 @@ export default function MyTravelPage() {
 
   function exportCSV() {
     if (!bookings.length) return
-    const headers = ['travelId','status','travelRef','agencyWallet','customerWallet','totalPackage','initialPayment','nonRefundable','refundableEscrow','trancheAmount','paymentDueDate','paymentDeadline','cancellationDeadline','travelStartDate','tranchePaid','createdAt','network','testnetDisclaimer']
-    const rows = bookings.map(b => [
-      b.travelId?.toString() ?? '',
-      ['Active','TranchePaid','CancelledBeforeDeadline','CancelledForMissedPayment','ReleasedToMerchant'][Number(b.status)] ?? '',
-      b.travelRef ?? '',
-      b.merchant ?? '',
-      b.customer ?? '',
-      b.totalPackageAmount ? (Number(b.totalPackageAmount)/1e6).toFixed(2) + ' USDC' : '',
-      b.initialPaymentAmount ? (Number(b.initialPaymentAmount)/1e6).toFixed(2) + ' USDC' : '',
-      b.nonRefundableAmount ? (Number(b.nonRefundableAmount)/1e6).toFixed(2) + ' USDC' : '',
-      b.refundableEscrowAmount ? (Number(b.refundableEscrowAmount)/1e6).toFixed(2) + ' USDC' : '',
-      b.trancheAmount ? (Number(b.trancheAmount)/1e6).toFixed(2) + ' USDC' : '',
-      b.paymentDueDate ? new Date(Number(b.paymentDueDate)*1000).toISOString() : '',
-      b.paymentDeadline ? new Date(Number(b.paymentDeadline)*1000).toISOString() : '',
-      b.cancellationDeadline ? new Date(Number(b.cancellationDeadline)*1000).toISOString() : '',
-      b.travelStartDate ? new Date(Number(b.travelStartDate)*1000).toISOString() : '',
-      b.tranchePaid ? 'Yes' : 'No',
-      b.createdAt ? new Date(Number(b.createdAt)*1000).toISOString() : '',
-      'Arc Testnet (Chain ID: 5042002)',
-      'TESTNET ONLY. Testnet tokens have no real economic value.',
-    ])
+    const ARCSCAN = 'https://testnet.arcscan.app'
+    const ts = unix => unix ? new Date(Number(unix)*1000).toISOString().replace('T',' ').slice(0,19)+' UTC' : ''
+    const headers = ['travelId','status','travelRef','agencyWallet','customerWallet','totalPackage','initialPayment','nonRefundable','refundableEscrow','trancheAmount','paymentDueDate','paymentDeadline','cancellationDeadline','travelStartDate','tranchePaid','createdAt','closedAt',
+      'createTxHash','createArcScan','createTimestamp',
+      'trancheRequestTxHash','trancheRequestArcScan',
+      'tranchePaidTxHash','tranchePaidArcScan','tranchePaidTimestamp',
+      'cancelTxHash','cancelArcScan','cancelTimestamp',
+      'releaseTxHash','releaseArcScan','releaseTimestamp',
+      'network','testnetDisclaimer']
+    const rows = bookings.map(b => {
+      const status = Number(b.status)
+      const cTx  = b.createTxHash         || ''
+      const rqTx = b.trancheRequestTxHash || ''
+      const tpTx = b.tranchePaidTxHash    || ''
+      const xTx  = b.cancelTxHash         || ''
+      const rlTx = b.releaseTxHash        || ''
+      return [
+        b.travelId?.toString() ?? '',
+        ['Active','TranchePaid','Cancelled','Cancelled — Missed Payment','Released to Merchant'][status] ?? '',
+        b.travelRef ?? '',
+        b.merchant ?? '',
+        b.customer ?? '',
+        b.totalPackageAmount     ? (Number(b.totalPackageAmount)/1e6).toFixed(2) + ' USDC'     : '',
+        b.initialPaymentAmount   ? (Number(b.initialPaymentAmount)/1e6).toFixed(2) + ' USDC'   : '',
+        b.nonRefundableAmount    ? (Number(b.nonRefundableAmount)/1e6).toFixed(2) + ' USDC'    : '',
+        b.refundableEscrowAmount ? (Number(b.refundableEscrowAmount)/1e6).toFixed(2) + ' USDC' : '',
+        b.trancheAmount          ? (Number(b.trancheAmount)/1e6).toFixed(2) + ' USDC'          : '',
+        b.paymentDueDate         ? new Date(Number(b.paymentDueDate)*1000).toISOString()         : '',
+        b.paymentDeadline        ? new Date(Number(b.paymentDeadline)*1000).toISOString()        : '',
+        b.cancellationDeadline   ? new Date(Number(b.cancellationDeadline)*1000).toISOString()   : '',
+        b.travelStartDate        ? new Date(Number(b.travelStartDate)*1000).toISOString()        : '',
+        b.tranchePaid ? 'Yes' : 'No',
+        ts(b.createdAt),
+        ts(b.closedAt),
+        cTx,  cTx  ? `${ARCSCAN}/tx/${cTx}`  : '', ts(b.createdAt),
+        rqTx, rqTx ? `${ARCSCAN}/tx/${rqTx}` : '',
+        tpTx, tpTx ? `${ARCSCAN}/tx/${tpTx}` : '', ts(b.tranchePaidAt),
+        xTx,  xTx  ? `${ARCSCAN}/tx/${xTx}`  : '', (status === 2 || status === 3) ? ts(b.closedAt) : '',
+        rlTx, rlTx ? `${ARCSCAN}/tx/${rlTx}` : '', status === 4 ? ts(b.closedAt) : '',
+        'Arc Testnet (Chain ID: 5042002)',
+        'TESTNET ONLY. Testnet tokens have no real economic value.',
+      ]
+    })
     const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)

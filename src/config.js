@@ -37,7 +37,7 @@ export const PURPOSE_CODES = [
   { value: 'OTHER',     label: 'Other'           },
 ]
 
-export const ARCTRAVEL_ESCROW_ADDRESS = '0xF998338B10F819a11Fa625985E3a451B356549c8'
+export const ARCTRAVEL_ESCROW_ADDRESS = '0x894142646064CA2bBc8fE1e5E433E20a9DC2B024'
 
 export function isTravelContractConfigured() {
   return ARCTRAVEL_ESCROW_ADDRESS && !ARCTRAVEL_ESCROW_ADDRESS.startsWith('DEPLOY')

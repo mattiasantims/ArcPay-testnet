@@ -2,21 +2,19 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title ArcTravelEscrow v3
+ * @title ArcTravelEscrow v4
  * @notice Travel Agency Scheduled Booking Payments for ArcPay on Arc Testnet.
  *
  * This is NOT lending, NOT BNPL, NOT consumer credit.
  * ArcPay does not advance funds. Merchant receives funds only when customer pays.
  * No admin. No fees. No upgradeability. No ETH. USDC only.
  *
+ * v4 changes vs v3:
+ * - Added: closedBlock, trancheRequestedBlock, tranchePaidBlock to TravelBooking struct
+ *   for reliable on-chain TX hash recovery.
+ *
  * v3 changes vs v2:
  * - Added: description field to TravelBooking struct
- *
- * v2 changes vs v1:
- * - Added: cancellationDeadline must be > paymentDeadline
- * - Added: releaseAfterCancellationDeadline restricted to merchant only
- * - Added: travelRef cannot be empty
- * - Added: paymentDeadline must be < cancellationDeadline (explicit)
  */
 interface IArcTravelERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
@@ -65,6 +63,9 @@ contract ArcTravelEscrow {
         uint256      createdAt;
         uint256      closedAt;
         uint256      createdBlock;
+        uint256      closedBlock;             // NEW v4
+        uint256      trancheRequestedBlock;   // NEW v4
+        uint256      tranchePaidBlock;        // NEW v4
     }
 
     struct CreateBookingParams {
@@ -193,7 +194,6 @@ contract ArcTravelEscrow {
         require(bytes(p.travelRef).length > 0,                                     "Travel ref required");
         require(bytes(p.travelRef).length <= 64,                                   "Travel ref too long");
 
-        // Date ordering — full chain enforced on-chain
         require(p.paymentDueDate > block.timestamp,                                "Payment due date must be future");
         require(p.paymentDeadline > p.paymentDueDate,                             "Payment deadline must be after due date");
         require(p.cancellationDeadline > p.paymentDeadline,                       "Cancellation deadline must be after payment deadline");
@@ -264,7 +264,10 @@ contract ArcTravelEscrow {
             status:                 TravelStatus.Active,
             createdAt:              block.timestamp,
             closedAt:               0,
-            createdBlock:           block.number
+            createdBlock:           block.number,
+            closedBlock:            0,
+            trancheRequestedBlock:  0,
+            tranchePaidBlock:       0
         });
     }
 
@@ -277,7 +280,8 @@ contract ArcTravelEscrow {
         require(block.timestamp < t.paymentDeadline,  "Payment deadline passed");
         require(!t.trancheRequested,                  "Already requested");
 
-        t.trancheRequested = true;
+        t.trancheRequested      = true;
+        t.trancheRequestedBlock = block.number;
 
         emit TranchePaymentRequested(
             travelId, msg.sender, t.trancheAmount,
@@ -297,9 +301,10 @@ contract ArcTravelEscrow {
 
         require(usdc.transferFrom(msg.sender, t.merchant, t.trancheAmount), "Tranche transfer failed");
 
-        t.tranchePaid   = true;
-        t.tranchePaidAt = block.timestamp;
-        t.status        = TravelStatus.TranchePaid;
+        t.tranchePaid      = true;
+        t.tranchePaidAt    = block.timestamp;
+        t.tranchePaidBlock = block.number;
+        t.status           = TravelStatus.TranchePaid;
 
         emit TranchePaymentPaid(travelId, msg.sender, t.trancheAmount, block.timestamp);
     }
@@ -314,8 +319,9 @@ contract ArcTravelEscrow {
         );
         require(block.timestamp < t.cancellationDeadline, "Cancellation deadline passed");
 
-        t.status   = TravelStatus.CancelledBeforeDeadline;
-        t.closedAt = block.timestamp;
+        t.status      = TravelStatus.CancelledBeforeDeadline;
+        t.closedAt    = block.timestamp;
+        t.closedBlock = block.number;
 
         uint256 refund = t.refundableEscrowAmount;
         if (refund > 0) {
@@ -335,8 +341,9 @@ contract ArcTravelEscrow {
         require(!t.tranchePaid,                      "Tranche already paid");
         require(block.timestamp > t.paymentDeadline, "Payment deadline not passed");
 
-        t.status   = TravelStatus.CancelledForMissedPayment;
-        t.closedAt = block.timestamp;
+        t.status      = TravelStatus.CancelledForMissedPayment;
+        t.closedAt    = block.timestamp;
+        t.closedBlock = block.number;
 
         uint256 released = t.refundableEscrowAmount;
         if (released > 0) {
@@ -348,7 +355,6 @@ contract ArcTravelEscrow {
         );
     }
 
-    // v2: restricted to merchant only
     function releaseAfterCancellationDeadline(uint256 travelId) external {
         TravelBooking storage t = travelBookings[travelId];
         require(t.travelId != 0,                     "Travel booking does not exist");
@@ -359,8 +365,9 @@ contract ArcTravelEscrow {
         );
         require(block.timestamp >= t.cancellationDeadline, "Cancellation deadline not passed");
 
-        t.status   = TravelStatus.ReleasedToMerchant;
-        t.closedAt = block.timestamp;
+        t.status      = TravelStatus.ReleasedToMerchant;
+        t.closedAt    = block.timestamp;
+        t.closedBlock = block.number;
 
         uint256 released = t.refundableEscrowAmount;
         if (released > 0) {

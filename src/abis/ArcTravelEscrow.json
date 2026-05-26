@@ -266,6 +266,21 @@
             "internalType": "uint256",
             "name": "createdBlock",
             "type": "uint256"
+          },
+          {
+            "name": "closedBlock",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "trancheRequestedBlock",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "tranchePaidBlock",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ],
         "internalType": "struct ArcTravelEscrow.TravelBooking",

@@ -9,11 +9,12 @@ import {
   executeRequestTranche, executePayTranche,
   executeCancelBeforeDeadline, executeCancelForMissedPayment,
   executeReleaseAfterDeadline,
-  getCachedTravelTxHash,
+  getCachedTravelTxHash, fetchTravelTxHashes,
 } from '../utils/travel.js'
 import {
   buildTravelReceiptObject, downloadTravelReceiptPDF, downloadTravelReceiptJSON,
   buildTrancheReceiptObject, downloadTrancheReceiptPDF, downloadTrancheReceiptJSON,
+  downloadTravelCancelPDF, downloadTravelReleasePDF, downloadTrancheRequestPDF, downloadFullTravelPDF,
 } from '../utils/travelPdf.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, isTravelContractConfigured, APP_URL } from '../config.js'
@@ -24,7 +25,8 @@ export default function TravelDetailsPage() {
   const { address, isConnected } = useAccount()
   const { open }   = useWeb3Modal()
 
-  const [travel,   setTravel]   = useState(null)
+  const [travel,    setTravel]    = useState(null)
+  const [txHashes,  setTxHashes]  = useState({ createHash: null, cancelHash: null, releaseHash: null, trancheReqHash: null, tranchePaidHash: null })
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
   const [acting,   setActing]   = useState(null)
@@ -45,6 +47,9 @@ export default function TravelDetailsPage() {
     setLoading(true)
     try {
       const t = await fetchTravelBooking(id)
+      if (t) {
+        fetchTravelTxHashes(t).then(setTxHashes).catch(() => {})
+      }
       setTravel(t)
       if (!t) setError('Travel booking not found.')
     } catch { setError('Failed to load booking.') }
@@ -216,44 +221,119 @@ export default function TravelDetailsPage() {
         </div>
       )}
 
-      {/* Receipt downloads */}
-      {travel && (
-        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Receipts</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => {
-              const txHash = getCachedTravelTxHash(travel.travelId)
-              const receipt = buildTravelReceiptObject({ travel, txHash, travelId: travel.travelId, agencyName, description })
-              downloadTravelReceiptPDF(receipt)
-            }} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-              🖨️ Booking PDF
-            </button>
-            <button onClick={() => {
-              const txHash = getCachedTravelTxHash(travel.travelId)
-              const receipt = buildTravelReceiptObject({ travel, txHash, travelId: travel.travelId, agencyName, description })
-              downloadTravelReceiptJSON(receipt)
-            }} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-              📄 Booking JSON
-            </button>
-            {travel.tranchePaid && (
-              <>
-                <button onClick={() => {
-                  const receipt = buildTrancheReceiptObject({ travel, txHash: null, travelId: travel.travelId, agencyName })
-                  downloadTrancheReceiptPDF(receipt)
-                }} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-                  🖨️ Tranche PDF
-                </button>
-                <button onClick={() => {
-                  const receipt = buildTrancheReceiptObject({ travel, txHash: null, travelId: travel.travelId, agencyName })
-                  downloadTrancheReceiptJSON(receipt)
-                }} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
-                  📄 Tranche JSON
-                </button>
-              </>
-            )}
+      {/* Receipts & Events */}
+      {travel && (() => {
+        const { createHash, cancelHash, releaseHash, trancheReqHash, tranchePaidHash } = txHashes
+        const ARCSCAN = 'https://testnet.arcscan.app'
+        const ts = (unix) => unix && Number(unix) > 0 ? new Date(Number(unix) * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null
+        const fmt = raw => fromUsdc(raw).toFixed(2)
+        const receipt = buildTravelReceiptObject({ travel, txHash: createHash || getCachedTravelTxHash(travel.travelId), travelId: travel.travelId, agencyName, description })
+
+        const events = []
+        events.push({
+          label:     'Travel Booking Created',
+          txHash:    createHash || getCachedTravelTxHash(travel.travelId),
+          timestamp: ts(travel.createdAt),
+          detail:    `${fmt(travel.initialPaymentAmount)} USDC initial payment · ${travel.travelRef}`,
+          pdf:       () => downloadTravelReceiptPDF(receipt),
+        })
+        if (travel.trancheRequested) {
+          events.push({
+            label:     'Tranche Payment Requested',
+            txHash:    trancheReqHash,
+            timestamp: null,
+            detail:    `${fmt(travel.trancheAmount)} USDC tranche requested by merchant`,
+            pdf:       () => downloadTrancheRequestPDF(receipt, trancheReqHash),
+          })
+        }
+        if (travel.tranchePaid) {
+          const trancheReceipt = buildTrancheReceiptObject({ travel, txHash: tranchePaidHash, travelId: travel.travelId, agencyName })
+          events.push({
+            label:     'Tranche Payment Paid',
+            txHash:    tranchePaidHash,
+            timestamp: ts(travel.tranchePaidAt),
+            detail:    `${fmt(travel.trancheAmount)} USDC tranche paid`,
+            pdf:       () => downloadTrancheReceiptPDF(trancheReceipt),
+          })
+        }
+        if (travel.status === 2) {
+          events.push({
+            label:     'Travel Cancelled Before Deadline',
+            txHash:    cancelHash,
+            timestamp: ts(travel.closedAt),
+            detail:    `${fmt(travel.refundableEscrowAmount)} USDC refunded to customer`,
+            pdf:       () => downloadTravelCancelPDF(receipt, cancelHash, false),
+          })
+        }
+        if (travel.status === 3) {
+          events.push({
+            label:     'Travel Cancelled for Missed Payment',
+            txHash:    cancelHash,
+            timestamp: ts(travel.closedAt),
+            detail:    `${fmt(travel.refundableEscrowAmount)} USDC released to merchant`,
+            pdf:       () => downloadTravelCancelPDF(receipt, cancelHash, true),
+          })
+        }
+        if (travel.status === 4) {
+          events.push({
+            label:     'Escrow Released to Merchant',
+            txHash:    releaseHash,
+            timestamp: ts(travel.closedAt),
+            detail:    `${fmt(travel.refundableEscrowAmount)} USDC released to merchant`,
+            pdf:       () => downloadTravelReleasePDF(receipt, releaseHash),
+          })
+        }
+
+        return (
+          <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Receipts & Events
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              {events.map((ev, i) => (
+                <div key={i} style={{
+                  padding: '11px 0',
+                  borderBottom: i < events.length - 1 ? '1px solid var(--border)' : 'none',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                  gap: 8, flexWrap: 'wrap',
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{ev.label}</div>
+                    {ev.detail    && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{ev.detail}</div>}
+                    {ev.timestamp && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ev.timestamp}</div>}
+                    {ev.txHash    && (
+                      <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 3, wordBreak: 'break-all' }}>
+                        TX: {ev.txHash}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    {ev.pdf && (
+                      <button onClick={ev.pdf} className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>🖨️ PDF</button>
+                    )}
+                    {ev.txHash ? (
+                      <a href={`${ARCSCAN}/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                        <button className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>ArcScan ↗</button>
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: 10, color: 'var(--text3)', padding: '3px 0', fontStyle: 'italic' }}>recovering...</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => downloadFullTravelPDF(receipt, events)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                🖨️ Full PDF (all events)
+              </button>
+              <button onClick={() => downloadTravelReceiptJSON(receipt)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>📄 JSON</button>
+              <button onClick={() => navigator.clipboard.writeText(`${APP_URL}/travel/${travel.travelId}`)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                🔗 Copy link
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Details */}
       <div className="card" style={{ padding: 20, marginBottom: 16 }}>

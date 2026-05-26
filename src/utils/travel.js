@@ -156,6 +156,7 @@ export async function executeRequestTranche(account, travelId) {
     account,
   })
   await client().waitForTransactionReceipt({ hash })
+  cacheTravelTrancheReqTx(travelId, hash)
   return hash
 }
 
@@ -171,6 +172,7 @@ export async function executePayTranche(account, travelId, trancheAmount) {
     account,
   })
   await client().waitForTransactionReceipt({ hash })
+  cacheTravelTranchePaidTx(travelId, hash)
   return hash
 }
 
@@ -184,6 +186,7 @@ export async function executeCancelBeforeDeadline(account, travelId) {
     account,
   })
   await client().waitForTransactionReceipt({ hash })
+  cacheTravelCancelTx(travelId, hash)
   return hash
 }
 
@@ -197,6 +200,7 @@ export async function executeCancelForMissedPayment(account, travelId) {
     account,
   })
   await client().waitForTransactionReceipt({ hash })
+  cacheTravelCancelTx(travelId, hash)
   return hash
 }
 
@@ -210,6 +214,7 @@ export async function executeReleaseAfterDeadline(account, travelId) {
     account,
   })
   await client().waitForTransactionReceipt({ hash })
+  cacheTravelReleaseTx(travelId, hash)
   return hash
 }
 
@@ -241,6 +246,9 @@ function parseTravelBooking(t) {
     createdAt:             Number(t.createdAt),
     closedAt:              Number(t.closedAt),
     createdBlock:          Number(t.createdBlock),
+    closedBlock:           Number(t.closedBlock || 0),
+    trancheRequestedBlock: Number(t.trancheRequestedBlock || 0),
+    tranchePaidBlock:      Number(t.tranchePaidBlock || 0),
   }
 }
 
@@ -281,4 +289,80 @@ export function cacheTravelTxHash(travelId, hash) {
 
 export function getCachedTravelTxHash(travelId) {
   return localStorage.getItem(`arcpay_travel_tx_${travelId}`) || null
+}
+
+
+// ── TX hash recovery for travel events ────────────────────────────────────────
+// Cache for cancel/release/tranche TX hashes
+const _travelCancelCache         = new Map()
+const _travelReleaseCache        = new Map()
+const _travelTrancheReqCache     = new Map()
+const _travelTranchePaidCache    = new Map()
+
+export function cacheTravelCancelTx(travelId, hash)         { _travelCancelCache.set(String(travelId), hash) }
+export function cacheTravelReleaseTx(travelId, hash)        { _travelReleaseCache.set(String(travelId), hash) }
+export function cacheTravelTrancheReqTx(travelId, hash)     { _travelTrancheReqCache.set(String(travelId), hash) }
+export function cacheTravelTranchePaidTx(travelId, hash)    { _travelTranchePaidCache.set(String(travelId), hash) }
+export function getCachedTravelCancelTx(travelId)           { return _travelCancelCache.get(String(travelId)) || null }
+export function getCachedTravelReleaseTx(travelId)          { return _travelReleaseCache.get(String(travelId)) || null }
+export function getCachedTravelTrancheReqTx(travelId)       { return _travelTrancheReqCache.get(String(travelId)) || null }
+export function getCachedTravelTranchePaidTx(travelId)      { return _travelTranchePaidCache.get(String(travelId)) || null }
+
+// Scan a block for TX matching travelId in topics[1]
+async function _scanTravelBlock(blockNumber, travelIdBigInt) {
+  if (!blockNumber || blockNumber <= 0n) return null
+  try {
+    const pc    = client()
+    const block = await pc.getBlock({ blockNumber })
+    if (!block?.transactions?.length) return null
+    const idHex = '0x' + travelIdBigInt.toString(16).padStart(64, '0')
+    for (const txHash of block.transactions) {
+      try {
+        const receipt = await pc.getTransactionReceipt({ hash: txHash })
+        if (receipt?.to?.toLowerCase() !== ARCTRAVEL_ESCROW_ADDRESS.toLowerCase()) continue
+        for (const log of receipt.logs) {
+          if (log.address?.toLowerCase() === ARCTRAVEL_ESCROW_ADDRESS.toLowerCase()) {
+            if (log.topics?.[1] === idHex) return txHash
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  return null
+}
+
+export async function fetchTravelTxHashes(travel) {
+  if (!travel) return { createHash: null, cancelHash: null, releaseHash: null, trancheReqHash: null, tranchePaidHash: null }
+  const id            = BigInt(travel.travelId || 0)
+  const status        = Number(travel.status || 0)
+  const createdBlock  = travel.createdBlock         ? BigInt(travel.createdBlock)         : null
+  const closedBlock   = travel.closedBlock          ? BigInt(travel.closedBlock)          : null
+  const reqBlock      = travel.trancheRequestedBlock ? BigInt(travel.trancheRequestedBlock) : null
+  const paidBlock     = travel.tranchePaidBlock      ? BigInt(travel.tranchePaidBlock)      : null
+
+  // createHash: localStorage cache first, then scan createdBlock
+  const createHash = getCachedTravelTxHash(travel.travelId)
+    || (createdBlock ? await _scanTravelBlock(createdBlock, id) : null)
+
+  // trancheReqHash: only if requested
+  const trancheReqHash = travel.trancheRequested
+    ? (getCachedTravelTrancheReqTx(travel.travelId) || (reqBlock ? await _scanTravelBlock(reqBlock, id) : null))
+    : null
+
+  // tranchePaidHash: only if paid
+  const tranchePaidHash = travel.tranchePaid
+    ? (getCachedTravelTranchePaidTx(travel.travelId) || (paidBlock ? await _scanTravelBlock(paidBlock, id) : null))
+    : null
+
+  // cancelHash: only if cancelled (status 2 or 3)
+  const cancelHash = (status === 2 || status === 3)
+    ? (getCachedTravelCancelTx(travel.travelId) || (closedBlock ? await _scanTravelBlock(closedBlock, id) : null))
+    : null
+
+  // releaseHash: only if released (status 4)
+  const releaseHash = status === 4
+    ? (getCachedTravelReleaseTx(travel.travelId) || (closedBlock ? await _scanTravelBlock(closedBlock, id) : null))
+    : null
+
+  return { createHash, cancelHash, releaseHash, trancheReqHash, tranchePaidHash }
 }

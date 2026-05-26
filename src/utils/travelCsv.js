@@ -14,6 +14,8 @@ function fromUsdc(raw) {
 export function downloadTravelCSV(bookings, walletAddress) {
   if (!bookings || bookings.length === 0) return
 
+  const ARCSCAN = ARCSCAN_BASE
+
   const headers = [
     'timestamp',
     'status',
@@ -35,8 +37,12 @@ export function downloadTravelCSV(bookings, walletAddress) {
     'createdAt',
     'closedAt',
     'metadataHash',
-    'txHash',
-    'arcscanUrl',
+    // TX hashes per event
+    'createTxHash',          'createArcScan',          'createTimestamp',
+    'trancheRequestTxHash',  'trancheRequestArcScan',  'trancheRequestTimestamp',
+    'tranchePaidTxHash',     'tranchePaidArcScan',     'tranchePaidTimestamp',
+    'cancelTxHash',          'cancelArcScan',          'cancelTimestamp',
+    'releaseTxHash',         'releaseArcScan',         'releaseTimestamp',
     'travelUrl',
     'network',
     'contractAddress',
@@ -44,10 +50,21 @@ export function downloadTravelCSV(bookings, walletAddress) {
   ]
 
   const rows = bookings.map(b => {
-    const txHash = b.txHash || ''
+    const cTx  = b.createTxHash       || b.txHash || ''
+    const rqTx = b.trancheRequestTxHash || ''
+    const tpTx = b.tranchePaidTxHash    || ''
+    const xTx  = b.cancelTxHash         || ''
+    const rlTx = b.releaseTxHash        || ''
+    const status = Number(b.status || 0)
+
+    // Timestamps per event
+    const createTs   = formatTs(b.createdAt)
+    const tranchePaidTs = b.tranchePaid ? formatTs(b.tranchePaidAt) : ''
+    const closedTs   = formatTs(b.closedAt)
+
     return [
       formatTs(b.createdAt),
-      TRAVEL_STATUS_LABEL[b.status] ?? b.status ?? '',
+      TRAVEL_STATUS_LABEL[status] ?? '',
       b.customer    ?? '',
       b.merchant    ?? '',
       b.travelRef   ?? '',
@@ -66,8 +83,12 @@ export function downloadTravelCSV(bookings, walletAddress) {
       formatTs(b.createdAt),
       formatTs(b.closedAt),
       b.metadataHash ?? '',
-      txHash,
-      txHash ? `${ARCSCAN_BASE}/tx/${txHash}` : `${ARCSCAN_BASE}/address/${b.merchant}`,
+      // TX hashes + ArcScan + timestamps
+      cTx,  cTx  ? `${ARCSCAN}/tx/${cTx}`  : '', createTs,
+      rqTx, rqTx ? `${ARCSCAN}/tx/${rqTx}` : '', b.trancheRequested ? createTs : '',  // no exact ts for request
+      tpTx, tpTx ? `${ARCSCAN}/tx/${tpTx}` : '', tranchePaidTs,
+      xTx,  xTx  ? `${ARCSCAN}/tx/${xTx}`  : '', (status === 2 || status === 3) ? closedTs : '',
+      rlTx, rlTx ? `${ARCSCAN}/tx/${rlTx}` : '', status === 4 ? closedTs : '',
       `${APP_URL}/travel/${b.travelId}`,
       'Arc Testnet (Chain ID 5042002)',
       ARCTRAVEL_ESCROW_ADDRESS ?? '',
