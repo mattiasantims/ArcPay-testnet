@@ -26,6 +26,10 @@ import MerchantProfilePage   from './pages/MerchantProfilePage.jsx'
 import MyPaymentsPage        from './pages/MyPaymentsPage.jsx'
 import MyBookingsPage        from './pages/MyBookingsPage.jsx'
 import MyTravelPage          from './pages/MyTravelPage.jsx'
+import MerchantPayoutPage    from './pages/MerchantPayoutPage.jsx'
+import PayoutDashboardPage   from './pages/PayoutDashboardPage.jsx'
+import PayoutDetailsPage     from './pages/PayoutDetailsPage.jsx'
+import MyPayoutsPage         from './pages/MyPayoutsPage.jsx'
 import TravelAgencyPage      from './pages/TravelAgencyPage.jsx'
 import TravelCheckoutPage    from './pages/TravelCheckoutPage.jsx'
 import TravelDetailsPage     from './pages/TravelDetailsPage.jsx'
@@ -148,6 +152,10 @@ export default function App() {
           <Route path="/travel/pay"         element={<TravelCheckoutPage />} />
           <Route path="/travel/:id"         element={<TravelDetailsPage />} />
           <Route path="/travel-dashboard"      element={<TravelDashboardPage      {...shared} />} />
+          <Route path="/payouts"              element={<MerchantPayoutPage   {...shared} />} />
+          <Route path="/payout-dashboard"     element={<PayoutDashboardPage  {...shared} />} />
+          <Route path="/payout/:id"           element={<PayoutDetailsPage />} />
+          <Route path="/my-payouts"           element={<MyPayoutsPage />} />
           <Route path="/commitment-dashboard"  element={<CommitmentDashboardPage {...shared} />} />
           <Route path="/commitment/:id"         element={<CommitmentDetailsPage />} />
           <Route path="/my-commitments"         element={<MyCommitmentsPage />} />

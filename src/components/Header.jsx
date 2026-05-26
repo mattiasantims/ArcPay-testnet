@@ -106,22 +106,24 @@ export default function Header({ balance }) {
   const searchParams   = new URLSearchParams(location.search)
   const isMerchantMode = searchParams.get('mode') === 'merchant'
   const isLandingPage  = p === '/'
-  const customerRoutes = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/payment-success', '/customer']
+  const customerRoutes = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/my-payouts', '/payment-success', '/customer']
   const isCustomerRoute = (customerRoutes.some(r => p.startsWith(r)) && !isMerchantMode) || isLandingPage
 
-  const acceptActive  = ['/create', '/luxury', '/booking', '/travel'].some(r => p === r || p.startsWith(r + '/'))
-  const reportsActive = ['/dashboard', '/booking-dashboard', '/analytics', '/merchant-profile', '/travel-dashboard', '/my-payments', '/my-bookings', '/my-travel'].some(r => p.startsWith(r))
+  const acceptActive  = ['/create', '/luxury', '/booking', '/travel', '/payouts'].some(r => p === r || p.startsWith(r + '/'))
+  const reportsActive = ['/dashboard', '/booking-dashboard', '/analytics', '/merchant-profile', '/travel-dashboard', '/payout-dashboard', '/my-payments', '/my-bookings', '/my-travel', '/my-payouts'].some(r => p.startsWith(r))
 
   const acceptItems = [
     { path: '/create',  icon: '🔗', label: 'Online Payments',        active: p === '/create' },
     { path: '/luxury',  icon: '💎', label: 'Luxury Retail Checkout', active: p === '/luxury' },
     { path: '/booking', icon: '🏨', label: 'Hotel Booking Deposit',  active: p === '/booking' },
     { path: '/travel',  icon: '✈️', label: 'Travel Agency',          active: p === '/travel' },
+    { path: '/payouts', icon: '💸', label: 'Send USDC Payouts',      active: p === '/payouts' },
   ]
   const merchantReportsItems = [
     { path: '/dashboard',         icon: '📊', label: 'Payments Dashboard', active: p === '/dashboard' },
     { path: '/booking-dashboard', icon: '📋', label: 'Booking Dashboard',  active: p === '/booking-dashboard' },
     { path: '/travel-dashboard',  icon: '✈️', label: 'Travel Dashboard',   active: p === '/travel-dashboard' },
+    { path: '/payout-dashboard',  icon: '💸', label: 'Payouts Dashboard',  active: p === '/payout-dashboard' },
     'divider',
     { path: '/analytics',         icon: '📈', label: 'Analytics',          active: p === '/analytics' },
     { path: '/merchant-profile',  icon: '🏪', label: 'Merchant Profile',   active: p === '/merchant-profile' },
@@ -130,6 +132,7 @@ export default function Header({ balance }) {
     { path: '/my-payments', icon: '💳', label: 'My Payments', active: p === '/my-payments' },
     { path: '/my-bookings', icon: '🏨', label: 'My Bookings', active: p === '/my-bookings' },
     { path: '/my-travel',   icon: '✈️', label: 'My Travel',   active: p === '/my-travel' },
+    { path: '/my-payouts',  icon: '💸', label: 'My Payouts',  active: p === '/my-payouts' },
   ]
   const reportsItems = isCustomerRoute ? customerReportsItems : merchantReportsItems
 

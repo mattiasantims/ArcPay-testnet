@@ -57,3 +57,10 @@ export function isCommitmentContractConfigured() {
 export function isRefundContractConfigured() {
   return ARC_REFUND_ADDRESS && !ARC_REFUND_ADDRESS.startsWith('DEPLOY')
 }
+
+// Merchant Payouts (outbound USDC to suppliers/contractors/team)
+export const ARC_MERCHANT_PAYOUTS_ADDRESS = '0x70D9407b5C6fbE2b74C4E65221edCDBF4A74fA93'
+
+export function isMerchantPayoutsConfigured() {
+  return ARC_MERCHANT_PAYOUTS_ADDRESS && ARC_MERCHANT_PAYOUTS_ADDRESS !== 'TBD' && !ARC_MERCHANT_PAYOUTS_ADDRESS.startsWith('DEPLOY')
+}
