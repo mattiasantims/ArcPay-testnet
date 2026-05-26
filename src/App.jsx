@@ -51,7 +51,7 @@ export default function App() {
   const searchParams = new URLSearchParams(location.search)
   const isMerchantMode = searchParams.get('mode') === 'merchant'
   const customerPaths = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/payment-success']
-  const isCustomerPage = customerPaths.some(p => location.pathname.startsWith(p)) && !isMerchantMode
+  const isCustomerPage = customerPaths.some(p => location.pathname === p || location.pathname.startsWith(p + '/')) && !isMerchantMode
 
   // Load balance when wallet connects
   useEffect(() => {
