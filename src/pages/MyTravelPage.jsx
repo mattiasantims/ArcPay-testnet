@@ -62,15 +62,22 @@ export default function MyTravelPage() {
 
   function exportCSV() {
     if (!bookings.length) return
-    const ARCSCAN = 'https://testnet.arcscan.app'
+    const ARCSCAN  = 'https://testnet.arcscan.app'
+    const ARCBOOK  = '0x894142646064CA2bBc8fE1e5E433E20a9DC2B024'
+    const APP_URL  = 'https://arc-pay-testnet.vercel.app'
     const ts = unix => unix ? new Date(Number(unix)*1000).toISOString().replace('T',' ').slice(0,19)+' UTC' : ''
-    const headers = ['travelId','status','travelRef','agencyWallet','customerWallet','totalPackage','initialPayment','nonRefundable','refundableEscrow','trancheAmount','paymentDueDate','paymentDeadline','cancellationDeadline','travelStartDate','tranchePaid','createdAt','closedAt',
+    const headers = [
+      'timestamp','status','customerWallet','merchantWallet','travelRef','description',
+      'totalPackageAmount','initialPaymentAmount','nonRefundableAmount','refundableEscrowAmount','nonRefundablePct',
+      'trancheAmount','tranchePaid','travelStartDate','paymentDueDate','paymentDeadline','cancellationDeadline',
+      'createdAt','closedAt','metadataHash',
       'createTxHash','createArcScan','createTimestamp',
-      'trancheRequestTxHash','trancheRequestArcScan',
+      'trancheRequestTxHash','trancheRequestArcScan','trancheRequestTimestamp',
       'tranchePaidTxHash','tranchePaidArcScan','tranchePaidTimestamp',
       'cancelTxHash','cancelArcScan','cancelTimestamp',
       'releaseTxHash','releaseArcScan','releaseTimestamp',
-      'network','testnetDisclaimer']
+      'travelUrl','network','contractAddress','testnetDisclaimer',
+    ]
     const rows = bookings.map(b => {
       const status = Number(b.status)
       const cTx  = b.createTxHash         || ''
@@ -79,30 +86,35 @@ export default function MyTravelPage() {
       const xTx  = b.cancelTxHash         || ''
       const rlTx = b.releaseTxHash        || ''
       return [
-        b.travelId?.toString() ?? '',
+        ts(b.createdAt),
         ['Active','TranchePaid','Cancelled','Cancelled — Missed Payment','Released to Merchant'][status] ?? '',
-        b.travelRef ?? '',
-        b.merchant ?? '',
         b.customer ?? '',
+        b.merchant ?? '',
+        b.travelRef ?? '',
+        b.description ?? '',
         b.totalPackageAmount     ? (Number(b.totalPackageAmount)/1e6).toFixed(2) + ' USDC'     : '',
         b.initialPaymentAmount   ? (Number(b.initialPaymentAmount)/1e6).toFixed(2) + ' USDC'   : '',
         b.nonRefundableAmount    ? (Number(b.nonRefundableAmount)/1e6).toFixed(2) + ' USDC'    : '',
         b.refundableEscrowAmount ? (Number(b.refundableEscrowAmount)/1e6).toFixed(2) + ' USDC' : '',
+        b.nonRefundableBps       ? (Number(b.nonRefundableBps)/100).toFixed(2) + '%'           : '',
         b.trancheAmount          ? (Number(b.trancheAmount)/1e6).toFixed(2) + ' USDC'          : '',
-        b.paymentDueDate         ? new Date(Number(b.paymentDueDate)*1000).toISOString()         : '',
-        b.paymentDeadline        ? new Date(Number(b.paymentDeadline)*1000).toISOString()        : '',
-        b.cancellationDeadline   ? new Date(Number(b.cancellationDeadline)*1000).toISOString()   : '',
-        b.travelStartDate        ? new Date(Number(b.travelStartDate)*1000).toISOString()        : '',
         b.tranchePaid ? 'Yes' : 'No',
+        ts(b.travelStartDate),
+        ts(b.paymentDueDate),
+        ts(b.paymentDeadline),
+        ts(b.cancellationDeadline),
         ts(b.createdAt),
         ts(b.closedAt),
+        b.metadataHash ?? '',
         cTx,  cTx  ? `${ARCSCAN}/tx/${cTx}`  : '', ts(b.createdAt),
-        rqTx, rqTx ? `${ARCSCAN}/tx/${rqTx}` : '',
+        rqTx, rqTx ? `${ARCSCAN}/tx/${rqTx}` : '', b.trancheRequested ? ts(b.createdAt) : '',
         tpTx, tpTx ? `${ARCSCAN}/tx/${tpTx}` : '', ts(b.tranchePaidAt),
         xTx,  xTx  ? `${ARCSCAN}/tx/${xTx}`  : '', (status === 2 || status === 3) ? ts(b.closedAt) : '',
         rlTx, rlTx ? `${ARCSCAN}/tx/${rlTx}` : '', status === 4 ? ts(b.closedAt) : '',
-        'Arc Testnet (Chain ID: 5042002)',
-        'TESTNET ONLY. Testnet tokens have no real economic value.',
+        `${APP_URL}/travel/${b.travelId}`,
+        'Arc Testnet (Chain ID 5042002)',
+        ARCBOOK,
+        'TESTNET ONLY. Testnet tokens have no real economic value. Not a regulated payment service.',
       ]
     })
     const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
