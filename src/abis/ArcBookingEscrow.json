@@ -146,6 +146,11 @@
           {
             "name": "createdBlock",
             "type": "uint256"
+          },
+          {
+            "name": "closedBlock",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }

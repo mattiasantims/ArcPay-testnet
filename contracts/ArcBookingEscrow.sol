@@ -2,14 +2,11 @@
 pragma solidity ^0.8.20;
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  ArcBookingEscrow.sol  v2
-//  ERC-8183-inspired booking deposit escrow on Arc Network.
-//  v2: adds `description` field to Booking struct.
+//  ArcBookingEscrow.sol  v3
+//  Adds `closedBlock` to Booking struct for reliable TX hash recovery.
 //
 //  TESTNET ONLY — Arc Testnet (Chain ID: 5042002)
 //  USDC ERC20:  0x3600000000000000000000000000000000000000
-//
-//  NOT audited. NOT for production use. NOT a regulated escrow service.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface IERC20 {
@@ -43,6 +40,7 @@ contract ArcBookingEscrow {
         uint256 createdAt;
         uint256 closedAt;
         uint256 createdBlock;
+        uint256 closedBlock;   // NEW v3: block number of cancel/release
     }
 
     uint256 public bookingCounter;
@@ -124,14 +122,12 @@ contract ArcBookingEscrow {
             bool ok1 = IERC20(USDC).transferFrom(msg.sender, merchant, nonRefundableAmount);
             require(ok1, "ArcBookingEscrow: non-refundable transfer failed");
         }
-
         if (refundableAmount > 0) {
             bool ok2 = IERC20(USDC).transferFrom(msg.sender, address(this), refundableAmount);
             require(ok2, "ArcBookingEscrow: escrow transfer failed");
         }
 
         bookingId = ++bookingCounter;
-
         bookings[bookingId] = Booking({
             bookingId:            bookingId,
             guest:                msg.sender,
@@ -148,7 +144,8 @@ contract ArcBookingEscrow {
             status:               BookingStatus.Active,
             createdAt:            block.timestamp,
             closedAt:             0,
-            createdBlock:         block.number
+            createdBlock:         block.number,
+            closedBlock:          0
         });
 
         guestBookings[msg.sender].push(bookingId);
@@ -160,7 +157,6 @@ contract ArcBookingEscrow {
             cancellationDeadline, checkInDate, bookingRef, description, metadataHash,
             block.timestamp
         );
-
         return bookingId;
     }
 
@@ -171,14 +167,14 @@ contract ArcBookingEscrow {
         require(block.timestamp < b.cancellationDeadline,           "ArcBookingEscrow: cancellation deadline passed");
         require(msg.sender == b.guest || msg.sender == b.merchant,  "ArcBookingEscrow: not guest or merchant");
 
-        b.status   = BookingStatus.CancelledBeforeDeadline;
-        b.closedAt = block.timestamp;
+        b.status      = BookingStatus.CancelledBeforeDeadline;
+        b.closedAt    = block.timestamp;
+        b.closedBlock = block.number;
 
         if (b.refundableAmount > 0) {
             bool ok = IERC20(USDC).transfer(b.guest, b.refundableAmount);
             require(ok, "ArcBookingEscrow: refund transfer failed");
         }
-
         emit BookingCancelledBeforeDeadline(
             bookingId, msg.sender, b.guest, b.refundableAmount, block.timestamp
         );
@@ -191,14 +187,14 @@ contract ArcBookingEscrow {
         require(block.timestamp >= b.cancellationDeadline,  "ArcBookingEscrow: deadline not reached yet");
         require(msg.sender == b.merchant,                   "ArcBookingEscrow: only merchant can release");
 
-        b.status   = BookingStatus.ReleasedToMerchant;
-        b.closedAt = block.timestamp;
+        b.status      = BookingStatus.ReleasedToMerchant;
+        b.closedAt    = block.timestamp;
+        b.closedBlock = block.number;
 
         if (b.refundableAmount > 0) {
             bool ok = IERC20(USDC).transfer(b.merchant, b.refundableAmount);
             require(ok, "ArcBookingEscrow: release transfer failed");
         }
-
         emit BookingReleasedToMerchant(
             bookingId, b.merchant, b.refundableAmount, block.timestamp
         );
@@ -208,19 +204,15 @@ contract ArcBookingEscrow {
         require(bookingExists(bookingId), "ArcBookingEscrow: booking not found");
         return bookings[bookingId];
     }
-
     function getGuestBookings(address guest) external view returns (uint256[] memory) {
         return guestBookings[guest];
     }
-
     function getMerchantBookings(address merchant) external view returns (uint256[] memory) {
         return merchantBookings[merchant];
     }
-
     function bookingExists(uint256 bookingId) public view returns (bool) {
         return bookingId > 0 && bookingId <= bookingCounter;
     }
-
     function totalBookings() external view returns (uint256) {
         return bookingCounter;
     }

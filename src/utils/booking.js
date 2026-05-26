@@ -287,9 +287,9 @@ export async function fetchBookingTxHashes(booking) {
   if (status === 1 && !cancelHash && closedAt) {
     const est = await estimateBlock(closedAt)
     if (est) {
-      // Try estimated block and ±3 around it
-      for (let delta = 0n; delta <= 3n && !cancelHash; delta++) {
-        cancelHash = await scanBlock(est + delta, 1) || await scanBlock(est - delta > 0n ? est - delta : 1n, 1)
+      for (let delta = 0n; delta <= 10n && !cancelHash; delta++) {
+        cancelHash = await scanBlock(est - delta > 0n ? est - delta : 1n, 1)
+        if (!cancelHash) cancelHash = await scanBlock(est + delta, 1)
       }
     }
   }
@@ -297,8 +297,9 @@ export async function fetchBookingTxHashes(booking) {
   if (status === 2 && !releaseHash && closedAt) {
     const est = await estimateBlock(closedAt)
     if (est) {
-      for (let delta = 0n; delta <= 3n && !releaseHash; delta++) {
-        releaseHash = await scanBlock(est + delta, 1) || await scanBlock(est - delta > 0n ? est - delta : 1n, 1)
+      for (let delta = 0n; delta <= 10n && !releaseHash; delta++) {
+        releaseHash = await scanBlock(est - delta > 0n ? est - delta : 1n, 1)
+        if (!releaseHash) releaseHash = await scanBlock(est + delta, 1)
       }
     }
   }
