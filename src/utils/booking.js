@@ -235,74 +235,46 @@ async function _findBookingEventTxHash(eventName, bookingIdBigInt, timestamp, cr
 
 export async function fetchBookingTxHashes(booking) {
   if (!booking) return { createHash: null, cancelHash: null, releaseHash: null }
-  const id        = BigInt(booking.bookingId || booking.id || 0)
-  const createdAt = Number(booking.createdAt || 0)
-  const closedAt  = Number(booking.closedAt  || 0)
-  const status    = Number(booking.status    || 0)
+  const id          = BigInt(booking.bookingId || booking.id || 0)
+  const status      = Number(booking.status || 0)
+  const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
+  const closedBlock  = booking.closedBlock  ? BigInt(booking.closedBlock)  : null
 
-  // Scan a block for a TX to our contract matching bookingId in topics
-  async function scanBlock(blockNumber, topicIndex) {
+  const idHex = '0x' + id.toString(16).padStart(64, '0')
+
+  // Scan a block: get block (tx hashes only), then getTransactionReceipt for each tx
+  async function scanBlock(blockNumber) {
+    if (!blockNumber || blockNumber <= 0n) return null
     try {
       const pc    = getPublicClient()
-      const block = await pc.getBlock({ blockNumber, includeTransactions: true })
-      const idHex = '0x' + id.toString(16).padStart(64, '0')
-      for (const tx of (block?.transactions || [])) {
-        if (tx.to?.toLowerCase() === ARCBOOKING_ADDRESS.toLowerCase()) {
-          try {
-            const receipt = await pc.getTransactionReceipt({ hash: tx.hash })
-            for (const log of receipt.logs) {
-              if (log.address?.toLowerCase() === ARCBOOKING_ADDRESS.toLowerCase()) {
-                if (log.topics?.[topicIndex] === idHex) return tx.hash
-              }
+      // Get block with tx hashes only (includeTransactions: false = default)
+      const block = await pc.getBlock({ blockNumber })
+      if (!block?.transactions?.length) return null
+      for (const txHash of block.transactions) {
+        try {
+          const receipt = await pc.getTransactionReceipt({ hash: txHash })
+          if (receipt?.to?.toLowerCase() !== ARCBOOKING_ADDRESS.toLowerCase()) continue
+          for (const log of receipt.logs) {
+            if (log.address?.toLowerCase() === ARCBOOKING_ADDRESS.toLowerCase()) {
+              if (log.topics?.[1] === idHex) return txHash
             }
-          } catch {}
-        }
+          }
+        } catch {}
       }
     } catch {}
     return null
   }
 
-  // Estimate block from timestamp
-  async function estimateBlock(ts) {
-    try {
-      const pc     = getPublicClient()
-      const latest = await pc.getBlock({ blockTag: 'latest' })
-      const diff   = BigInt(Number(latest.timestamp) - ts)
-      const est    = latest.number - diff * 2n
-      return est > 0n ? est : 1n
-    } catch { return null }
-  }
+  const createHash  = getCachedBookingTxHash(id.toString())
+    || (createdBlock ? await scanBlock(createdBlock) : null)
 
-  // For BookingCreated: use exact createdBlock
-  const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
-  let createHash = getCachedBookingTxHash(id.toString())
-  if (!createHash && createdBlock && createdBlock > 0n) {
-    createHash = await scanBlock(createdBlock, 1)
-  }
+  const cancelHash  = status === 1
+    ? (getCachedCancelBookingTxHash(id.toString()) || (closedBlock ? await scanBlock(closedBlock) : null))
+    : null
 
-  // For cancel/release: estimate block from closedAt, scan that block
-  let cancelHash = getCachedCancelBookingTxHash(id.toString())
-  let releaseHash = getCachedReleaseBookingTxHash(id.toString())
-
-  if (status === 1 && !cancelHash && closedAt) {
-    const est = await estimateBlock(closedAt)
-    if (est) {
-      for (let delta = 0n; delta <= 10n && !cancelHash; delta++) {
-        cancelHash = await scanBlock(est - delta > 0n ? est - delta : 1n, 1)
-        if (!cancelHash) cancelHash = await scanBlock(est + delta, 1)
-      }
-    }
-  }
-
-  if (status === 2 && !releaseHash && closedAt) {
-    const est = await estimateBlock(closedAt)
-    if (est) {
-      for (let delta = 0n; delta <= 10n && !releaseHash; delta++) {
-        releaseHash = await scanBlock(est - delta > 0n ? est - delta : 1n, 1)
-        if (!releaseHash) releaseHash = await scanBlock(est + delta, 1)
-      }
-    }
-  }
+  const releaseHash = status === 2
+    ? (getCachedReleaseBookingTxHash(id.toString()) || (closedBlock ? await scanBlock(closedBlock) : null))
+    : null
 
   return { createHash, cancelHash, releaseHash }
 }
