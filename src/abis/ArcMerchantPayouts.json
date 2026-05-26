@@ -1,0 +1,626 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "usdcToken",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "MAX_BATCH_SIZE",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "usdc",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "counterpartyCounter",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "payoutCounter",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalPayouts",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalCounterparties",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "createCounterparty",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address"
+      },
+      {
+        "name": "aliasName",
+        "type": "string"
+      },
+      {
+        "name": "category",
+        "type": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "counterpartyId",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "updateCounterparty",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "counterpartyId",
+        "type": "uint256"
+      },
+      {
+        "name": "wallet",
+        "type": "address"
+      },
+      {
+        "name": "aliasName",
+        "type": "string"
+      },
+      {
+        "name": "category",
+        "type": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "deactivateCounterparty",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "counterpartyId",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "getCounterparty",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "counterpartyId",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "merchant",
+            "type": "address"
+          },
+          {
+            "name": "wallet",
+            "type": "address"
+          },
+          {
+            "name": "aliasName",
+            "type": "string"
+          },
+          {
+            "name": "category",
+            "type": "string"
+          },
+          {
+            "name": "metadataHash",
+            "type": "bytes32"
+          },
+          {
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint256"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint256"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getMerchantCounterparties",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "merchant",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "createPayout",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "name": "paymentRef",
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "name": "purposeCode",
+        "type": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "counterpartyId",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "payoutId",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "createBatchPayout",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "recipients",
+        "type": "address[]"
+      },
+      {
+        "name": "amounts",
+        "type": "uint256[]"
+      },
+      {
+        "name": "batchRef",
+        "type": "string"
+      },
+      {
+        "name": "paymentRefs",
+        "type": "string[]"
+      },
+      {
+        "name": "descriptions",
+        "type": "string[]"
+      },
+      {
+        "name": "purposeCode",
+        "type": "string"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "counterpartyIds",
+        "type": "uint256[]"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "getPayout",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "payoutId",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "merchant",
+            "type": "address"
+          },
+          {
+            "name": "recipient",
+            "type": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "name": "paymentRef",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "purposeCode",
+            "type": "string"
+          },
+          {
+            "name": "metadataHash",
+            "type": "bytes32"
+          },
+          {
+            "name": "counterpartyId",
+            "type": "uint256"
+          },
+          {
+            "name": "batchRefHash",
+            "type": "bytes32"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint256"
+          },
+          {
+            "name": "createdBlock",
+            "type": "uint256"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getMerchantPayouts",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "merchant",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getRecipientPayouts",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getBatchPayouts",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "name": "batchRefHash",
+        "type": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "CounterpartyCreated",
+    "anonymous": false,
+    "inputs": [
+      {
+        "name": "counterpartyId",
+        "type": "uint256",
+        "indexed": true
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "wallet",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "aliasName",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "category",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "CounterpartyUpdated",
+    "anonymous": false,
+    "inputs": [
+      {
+        "name": "counterpartyId",
+        "type": "uint256",
+        "indexed": true
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "wallet",
+        "type": "address",
+        "indexed": false
+      },
+      {
+        "name": "aliasName",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "category",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "indexed": false
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "CounterpartyDeactivated",
+    "anonymous": false,
+    "inputs": [
+      {
+        "name": "counterpartyId",
+        "type": "uint256",
+        "indexed": true
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "PayoutExecuted",
+    "anonymous": false,
+    "inputs": [
+      {
+        "name": "payoutId",
+        "type": "uint256",
+        "indexed": true
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "paymentRef",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "purposeCode",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "counterpartyId",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "batchRefHash",
+        "type": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "BatchPayoutCreated",
+    "anonymous": false,
+    "inputs": [
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "batchRefHash",
+        "type": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "batchRef",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "itemCount",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false
+      }
+    ]
+  }
+]
