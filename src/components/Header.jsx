@@ -184,7 +184,7 @@ export default function Header({ balance }) {
                 background: p === '/' ? 'var(--surface2)' : 'transparent',
                 border: p === '/' ? '1px solid var(--border)' : '1px solid transparent',
               }}>Home</Link>
-              {!isCustomerRoute && <Dropdown label="Accept USDC" items={acceptItems} isActive={acceptActive} />}
+              {!isCustomerRoute && <Dropdown label="Move USDC" items={acceptItems} isActive={acceptActive} />}
               <Dropdown label="Reports" items={reportsItems} isActive={reportsActive} />
             </nav>
           )}
