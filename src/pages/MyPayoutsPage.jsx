@@ -7,7 +7,8 @@ import {
   fmtUsdc, formatTs, PAYOUT_PURPOSE_CODES,
 } from '../utils/payout.js'
 import { downloadPayoutCSV } from '../utils/payoutCsv.js'
-import { isMerchantPayoutsConfigured, ARCSCAN_BASE } from '../config.js'
+import { isMerchantPayoutsConfigured, isMerchantRegistryConfigured, ARCSCAN_BASE } from '../config.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 
 const PURPOSE_LABEL = Object.fromEntries(PAYOUT_PURPOSE_CODES.map(p => [p.value, p.label]))
 
@@ -25,9 +26,26 @@ export default function MyPayoutsPage() {
     setLoading(true); setTxHashesReady(false)
     fetchRecipientPayouts(address).then(async list => {
       setPayouts(list)
+      // Build merchant profile lookup
+      const merchantProfileCache = {}
+      const uniqueMerchants = [...new Set(list.map(p => (p.merchant || '').toLowerCase()).filter(Boolean))]
+      if (isMerchantRegistryConfigured()) {
+        await Promise.all(uniqueMerchants.map(async mw => {
+          try {
+            const m = await getMerchantByWallet(mw)
+            if (m && m.tradingName) merchantProfileCache[mw] = m
+          } catch {}
+        }))
+      }
       const enriched = await Promise.all(list.map(async p => {
         const txHash = await fetchPayoutTxHash(p).catch(() => null)
-        return { ...p, txHash }
+        const mp = merchantProfileCache[(p.merchant || '').toLowerCase()]
+        return {
+          ...p, txHash,
+          merchantName:      mp?.tradingName || '',
+          merchantLegalName: mp?.legalName   || '',
+          merchantCountry:   mp?.country     || '',
+        }
       }))
       setPayouts(enriched)
       setTxHashesReady(true)
@@ -103,7 +121,7 @@ export default function MyPayoutsPage() {
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{p.description}</div>
                 <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>
-                  ← {p.merchant} · {PURPOSE_LABEL[p.purposeCode] || p.purposeCode} · {formatTs(p.createdAt)}
+                  ← {p.merchantName ? `${p.merchantName} · ` : ''}{p.merchant} · {PURPOSE_LABEL[p.purposeCode] || p.purposeCode} · {formatTs(p.createdAt)}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>

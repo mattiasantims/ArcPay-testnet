@@ -8,7 +8,8 @@ import {
   PAYOUT_PURPOSE_CODES,
 } from '../utils/payout.js'
 import { isValidAddress } from '../utils/wallet.js'
-import { isMerchantPayoutsConfigured, ARCSCAN_BASE } from '../config.js'
+import { isMerchantPayoutsConfigured, isMerchantRegistryConfigured, ARCSCAN_BASE } from '../config.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 import { downloadPayoutCSV } from '../utils/payoutCsv.js'
 
 const PURPOSE_LABEL = Object.fromEntries(PAYOUT_PURPOSE_CODES.map(p => [p.value, p.label]))
@@ -53,10 +54,29 @@ export default function PayoutDashboardPage() {
       }
       setCpMap(cpLookup)
 
-      // Enrich with TX hashes
+      // Build unique merchant profile lookup
+      const merchantProfileCache = {}
+      const uniqueMerchants = [...new Set(list.map(p => (p.merchant || '').toLowerCase()).filter(Boolean))]
+      if (isMerchantRegistryConfigured()) {
+        await Promise.all(uniqueMerchants.map(async mw => {
+          try {
+            const m = await getMerchantByWallet(mw)
+            if (m && m.tradingName) merchantProfileCache[mw] = m
+          } catch {}
+        }))
+      }
+      // Enrich with TX hashes + merchant profile
       const enriched = await Promise.all(list.map(async p => {
         const txHash = await fetchPayoutTxHash(p).catch(() => null)
-        return { ...p, txHash, counterpartyAlias: cpLookup[p.counterpartyId?.toString()]?.aliasName || '', counterpartyCategory: cpLookup[p.counterpartyId?.toString()]?.category || '' }
+        const mp = merchantProfileCache[(p.merchant || '').toLowerCase()]
+        return {
+          ...p, txHash,
+          counterpartyAlias:    cpLookup[p.counterpartyId?.toString()]?.aliasName || '',
+          counterpartyCategory: cpLookup[p.counterpartyId?.toString()]?.category  || '',
+          merchantName:         mp?.tradingName     || '',
+          merchantLegalName:    mp?.legalName       || '',
+          merchantCountry:      mp?.country         || '',
+        }
       }))
       setPayouts(enriched)
       setTxHashesReady(true)

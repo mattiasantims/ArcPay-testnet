@@ -2,12 +2,18 @@
 import { fromUsdc } from './payout.js'
 import { ARCSCAN_BASE, APP_URL } from '../config.js'
 
-export function buildPayoutReceiptObject(payout, txHash, counterpartyAlias = '', counterpartyCategory = '') {
+export function buildPayoutReceiptObject(payout, txHash, counterpartyAlias = '', counterpartyCategory = '', merchantProfile = null) {
   return {
     arcpay_version:    'v0.1-testnet',
     type:              'Payout Receipt',
     payout_id:         payout.id?.toString() ?? '',
     merchant_wallet:   payout.merchant,
+    merchant_name:        merchantProfile?.tradingName     || '',
+    merchant_legal_name:  merchantProfile?.legalName       || '',
+    merchant_country:     merchantProfile?.country         || '',
+    merchant_address:     merchantProfile?.businessAddress || '',
+    merchant_vat:         merchantProfile?.vatOrCompanyId  || '',
+    merchant_lei:         merchantProfile?.lei             || '',
     recipient_wallet:  payout.recipient,
     counterparty_alias:    counterpartyAlias,
     counterparty_category: counterpartyCategory,
@@ -70,8 +76,14 @@ export function downloadPayoutReceiptPDF(receipt) {
     addField('Counterparty Category', receipt.counterparty_category)
   }
   addDivider()
-  addField('Merchant',          receipt.merchant_wallet)
-  addField('Recipient',         receipt.recipient_wallet)
+  if (receipt.merchant_name)       addField('Merchant',        receipt.merchant_name)
+  if (receipt.merchant_legal_name) addField('Legal name',      receipt.merchant_legal_name)
+  if (receipt.merchant_country)    addField('Country',         receipt.merchant_country)
+  if (receipt.merchant_address)    addField('Address',         receipt.merchant_address)
+  if (receipt.merchant_vat)        addField('VAT/Company ID',  receipt.merchant_vat)
+  if (receipt.merchant_lei)        addField('LEI',             receipt.merchant_lei)
+  addField('Merchant wallet',     receipt.merchant_wallet)
+  addField('Recipient wallet',    receipt.recipient_wallet)
   addField('Amount',            `${receipt.amount} USDC`)
   addDivider()
   addField('Network',           receipt.network)

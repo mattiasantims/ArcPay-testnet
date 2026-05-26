@@ -15,10 +15,12 @@ import {
 } from '../utils/analytics.js'
 import { fetchMerchantCommitmentIds, fetchCommitment } from '../utils/commitment.js'
 import { fetchMerchantRefundIds, fetchRefundRequest } from '../utils/refund.js'
+import { fetchMerchantPayouts } from '../utils/payout.js'
+import { isMerchantPayoutsConfigured } from '../config.js'
 import { isRefundContractConfigured, isCommitmentContractConfigured } from '../config.js'
 import { Link } from 'react-router-dom'
 
-const TABS = ['Overview', 'Luxury Retail', 'Online Payments', 'Hotel Booking', 'Travel Agency', 'Ask ArcPay AI', 'Coming Soon']
+const TABS = ['Overview', 'Luxury Retail', 'Online Payments', 'Hotel Booking', 'Travel Agency', 'Payouts', 'Ask ArcPay AI', 'Coming Soon']
 const TIME_FILTERS = Object.keys(TIME_FILTER_LABELS)
 const COLORS = ['#2775ca', '#a78bfa', '#22d47e', '#f0c040', '#f04f4f', '#60a5fa']
 
@@ -224,10 +226,12 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
   const [rawTravelBookings, setRawTravelBookings] = useState([])
   const [rawCommitments,    setRawCommitments]    = useState([])
   const [rawRefunds,        setRawRefunds]        = useState([])
+  const [rawPayouts,        setRawPayouts]        = useState([])
   const [metrics,           setMetrics]           = useState(null)
 
-  const bookingConfigured = isBookingContractConfigured()
-  const travelConfigured = isTravelContractConfigured()
+  const bookingConfigured  = isBookingContractConfigured()
+  const travelConfigured   = isTravelContractConfigured()
+  const payoutsConfigured  = isMerchantPayoutsConfigured()
 
   useEffect(() => {
     if (account && !addr) { setAddr(account); setAddrInput(account) }
@@ -238,8 +242,8 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
   useEffect(() => {
     // Always compute metrics, including the empty-data state.
     // This keeps /analytics usable for a new merchant wallet with no payments yet.
-    setMetrics(computeAnalytics({ receipts: rawReceipts, bookings: rawBookings, travelBookings: rawTravelBookings, commitments: rawCommitments, refunds: rawRefunds, timeFilter }))
-  }, [rawReceipts, rawBookings, rawTravelBookings, timeFilter])
+    setMetrics(computeAnalytics({ receipts: rawReceipts, bookings: rawBookings, travelBookings: rawTravelBookings, commitments: rawCommitments, refunds: rawRefunds, payouts: rawPayouts, timeFilter }))
+  }, [rawReceipts, rawBookings, rawTravelBookings, rawPayouts, timeFilter])
 
   const loadData = useCallback(async (a) => {
     if (!isValidAddress(a)) { setError('Invalid wallet address'); return }
@@ -307,11 +311,19 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
         } catch {}
       }
 
+      // Load merchant payouts (outbound USDC)
+      if (payoutsConfigured) {
+        try {
+          const pList = await fetchMerchantPayouts(a)
+          setRawPayouts(pList)
+        } catch {}
+      }
+
       setLastUpdated(new Date())
     } catch (e) {
       setError('Failed to load data. Check your wallet is on Arc Testnet.')
     } finally { setLoading(false) }
-  }, [bookingConfigured, travelConfigured])
+  }, [bookingConfigured, travelConfigured, payoutsConfigured])
 
   const m = metrics
 
@@ -327,7 +339,7 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
           ArcPay Analytics
         </h1>
         <p style={{ color: 'var(--text2)', fontSize: 14 }}>
-          USDC payment analytics across Luxury Retail, Online Payments and Hotel Booking Deposits.
+          USDC payment analytics across Luxury Retail, Online Payments, Hotel Booking Deposits, Travel Agency and Merchant Payouts.
         </p>
       </div>
 
@@ -911,7 +923,77 @@ export default function AnalyticsPage({ account, onConnect, connecting }) {
             </div>
           )}
 
-          {/* ── ASK AI TAB ── */}
+          {/* ── PAYOUTS TAB ── */}
+          {tab === 'Payouts' && (
+            <div>
+              {!payoutsConfigured && (
+                <div className="card" style={{ padding: 18, marginBottom: 16, borderColor: 'var(--yellow)' }}>
+                  <div style={{ color: 'var(--yellow)', fontWeight: 600, marginBottom: 6 }}>Merchant Payouts contract not configured</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>Deploy ArcMerchantPayouts.sol and update ARC_MERCHANT_PAYOUTS_ADDRESS in src/config.js to activate outbound payout analytics.</div>
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
+                <MetricCard label="Total Sent"      value={`${parseFloat(m.payoutsVolume).toFixed(2)} USDC`} color="var(--usdc)" />
+                <MetricCard label="Total Payouts"   value={m.payoutsCount} />
+                <MetricCard label="Avg Payout"      value={`${parseFloat(m.payoutsAvg).toFixed(2)} USDC`} />
+                <MetricCard label="Unique Recipients" value={m.payoutsRecipients} color="var(--green)" />
+                <MetricCard label="Single Payouts"  value={m.payoutsSingleItems} />
+                <MetricCard label="Batch Items"     value={m.payoutsBatchItems} color="#a78bfa" />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+                <ChartCard title="Payout volume over time" height={200}>
+                  {!m.payoutsTimeSeries.length ? <EmptyState /> : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={m.payoutsTimeSeries}>
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#454f68' }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: '#454f68' }} tickLine={false} axisLine={false} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Area type="monotone" dataKey="volume" name="USDC" stroke="#a78bfa" fill="#a78bfa22" strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </ChartCard>
+                <ChartCard title="Payouts by purpose" height={200}>
+                  {!Object.keys(m.payoutsByPurpose).length ? <EmptyState /> : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={Object.entries(m.payoutsByPurpose).map(([name, value]) => ({ name, value }))}
+                          cx="50%" cy="50%" outerRadius={75} dataKey="value" label={({ name, value }) => `${name}: ${parseFloat(value).toFixed(2)}`} labelLine={false}>
+                          {Object.keys(m.payoutsByPurpose).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </ChartCard>
+              </div>
+
+              <div className="card" style={{ padding: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Recent payouts</div>
+                {!m.enrichedPayouts.length ? (
+                  <div style={{ color: 'var(--text3)', fontSize: 13, textAlign: 'center', padding: 24 }}>No payouts in this period.</div>
+                ) : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <div>Payment Ref</div><div>Recipient</div><div>Purpose</div><div>Amount</div><div>Links</div>
+                    </div>
+                    {m.enrichedPayouts.slice(0, 30).map(p => (
+                      <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 12, alignItems: 'center' }}>
+                        <div style={{ color: 'var(--text2)', fontSize: 11, fontWeight: 600 }}>{p.payout.paymentRef}</div>
+                        <div style={{ fontFamily: 'var(--mono)', color: 'var(--text2)', fontSize: 10 }}>{shortAddress(p.payout.recipient)}</div>
+                        <div style={{ color: 'var(--text2)', fontSize: 11 }}>{p.payout.purposeCode}</div>
+                        <div style={{ color: 'var(--usdc)', fontWeight: 600 }}>{p.amount.toFixed(2)} USDC</div>
+                        <div><Link to={`/payout/${p.id}`} style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'none' }}>View</Link></div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+                    {/* ── ASK AI TAB ── */}
           {tab === 'Ask ArcPay AI' && (
             <AiPanel metrics={m} timeFilter={timeFilter} />
           )}

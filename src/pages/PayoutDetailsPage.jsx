@@ -6,7 +6,8 @@ import {
   fmtUsdc, formatTs, PAYOUT_PURPOSE_CODES, payoutPageUrl, arcScanTxUrl,
 } from '../utils/payout.js'
 import { buildPayoutReceiptObject, downloadPayoutReceiptPDF, downloadPayoutReceiptJSON } from '../utils/payoutPdf.js'
-import { isMerchantPayoutsConfigured, ARCSCAN_BASE, APP_URL } from '../config.js'
+import { isMerchantPayoutsConfigured, isMerchantRegistryConfigured, ARCSCAN_BASE, APP_URL } from '../config.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 
 const PURPOSE_LABEL = Object.fromEntries(PAYOUT_PURPOSE_CODES.map(p => [p.value, p.label]))
 
@@ -15,8 +16,9 @@ export default function PayoutDetailsPage() {
   const { address } = useAccount()
   const configured = isMerchantPayoutsConfigured()
 
-  const [payout,        setPayout]        = useState(null)
-  const [counterparty,  setCounterparty]  = useState(null)
+  const [payout,          setPayout]          = useState(null)
+  const [counterparty,    setCounterparty]    = useState(null)
+  const [merchantProfile, setMerchantProfile] = useState(null)
   const [txHash,        setTxHash]        = useState(null)
   const [loading,       setLoading]       = useState(true)
   const [error,         setError]         = useState('')
@@ -33,6 +35,12 @@ export default function PayoutDetailsPage() {
           const c = await fetchCounterparty(p.counterpartyId.toString())
           setCounterparty(c)
         } catch {}
+      }
+      // Merchant profile (registered identity)
+      if (isMerchantRegistryConfigured()) {
+        getMerchantByWallet(p.merchant).then(m => {
+          if (m && m.tradingName) setMerchantProfile(m)
+        }).catch(() => {})
       }
       // TX hash
       fetchPayoutTxHash(enriched).then(setTxHash).catch(() => {})
@@ -68,7 +76,7 @@ export default function PayoutDetailsPage() {
   const isBatch    = payout.batchRefHash && payout.batchRefHash !== '0x' + '0'.repeat(64)
   const aliasName  = counterparty?.aliasName || ''
   const category   = counterparty?.category  || ''
-  const receipt    = buildPayoutReceiptObject(payout, txHash, aliasName, category)
+  const receipt    = buildPayoutReceiptObject(payout, txHash, aliasName, category, merchantProfile)
   const isMerchant = address && address.toLowerCase() === payout.merchant.toLowerCase()
   const isRecipient = address && address.toLowerCase() === payout.recipient.toLowerCase()
 
@@ -100,7 +108,25 @@ export default function PayoutDetailsPage() {
           )}
           <Row k="Purpose"      v={PURPOSE_LABEL[payout.purposeCode] || payout.purposeCode} />
           <Row k="Description"  v={payout.description} />
-          <Row k="Merchant"     v={<span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{payout.merchant}</span>} />
+          {merchantProfile?.tradingName && (
+            <Row k="Merchant"      v={merchantProfile.tradingName} />
+          )}
+          {merchantProfile?.legalName && (
+            <Row k="Legal name"    v={merchantProfile.legalName} />
+          )}
+          {merchantProfile?.country && (
+            <Row k="Country"       v={merchantProfile.country} />
+          )}
+          {merchantProfile?.businessAddress && (
+            <Row k="Address"       v={merchantProfile.businessAddress} />
+          )}
+          {merchantProfile?.vatOrCompanyId && (
+            <Row k="VAT / Company ID" v={merchantProfile.vatOrCompanyId} />
+          )}
+          {merchantProfile?.lei && (
+            <Row k="LEI"           v={merchantProfile.lei} />
+          )}
+          <Row k="Merchant wallet" v={<span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{payout.merchant}</span>} />
           <Row k="Recipient"    v={<span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{payout.recipient}</span>} />
           <Row k="Network"      v="Arc Testnet · Chain ID 5042002" />
           {payout.metadataHash && payout.metadataHash !== '0x' + '0'.repeat(64) && (

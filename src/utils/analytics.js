@@ -73,7 +73,7 @@ function tsToDate(ts) {
   return n > 1e10 ? new Date(n) : new Date(n * 1000)
 }
 
-export function computeAnalytics({ receipts = [], bookings = [], travelBookings = [], commitments = [], refunds = [], timeFilter }) {
+export function computeAnalytics({ receipts = [], bookings = [], travelBookings = [], commitments = [], refunds = [], payouts = [], timeFilter }) {
   const start       = getTimeFilterStart(timeFilter)
   const localReqs   = getPaymentRequests()
   const localBReqs  = getBookingRequests()
@@ -302,6 +302,28 @@ export function computeAnalytics({ receipts = [], bookings = [], travelBookings 
   const bookingTimeSeries   = buildTimeSeries(enrichedBookings,   b => tsToDate(b.booking?.createdAt), b => b.total)
   const travelTimeSeries    = buildTimeSeries([...travelReceipts, ...enrichedTravelBookings], item => item.ts || tsToDate(item.travel?.createdAt), item => item.amount ?? item.initial)
 
+  // ── Payouts (outbound USDC) ──
+  const enrichedPayouts = payouts.filter(p => {
+    const d = tsToDate(p.createdAt)
+    return d && d >= start
+  }).map(p => {
+    const amountNum = parseFloat(p.amountHuman ?? (Number(p.amount || 0) / 1e6)) || 0
+    return { id: p.id, payout: p, amount: amountNum, ts: tsToDate(p.createdAt) }
+  })
+  const payoutsCount       = enrichedPayouts.length
+  const payoutsVolume      = enrichedPayouts.reduce((s, p) => s + p.amount, 0)
+  const payoutsAvg         = payoutsCount > 0 ? payoutsVolume / payoutsCount : 0
+  const payoutsRecipients  = new Set(enrichedPayouts.map(p => p.payout.recipient?.toLowerCase())).size
+  const payoutsBatchItems  = enrichedPayouts.filter(p => p.payout.batchRefHash && p.payout.batchRefHash !== '0x' + '0'.repeat(64)).length
+  const payoutsSingleItems = payoutsCount - payoutsBatchItems
+  // Purpose breakdown
+  const payoutsByPurpose   = {}
+  enrichedPayouts.forEach(p => {
+    const k = p.payout.purposeCode || 'OTHER'
+    payoutsByPurpose[k] = (payoutsByPurpose[k] || 0) + p.amount
+  })
+  const payoutsTimeSeries  = buildTimeSeries(enrichedPayouts, p => p.ts, p => p.amount)
+
   return {
     // overview
     totalVolume, totalCount, uniquePayers, avgAmount, medAmount, maxAmount,
@@ -334,8 +356,12 @@ export function computeAnalytics({ receipts = [], bookings = [], travelBookings 
     escrowLocked, nonRefRetained, refundedToGuests, releasedToHotel,
     totalHotelReceived, cancellationRate, releaseRate,
     enrichedBookings,
+    // payouts (outbound)
+    payoutsVolume, payoutsCount, payoutsAvg, payoutsRecipients,
+    payoutsBatchItems, payoutsSingleItems, payoutsByPurpose,
+    enrichedPayouts,
     // time series
-    overviewTimeSeries, luxuryTimeSeries, onlineTimeSeries, bookingTimeSeries, travelTimeSeries,
+    overviewTimeSeries, luxuryTimeSeries, onlineTimeSeries, bookingTimeSeries, travelTimeSeries, payoutsTimeSeries,
   }
 }
 
