@@ -239,6 +239,7 @@ export async function fetchBookingTxHashes(booking) {
   const status      = Number(booking.status || 0)
   const createdBlock = booking.createdBlock ? BigInt(booking.createdBlock) : null
   const closedBlock  = booking.closedBlock  ? BigInt(booking.closedBlock)  : null
+  console.log('[BK] id:', id.toString(), 'status:', status, 'createdBlock:', createdBlock?.toString(), 'closedBlock:', closedBlock?.toString(), 'cached:', getCachedBookingTxHash(id.toString()))
 
   const idHex = '0x' + id.toString(16).padStart(64, '0')
 
