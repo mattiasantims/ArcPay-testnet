@@ -22,7 +22,8 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
   const [loading,    setLoading]    = useState(false)
   const [linkedWallets, setLinkedWallets] = useState([])
   const [error,      setError]      = useState('')
-  const [releasing,  setReleasing]  = useState(null)
+  const [releasing,     setReleasing]     = useState(null)
+  const [txHashesReady, setTxHashesReady] = useState(false)
   const [cancelling, setCancelling] = useState(null)
   const [now,        setNow]        = useState(Math.floor(Date.now()/1000))
   const configured = isBookingContractConfigured()
@@ -55,7 +56,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
 
   async function load(a) {
     if (!isValidAddress(a)) { setError('Invalid wallet address'); return }
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setTxHashesReady(false)
     try {
       let ids = []
       if (role === 'merchant') {
@@ -107,6 +108,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
         }
       }))
       setReceipts(built)
+      setTxHashesReady(true)
     } catch (e) { setError('Failed to load bookings. Are you on Arc Testnet?') }
     finally { setLoading(false) }
   }
@@ -231,8 +233,12 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
       {/* Export + Refresh */}
       {receipts.length > 0 && (
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button onClick={() => downloadBookingCSV(receipts, addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
-            📊 Export CSV
+          <button
+            onClick={() => downloadBookingCSV(receipts, addr)}
+            disabled={!txHashesReady}
+            className="btn-ghost"
+            style={{ fontSize: 13, padding: '8px 16px', opacity: txHashesReady ? 1 : 0.5 }}>
+            {txHashesReady ? '📊 Export CSV' : '⏳ Loading TX hashes...'}
           </button>
           <button onClick={() => load(addr)} className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}>
             ↺ Refresh
