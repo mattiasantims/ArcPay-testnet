@@ -141,6 +141,14 @@ const AI_QUESTIONS = {
     'How much tranche amount has been paid?',
     'Summarize travel agency performance.',
   ],
+  'Payouts': [
+    'Summarize my Merchant Payouts.',
+    'How much USDC did I send out?',
+    'What is my average payout amount?',
+    'How many unique recipients did I pay?',
+    'How many batch payouts have I sent?',
+    'Which purpose code dominates my payouts?',
+  ],
 }
 
 function AiPanel({ metrics, timeFilter }) {

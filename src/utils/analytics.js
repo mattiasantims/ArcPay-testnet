@@ -379,8 +379,8 @@ export function generateAiAnswer(question, metrics, timeFilter) {
   }
 
   // Overview questions
-  if (q.includes('summarize') && !q.includes('luxury') && !q.includes('online') && !q.includes('hotel') && !q.includes('travel')) {
-    return `Over ${tf}: you processed ${metrics.totalCount} payment${metrics.totalCount !== 1 ? 's' : ''} totalling ${fmt(metrics.totalVolume)} USDC across ${metrics.uniquePayers} unique payer${metrics.uniquePayers !== 1 ? 's' : ''}. Average payment: ${fmt(metrics.avgAmount)} USDC. Largest: ${fmt(metrics.maxAmount)} USDC. Luxury Retail: ${fmt(metrics.luxuryVolume)} USDC (${metrics.luxuryCount} payments). Online: ${fmt(metrics.onlineVolume)} USDC (${metrics.onlineCount} payments). Hotel Bookings: ${fmt(metrics.bookingVolume)} USDC (${metrics.bookingCount} bookings). Travel Agency: ${fmt(metrics.travelVolume)} USDC (${metrics.travelCount} items).`
+  if (q.includes('summarize') && !q.includes('luxury') && !q.includes('online') && !q.includes('hotel') && !q.includes('travel') && !q.includes('payout')) {
+    return `Over ${tf}: you processed ${metrics.totalCount} payment${metrics.totalCount !== 1 ? 's' : ''} totalling ${fmt(metrics.totalVolume)} USDC across ${metrics.uniquePayers} unique payer${metrics.uniquePayers !== 1 ? 's' : ''}. Average payment: ${fmt(metrics.avgAmount)} USDC. Largest: ${fmt(metrics.maxAmount)} USDC. Luxury Retail: ${fmt(metrics.luxuryVolume)} USDC (${metrics.luxuryCount} payments). Online: ${fmt(metrics.onlineVolume)} USDC (${metrics.onlineCount} payments). Hotel Bookings: ${fmt(metrics.bookingVolume)} USDC (${metrics.bookingCount} bookings). Travel Agency: ${fmt(metrics.travelVolume)} USDC (${metrics.travelCount} items). Outbound payouts: ${fmt(metrics.payoutsVolume)} USDC (${metrics.payoutsCount} payouts).`
   }
   if (q.includes('channel') && q.includes('best')) {
     const channels = [
@@ -473,5 +473,30 @@ export function generateAiAnswer(question, metrics, timeFilter) {
     }
   }
 
-  return `I found ${metrics.totalCount + metrics.bookingCount} transaction${(metrics.totalCount + metrics.bookingCount) !== 1 ? 's' : ''} totalling ${fmt(metrics.totalVolume + metrics.bookingVolume)} USDC over ${tf}. Ask a more specific question about Luxury Retail, Online Payments, Hotel Bookings, or Travel Agency for detailed insights.`
+  // Payouts questions (outbound USDC)
+  if (q.includes('payout') || q.includes('send') || q.includes('recipient') || q.includes('supplier') || q.includes('contractor')) {
+    if (metrics.payoutsCount === 0) return `No Merchant Payouts found for ${tf}. Send your first USDC payout from Accept USDC → Send USDC Payouts.`
+    if (q.includes('summarize') || q.includes('performing')) {
+      return `Merchant Payouts over ${tf}: ${metrics.payoutsCount} payout${metrics.payoutsCount !== 1 ? 's' : ''} totalling ${fmt(metrics.payoutsVolume)} USDC to ${metrics.payoutsRecipients} unique recipient${metrics.payoutsRecipients !== 1 ? 's' : ''}. Single: ${metrics.payoutsSingleItems}. Batch items: ${metrics.payoutsBatchItems}. Average: ${fmt(metrics.payoutsAvg)} USDC.`
+    }
+    if (q.includes('how much') && (q.includes('send') || q.includes('sent') || q.includes('out'))) {
+      return `Over ${tf}: you sent ${fmt(metrics.payoutsVolume)} USDC across ${metrics.payoutsCount} payout${metrics.payoutsCount !== 1 ? 's' : ''}.`
+    }
+    if (q.includes('average')) return `Average payout over ${tf}: ${fmt(metrics.payoutsAvg)} USDC.`
+    if (q.includes('unique') || q.includes('recipient') || q.includes('how many') && q.includes('paid')) {
+      return `${metrics.payoutsRecipients} unique recipient wallet${metrics.payoutsRecipients !== 1 ? 's' : ''} received USDC payouts over ${tf}.`
+    }
+    if (q.includes('batch')) {
+      return `Batch payouts over ${tf}: ${metrics.payoutsBatchItems} batch item${metrics.payoutsBatchItems !== 1 ? 's' : ''} out of ${metrics.payoutsCount} total payouts.`
+    }
+    if (q.includes('purpose') || q.includes('dominates') || q.includes('category')) {
+      const entries = Object.entries(metrics.payoutsByPurpose).sort((a, b) => b[1] - a[1])
+      if (!entries.length) return `No purpose breakdown available for ${tf}.`
+      const top = entries[0]
+      const breakdown = entries.map(([k, v]) => `${k}: ${fmt(v)} USDC`).join(', ')
+      return `Top payout purpose over ${tf}: ${top[0]} with ${fmt(top[1])} USDC. Full breakdown — ${breakdown}.`
+    }
+  }
+
+  return `I found ${metrics.totalCount + metrics.bookingCount} transaction${(metrics.totalCount + metrics.bookingCount) !== 1 ? 's' : ''} totalling ${fmt(metrics.totalVolume + metrics.bookingVolume)} USDC over ${tf}. Ask a more specific question about Luxury Retail, Online Payments, Hotel Bookings, Travel Agency or Merchant Payouts for detailed insights.`
 }
