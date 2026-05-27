@@ -146,10 +146,27 @@ export default function MyPaymentsPage() {
             const r = await fetchRefundRequest(rid)
             if (r) { rList.push(r); if (r.proofRef) byRef[r.proofRef] = r }
           }
-          // Enrich refunds with TX hashes from on-chain logs
+          // Build merchant profile cache for refunds
+          const refundMerchantCache = {}
+          if (isMerchantRegistryConfigured()) {
+            const uniqueM = [...new Set(rList.map(r => r?.merchant).filter(Boolean))]
+            await Promise.all(uniqueM.map(async mw => {
+              try {
+                const m = await getMerchantByWallet(mw)
+                if (m && m.active) refundMerchantCache[mw.toLowerCase()] = m
+              } catch {}
+            }))
+          }
+          // Enrich refunds with TX hashes from on-chain logs + merchant profile
           const enrichedR = await Promise.all(rList.map(async r => {
+            const mp = refundMerchantCache[(r?.merchant || '').toLowerCase()]
             const { requestTxHash, processTxHash } = await fetchRefundTxHashes(r)
-            return { ...r, requestTxHash, processTxHash }
+            return {
+              ...r, requestTxHash, processTxHash,
+              merchantName:      mp?.tradingName || '',
+              merchantLegalName: mp?.legalName   || '',
+              merchantCountry:   mp?.country     || '',
+            }
           }))
           setRefunds(enrichedR)
           const enrichedByRef = {}
@@ -238,7 +255,7 @@ export default function MyPaymentsPage() {
             <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{cm.ref}</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Link to={`/commitment/${cm.commitmentId}`} style={{ textDecoration: 'none' }}>
+            <Link to={`/commitment/${cm.commitmentId}?mode=customer`} style={{ textDecoration: 'none' }}>
               <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
             </Link>
             {/* Delayed payment — pay button when active */}
@@ -415,7 +432,7 @@ export default function MyPaymentsPage() {
                       {formatUsdc(p.amount)} USDC
                     </div>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                      <Link to={`/receipt/${p.proofId}`} style={{ fontSize: 11, color: 'var(--usdc)', textDecoration: 'none' }}>
+                      <Link to={`/receipt/${p.proofId}?mode=customer`} style={{ fontSize: 11, color: 'var(--usdc)', textDecoration: 'none' }}>
                         Receipt →
                       </Link>
                       {p.txHash && (

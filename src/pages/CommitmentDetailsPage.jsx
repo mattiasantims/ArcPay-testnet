@@ -21,7 +21,7 @@ import {
   fetchRefundTxHashes, REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 import { shortAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured, isRefundContractConfigured } from '../config.js'
+import { ARCSCAN_BASE, APP_URL, isCommitmentContractConfigured, isRefundContractConfigured, isMerchantRegistryConfigured } from '../config.js'
 
 function formatTs(unix) {
   if (!unix || unix === 0) return '—'
@@ -91,7 +91,7 @@ export default function CommitmentDetailsPage() {
       setC(data)
       if (data && isMerchantRegistryConfigured()) {
         getMerchantByWallet(data.merchant).then(m => {
-          if (m && m.tradingName) setMerchantProfile(m)
+          if (m && m.active) setMerchantProfile(m)
         }).catch(() => {})
       }
       if (!data) setError('Commitment not found.')
@@ -241,6 +241,36 @@ export default function CommitmentDetailsPage() {
         </h1>
         {c.description && <div style={{ fontSize: 13, color: 'var(--text2)' }}>{c.description}</div>}
       </div>
+
+      {/* ── Merchant identity ── */}
+      {merchantProfile && (
+        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, fontWeight: 600 }}>Merchant</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, fontSize: 12 }}>
+            {merchantProfile.tradingName && (
+              <div><div style={{ color: 'var(--text3)', fontSize: 11 }}>Trading name</div><div style={{ fontWeight: 600 }}>{merchantProfile.tradingName}</div></div>
+            )}
+            {merchantProfile.legalName && (
+              <div><div style={{ color: 'var(--text3)', fontSize: 11 }}>Legal name</div><div style={{ fontWeight: 600 }}>{merchantProfile.legalName}</div></div>
+            )}
+            {merchantProfile.country && (
+              <div><div style={{ color: 'var(--text3)', fontSize: 11 }}>Country</div><div style={{ fontWeight: 600 }}>{merchantProfile.country}</div></div>
+            )}
+            {merchantProfile.businessAddress && (
+              <div><div style={{ color: 'var(--text3)', fontSize: 11 }}>Registered office</div><div style={{ fontWeight: 600 }}>{merchantProfile.businessAddress}</div></div>
+            )}
+            {merchantProfile.vatOrCompanyId && (
+              <div><div style={{ color: 'var(--text3)', fontSize: 11 }}>VAT / Company ID</div><div style={{ fontWeight: 600 }}>{merchantProfile.vatOrCompanyId}</div></div>
+            )}
+            {merchantProfile.lei && (
+              <div><div style={{ color: 'var(--text3)', fontSize: 11 }}>LEI</div><div style={{ fontWeight: 600 }}>{merchantProfile.lei}</div></div>
+            )}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', wordBreak: 'break-all' }}>
+            Merchant wallet: {c.merchant}
+          </div>
+        </div>
+      )}
 
       {/* ── Financial summary cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 20 }}>
@@ -699,7 +729,7 @@ export default function CommitmentDetailsPage() {
                         </a>
                       ) : (
                         <span style={{ fontSize: 10, color: 'var(--text3)', padding: '3px 0', fontStyle: 'italic' }}>
-                          {ev.label === 'Commitment Created' || ev.label.includes('Paid') || ev.label.includes('Fulfilled') || ev.label.includes('Cancel') ? 'recovering...' : 'off-chain'}
+                          {ev.label === 'Off-chain Refund' ? 'off-chain' : 'recovering...'}
                         </span>
                       )}
                     </div>

@@ -106,7 +106,7 @@ export default function Header({ balance }) {
   const searchParams   = new URLSearchParams(location.search)
   const isMerchantMode = searchParams.get('mode') === 'merchant'
   const isLandingPage  = p === '/'
-  const customerRoutes = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/my-payments', '/my-bookings', '/my-travel', '/my-payouts', '/payment-success', '/customer']
+  const customerRoutes = ['/pay', '/booking/pay', '/travel/pay', '/receipt/', '/booking/', '/travel/', '/commitment/', '/my-payments', '/my-bookings', '/my-travel', '/my-payouts', '/my-commitments', '/payment-success', '/customer']
   const isCustomerRoute = (customerRoutes.some(r => r.endsWith('/') ? p.startsWith(r) : (p === r || p.startsWith(r + '/'))) && !isMerchantMode) || isLandingPage
 
   const acceptActive  = ['/create', '/luxury', '/booking', '/travel', '/payouts'].some(r => p === r || p.startsWith(r + '/'))

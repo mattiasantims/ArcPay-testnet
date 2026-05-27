@@ -170,7 +170,7 @@ export default function MyCommitmentsPage() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link to={`/commitment/${c.commitmentId}`} style={{ textDecoration: 'none' }}>
+          <Link to={`/commitment/${c.commitmentId}?mode=customer`} style={{ textDecoration: 'none' }}>
             <button className="btn-primary" style={{ fontSize: 12, padding: '6px 16px' }}>View & Pay →</button>
           </Link>
         </div>

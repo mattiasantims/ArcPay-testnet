@@ -339,7 +339,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
           {cm.type === 1 && (
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>{cm.tranchesPaidCount}/{cm.trancheAmounts.length}</span>
           )}
-          <Link to={`/commitment/${cm.commitmentId}`} style={{ textDecoration: 'none' }}>
+          <Link to={`/commitment/${cm.commitmentId}?mode=merchant`} style={{ textDecoration: 'none' }}>
             <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View →</button>
           </Link>
         </div>
@@ -403,7 +403,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
               const matched = receipts.find(rx => rx.payment_ref === r.proofRef)
               if (!matched) return null
               return (
-                <Link to={`/receipt/${matched.receipt_id}`} style={{ textDecoration: 'none' }}>
+                <Link to={`/receipt/${matched.receipt_id}?mode=merchant`} style={{ textDecoration: 'none' }}>
                   <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 10px' }}>
                     View receipt →
                   </button>

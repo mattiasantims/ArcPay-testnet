@@ -471,6 +471,7 @@ export default function ReceiptPage() {
               txHash:    txHash,
               timestamp: proof.timestamp ? new Date(Number(proof.timestamp) * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
               detail:    `${formatUsdc(proof.amount)} USDC · ${proof.paymentRef || ''}`,
+              pdf:       () => downloadReceiptPDF(receipt),
             })
 
             // Event 2+: Refund events
@@ -535,7 +536,12 @@ export default function ReceiptPage() {
                           </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 8 }}>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                        {ev.pdf && (
+                          <button onClick={ev.pdf} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
+                            🖨️ PDF
+                          </button>
+                        )}
                         {ev.txHash ? (
                           <a href={`${ARCSCAN_BASE}/tx/${ev.txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
                             <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>ArcScan ↗</button>
