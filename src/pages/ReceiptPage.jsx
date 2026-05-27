@@ -7,8 +7,7 @@ import {
   fetchProof, formatUsdc, formatTs,
   buildReceiptObject, recoverTxHash,
 } from '../utils/receipts.js'
-import { getCachedTxHash } from '../utils/paymentRequest.js'
-import { getPaymentRequests } from '../utils/paymentRequest.js'
+import { getCachedTxHash, getPaymentRequests } from '../utils/paymentRequest.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured, isRefundContractConfigured } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
@@ -265,9 +264,9 @@ export default function ReceiptPage() {
         {proof.timestamp && (
           <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text2)' }}>{formatTs(proof.timestamp)}</div>
         )}
-        {(merchantName || proof.paymentRef) && (
+        {(urlMerchantName || merchantNameFallback || proof.paymentRef) && (
           <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {merchantName && <span className="badge badge-gray">{merchantName}</span>}
+            {(urlMerchantName || merchantNameFallback) && <span className="badge badge-gray">{urlMerchantName || merchantNameFallback}</span>}
             {proof.paymentRef && <span className="badge badge-blue">{proof.paymentRef}</span>}
           </div>
         )}
