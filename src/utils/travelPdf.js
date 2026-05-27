@@ -5,7 +5,7 @@ import { ARCSCAN_BASE, APP_URL } from '../config.js'
 
 // ─── Travel Booking Receipt (initial payment) ─────────────────────────────────
 
-export function buildTravelReceiptObject({ travel, txHash, travelId, agencyName, description }) {
+export function buildTravelReceiptObject({ travel, txHash, travelId, agencyName, description, merchantProfile }) {
   const fmt = raw => fromUsdc(raw).toFixed(2)
   return {
     arcpay_version:           'v0.1-testnet',
@@ -13,7 +13,13 @@ export function buildTravelReceiptObject({ travel, txHash, travelId, agencyName,
     type:                     'Travel Booking Receipt',
     status:                   ['Active', 'Tranche Paid', 'Cancelled', 'Cancelled — Missed Payment', 'Released to Merchant'][travel.status] || 'Unknown',
     merchant_wallet:          travel.merchant,
-    agency_name:              agencyName || travel.merchant,
+    agency_name:              merchantProfile?.tradingName || agencyName || travel.merchant,
+    merchant_name:            merchantProfile?.tradingName     || agencyName || '',
+    merchant_legal_name:      merchantProfile?.legalName       || '',
+    merchant_country:         merchantProfile?.country         || '',
+    merchant_address:         merchantProfile?.businessAddress || '',
+    merchant_vat:             merchantProfile?.vatOrCompanyId  || '',
+    merchant_lei:             merchantProfile?.lei             || '',
     customer_wallet:          travel.customer,
     total_package_amount:     fmt(travel.totalPackageAmount),
     initial_payment_amount:   fmt(travel.initialPaymentAmount),
@@ -27,7 +33,7 @@ export function buildTravelReceiptObject({ travel, txHash, travelId, agencyName,
     cancellation_deadline:    travel.cancellationDeadline ? new Date(travel.cancellationDeadline * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—',
     travel_start_date:        travel.travelStartDate ? new Date(travel.travelStartDate * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—',
     travel_ref:               travel.travelRef,
-    description:              description || '—',
+    description:              travel.description || description || '—',
     tranche_paid:             travel.tranchePaid ? 'Yes' : 'No',
     tranche_paid_at:          travel.tranchePaidAt ? new Date(travel.tranchePaidAt * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—',
     created_at:               travel.createdAt ? new Date(travel.createdAt * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—',
@@ -153,7 +159,7 @@ export function downloadTravelReceiptPDF(receipt) {
 
 // ─── Tranche Payment Receipt ──────────────────────────────────────────────────
 
-export function buildTrancheReceiptObject({ travel, txHash, travelId, agencyName }) {
+export function buildTrancheReceiptObject({ travel, txHash, travelId, agencyName, merchantProfile }) {
   const fmt = raw => fromUsdc(raw).toFixed(2)
   return {
     arcpay_version:    'v0.1-testnet',
@@ -162,7 +168,13 @@ export function buildTrancheReceiptObject({ travel, txHash, travelId, agencyName
     travel_ref:        travel.travelRef,
     customer_wallet:   travel.customer,
     merchant_wallet:   travel.merchant,
-    agency_name:       agencyName || travel.merchant,
+    agency_name:       merchantProfile?.tradingName || agencyName || travel.merchant,
+    merchant_name:            merchantProfile?.tradingName     || agencyName || '',
+    merchant_legal_name:      merchantProfile?.legalName       || '',
+    merchant_country:         merchantProfile?.country         || '',
+    merchant_address:         merchantProfile?.businessAddress || '',
+    merchant_vat:             merchantProfile?.vatOrCompanyId  || '',
+    merchant_lei:             merchantProfile?.lei             || '',
     tranche_amount:    fmt(travel.trancheAmount),
     tranche_paid_at:   travel.tranchePaidAt ? new Date(travel.tranchePaidAt * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—',
     transaction_hash:  txHash || '—',
