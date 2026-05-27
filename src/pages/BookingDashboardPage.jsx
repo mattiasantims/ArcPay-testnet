@@ -94,7 +94,10 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
         }))
       }
 
-      const built = await Promise.all(fetched.map(async ({ id, booking }, idx) => {
+      // Sequential TX hash fetching to avoid RPC rate limits on multi-booking merchants
+      const built = []
+      for (let idx = 0; idx < fetched.length; idx++) {
+        const { id, booking } = fetched[idx]
         const txHash   = getCachedBookingTxHash(id)
         const localReq = localReqs.find(r => r.bookingRef === booking.bookingRef)
         let createTxHash = null, cancelTxHash = null, releaseTxHash = null
@@ -104,7 +107,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
           cancelTxHash  = hashes.cancelHash
           releaseTxHash = hashes.releaseHash
         } catch {}
-        return {
+        built.push({
           ...buildBookingReceiptObject({
             booking, txHash: txHash || createTxHash, bookingId: id,
             merchantName: localReq?.merchantName || null,
@@ -119,8 +122,8 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
           _name: localReq?.merchantName || null,
           role,
           merchant_booking_number: totalMerchantBookings - idx,
-        }
-      }))
+        })
+      }
       setReceipts(built)
     } catch (e) { setError('Failed to load bookings. Are you on Arc Testnet?') }
     finally { setLoading(false) }

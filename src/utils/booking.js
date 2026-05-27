@@ -186,14 +186,29 @@ export function buildBookingReceiptObject({ booking, txHash, bookingId, merchant
   }
 }
 
-// ── Cancel/Release TX hash cache ─────────────────────────────────────────────
-const _cancelBookingCache  = new Map()
-const _releaseBookingCache = new Map()
+// ── Cancel/Release TX hash cache (localStorage for persistence across reloads) ──
+const _CANCEL_CACHE_KEY  = 'arcpay_booking_cancel_tx_cache'
+const _RELEASE_CACHE_KEY = 'arcpay_booking_release_tx_cache'
 
-export function cacheCancelBookingTxHash(bookingId, hash)  { _cancelBookingCache.set(String(bookingId), hash) }
-export function cacheReleaseBookingTxHash(bookingId, hash) { _releaseBookingCache.set(String(bookingId), hash) }
-export function getCachedCancelBookingTxHash(bookingId)    { return _cancelBookingCache.get(String(bookingId)) || null }
-export function getCachedReleaseBookingTxHash(bookingId)   { return _releaseBookingCache.get(String(bookingId)) || null }
+function _readCache(key) {
+  try { return JSON.parse(localStorage.getItem(key) || '{}') } catch { return {} }
+}
+function _writeCache(key, obj) {
+  try { localStorage.setItem(key, JSON.stringify(obj)) } catch {}
+}
+
+export function cacheCancelBookingTxHash(bookingId, hash) {
+  const c = _readCache(_CANCEL_CACHE_KEY); c[String(bookingId)] = hash; _writeCache(_CANCEL_CACHE_KEY, c)
+}
+export function cacheReleaseBookingTxHash(bookingId, hash) {
+  const c = _readCache(_RELEASE_CACHE_KEY); c[String(bookingId)] = hash; _writeCache(_RELEASE_CACHE_KEY, c)
+}
+export function getCachedCancelBookingTxHash(bookingId)    {
+  return _readCache(_CANCEL_CACHE_KEY)[String(bookingId)] || null
+}
+export function getCachedReleaseBookingTxHash(bookingId)   {
+  return _readCache(_RELEASE_CACHE_KEY)[String(bookingId)] || null
+}
 
 // ── On-chain TX hash recovery ─────────────────────────────────────────────────
 const _BK_BLOCKS_PER_SEC = 2n
