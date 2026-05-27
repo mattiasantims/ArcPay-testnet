@@ -138,7 +138,7 @@ export default function ReceiptPage() {
     if (proof && status === 'found') {
       setReceipt(buildReceiptObject({ proofData: proof, txHash, proofId: id, merchantName: urlMerchantName || merchantNameFallback, description, merchantProfile }))
     }
-  }, [proof, txHash, status])
+  }, [proof, txHash, status, merchantProfile, description, merchantNameFallback])
 
   async function handleRefundRequest() {
     if (!address) { setRefundError('Connect wallet first'); return }
