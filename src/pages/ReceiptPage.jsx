@@ -8,6 +8,7 @@ import {
   buildReceiptObject, recoverTxHash,
 } from '../utils/receipts.js'
 import { getCachedTxHash } from '../utils/paymentRequest.js'
+import { getPaymentRequests } from '../utils/paymentRequest.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, USDC_ADDRESS, isMerchantRegistryConfigured, isRefundContractConfigured } from '../config.js'
 import { getMerchantByWallet, getMerchantPolicyByWallet } from '../utils/merchant.js'
@@ -53,8 +54,10 @@ export default function ReceiptPage() {
   const [directError,   setDirectError]   = useState('')
 
   // URL metadata
-  const merchantName = params.get('name') ? decodeURIComponent(params.get('name')) : null
-  const description  = params.get('desc') ? decodeURIComponent(params.get('desc')) : null
+  const urlMerchantName = params.get('name') ? decodeURIComponent(params.get('name')) : null
+  const urlDescription = params.get('desc') ? decodeURIComponent(params.get('desc')) : null
+  const [description, setDescription] = useState(urlDescription)
+  const [merchantNameFallback, setMerchantNameFallback] = useState(null)
 
   // Refund window params passed by CheckoutPage after immediate payment
   const urlAllowRefund = params.get('allowRefundClaim') === '1'
@@ -81,6 +84,20 @@ export default function ReceiptPage() {
     }
     load()
   }, [id])
+
+  // Fallback: load description + merchantName from localStorage if not in URL
+  useEffect(() => {
+    if (!proof?.paymentRef) return
+    if (description && urlMerchantName) return
+    try {
+      const reqs = getPaymentRequests() || []
+      const r = reqs.find(x => x.ref === proof.paymentRef)
+      if (r) {
+        if (!description && r.desc) setDescription(r.desc)
+        if (!urlMerchantName && r.name) setMerchantNameFallback(r.name)
+      }
+    } catch {}
+  }, [proof?.paymentRef])
 
   // Load merchant profile + policy
   useEffect(() => {
@@ -120,7 +137,7 @@ export default function ReceiptPage() {
   // Build receipt object
   useEffect(() => {
     if (proof && status === 'found') {
-      setReceipt(buildReceiptObject({ proofData: proof, txHash, proofId: id, merchantName, description, merchantProfile }))
+      setReceipt(buildReceiptObject({ proofData: proof, txHash, proofId: id, merchantName: urlMerchantName || merchantNameFallback, description, merchantProfile }))
     }
   }, [proof, txHash, status])
 
@@ -263,7 +280,7 @@ export default function ReceiptPage() {
           { k: 'Purpose',           v: proof.purposeCode,  mono: true },
           { k: 'Description',       v: proof?.description || description || '—' },
           { k: 'Merchant wallet',   v: proof.payee,        mono: true, full: true },
-          { k: 'Trading name',      v: merchantProfile?.tradingName || merchantName || '—' },
+          { k: 'Trading name',      v: merchantProfile?.tradingName || urlMerchantName || merchantNameFallback || '—' },
           { k: 'Legal name',        v: merchantProfile?.legalName || '—' },
           { k: 'Country',           v: merchantProfile?.country || '—' },
           { k: 'Registered office', v: merchantProfile?.businessAddress || '—' },
