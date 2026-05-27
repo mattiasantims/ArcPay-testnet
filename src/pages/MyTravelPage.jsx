@@ -73,7 +73,7 @@ export default function MyTravelPage() {
     const APP_URL  = 'https://arc-pay-testnet.vercel.app'
     const ts = unix => unix ? new Date(Number(unix)*1000).toISOString().replace('T',' ').slice(0,19)+' UTC' : ''
     const headers = [
-      'timestamp','status','customerWallet','merchantWallet','travelRef','description',
+      'timestamp','status','customerWallet','merchantWallet','merchantName','merchantLegalName','merchantCountry','travelRef','description',
       'totalPackageAmount','initialPaymentAmount','nonRefundableAmount','refundableEscrowAmount','nonRefundablePct',
       'trancheAmount','tranchePaid','travelStartDate','paymentDueDate','paymentDeadline','cancellationDeadline',
       'createdAt','closedAt','metadataHash',
@@ -96,6 +96,9 @@ export default function MyTravelPage() {
         ['Active','TranchePaid','Cancelled','Cancelled — Missed Payment','Released to Merchant'][status] ?? '',
         b.customer ?? '',
         b.merchant ?? '',
+        b.merchantName      ?? '',
+        b.merchantLegalName ?? '',
+        b.merchantCountry   ?? '',
         b.travelRef ?? '',
         b.description ?? '',
         b.totalPackageAmount     ? (Number(b.totalPackageAmount)/1e6).toFixed(2) + ' USDC'     : '',

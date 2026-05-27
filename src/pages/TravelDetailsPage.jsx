@@ -47,20 +47,26 @@ export default function TravelDetailsPage() {
 
   async function load() {
     setLoading(true)
+    setError('')
     try {
       const t = await fetchTravelBooking(id)
-      if (t) {
-        fetchTravelTxHashes(t).then(setTxHashes).catch(() => {})
-        if (isMerchantRegistryConfigured()) {
-          getMerchantByWallet(t.merchant).then(m => {
-            if (m && m.tradingName) setMerchantProfile(m)
-          }).catch(() => {})
-        }
+      if (!t) {
+        setTravel(null)
+        setError(`Travel booking #${id} not found. It may have been created on a previous contract version.`)
+        return
       }
       setTravel(t)
-      if (!t) setError('Travel booking not found.')
-    } catch { setError('Failed to load booking.') }
-    finally { setLoading(false) }
+      fetchTravelTxHashes(t).then(setTxHashes).catch(() => {})
+      if (isMerchantRegistryConfigured()) {
+        getMerchantByWallet(t.merchant).then(m => {
+          if (m && m.active) setMerchantProfile(m)
+        }).catch(() => {})
+      }
+    } catch (e) {
+      setError(`Failed to load booking: ${e?.message || 'unknown error'}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function act(fn, label) {

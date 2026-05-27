@@ -85,6 +85,7 @@ export default function TravelCheckoutPage() {
         cancellationDeadline: req.cancellationDeadline,
         travelStartDate:      req.travelStartDate,
         travelRef:            req.travelRef,
+        description:          req.description || '',
         metadataHash:         req.metadataHash,
       })
       if (travelId) cacheTravelTxHash(travelId, hash)
