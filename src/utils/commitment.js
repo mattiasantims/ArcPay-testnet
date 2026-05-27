@@ -238,6 +238,10 @@ function parseCommitment(raw, id) {
     trancheDeadlines: raw.trancheDeadlines?.map(d => Number(d)) ?? [],
     tranchePaid:      raw.tranchePaid ?? [],
     tranchesPaidCount: Number(raw.tranchesPaidCount ?? 0),
+    // v2 block tracking for TX hash recovery
+    createdBlock:     Number(raw.createdBlock      ?? 0),
+    closedBlock:      Number(raw.closedBlock       ?? 0),
+    tranchePaidBlocks: (raw.tranchePaidBlocks ?? []).map(b => Number(b)),
   }
 }
 
@@ -292,30 +296,59 @@ async function _findEventTxHash(eventName, args, timestamp, cachedHash, createdA
  */
 export async function fetchCommitmentTxHashes(c) {
   if (!c) return { createHash: null, fulfillHash: null, trancheHashes: [], cancelHash: null }
-  const id = BigInt(c.commitmentId)
+  const id           = BigInt(c.commitmentId)
+  const createdBlock = c.createdBlock ? BigInt(c.createdBlock) : null
+  const closedBlock  = c.closedBlock  ? BigInt(c.closedBlock)  : null
+  const idHex        = '0x' + id.toString(16).padStart(64, '0')
 
-  const [createHash, fulfillHash, cancelHash] = await Promise.all([
-    _findEventTxHash('CommitmentCreated', { commitmentId: id }, c.createdAt, getCachedCommitmentTxHash(c.commitmentId), c.createdAt),
-    c.type === 0 && c.paid
-      ? _findEventTxHash('CommitmentFulfilled', { commitmentId: id }, null, getCachedFulfillTxHash(c.commitmentId), c.createdAt)
-      : Promise.resolve(null),
-    c.status === 2 || c.status === 3
-      ? _findEventTxHash('CommitmentCancelled', { commitmentId: id }, null, getCachedCancelTxHash(c.commitmentId), c.createdAt)
-      : Promise.resolve(null),
-  ])
+  // Scan an exact block for a TX to our contract with commitmentId in topics[1]
+  async function scanBlock(blockNumber) {
+    if (!blockNumber || blockNumber <= 0n) return null
+    try {
+      const pc    = client()
+      const block = await pc.getBlock({ blockNumber })
+      if (!block?.transactions?.length) return null
+      for (const txHash of block.transactions) {
+        try {
+          const receipt = await pc.getTransactionReceipt({ hash: txHash })
+          if (receipt?.to?.toLowerCase() !== ARC_COMMITMENT_ADDRESS.toLowerCase()) continue
+          for (const log of receipt.logs) {
+            if (log.address?.toLowerCase() === ARC_COMMITMENT_ADDRESS.toLowerCase()) {
+              if (log.topics?.[1] === idHex) return txHash
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+    return null
+  }
 
-  // For tranches: recover each paid tranche TX
+  // createHash: cache → scanBlock(createdBlock)
+  const createHash = getCachedCommitmentTxHash(c.commitmentId)
+    || (createdBlock ? await scanBlock(createdBlock) : null)
+
+  // fulfillHash (Delayed type only when paid)
+  let fulfillHash = null
+  if (c.type === 0 && c.paid) {
+    fulfillHash = getCachedFulfillTxHash(c.commitmentId)
+      || (closedBlock ? await scanBlock(closedBlock) : null)
+  }
+
+  // cancelHash (status Cancelled=2 or Expired=3)
+  let cancelHash = null
+  if (c.status === 2 || c.status === 3) {
+    cancelHash = getCachedCancelTxHash(c.commitmentId)
+      || (closedBlock ? await scanBlock(closedBlock) : null)
+  }
+
+  // trancheHashes: for each paid tranche, scanBlock on tranchePaidBlocks[i]
   const trancheHashes = []
   if (c.type === 1) {
-    for (let i = 0; i < c.trancheAmounts.length; i++) {
-      if (c.tranchePaid[i]) {
-        const h = await _findEventTxHash(
-          'TrancheFulfilled',
-          { commitmentId: id, trancheIndex: BigInt(i) },
-          null,
-          getCachedTrancheTxHash(c.commitmentId, i),
-          c.createdAt
-        )
+    for (let i = 0; i < (c.trancheAmounts?.length || 0); i++) {
+      if (c.tranchePaid?.[i]) {
+        const cached = getCachedTrancheTxHash(c.commitmentId, i)
+        const blk    = c.tranchePaidBlocks?.[i] ? BigInt(c.tranchePaidBlocks[i]) : null
+        const h      = cached || (blk ? await scanBlock(blk) : null)
         trancheHashes.push(h)
       } else {
         trancheHashes.push(null)

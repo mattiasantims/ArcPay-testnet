@@ -17,12 +17,17 @@ abstract contract ArcPayReentrancyGuard {
 }
 
 /**
- * @title ArcPaymentCommitment
+ * @title ArcPaymentCommitment v2
  * @notice Delayed payment and tranche payment commitments for online/luxury ArcPay flows.
  *
  * No escrow. No lending. No credit. No funds are advanced by ArcPay.
  * Customer funds move only when the customer fulfils a delayed payment or a tranche.
  * The merchant can cancel an overdue active commitment.
+ *
+ * v2 changes vs v1:
+ * - Added: createdBlock, closedBlock to Commitment struct
+ * - Added: tranchePaidBlocks[] array to record block.number of each tranche payment
+ * - Enables reliable on-chain TX hash recovery via scanBlock pattern
  */
 contract ArcPaymentCommitment is ArcPayReentrancyGuard {
 
@@ -49,6 +54,10 @@ contract ArcPaymentCommitment is ArcPayReentrancyGuard {
         uint256[] trancheDeadlines;
         bool[]    tranchePaid;
         uint256   tranchesPaidCount;
+        // ── v2 block tracking for TX hash recovery ──
+        uint256   createdBlock;          // block.number at creation
+        uint256   closedBlock;           // block.number at fulfill (delayed) / cancel / expire
+        uint256[] tranchePaidBlocks;     // block.number for each paid tranche, 0 if not yet paid
     }
 
     uint256 public constant MAX_TRANCHES = 12;
@@ -99,7 +108,6 @@ contract ArcPaymentCommitment is ArcPayReentrancyGuard {
     // ── Internal helpers ─────────────────────────────────────────────────────
 
     function _safeTransferFrom(address from, address to, uint256 amount) internal {
-        // Use low-level call to handle USDC implementations that don't return bool
         (bool success, bytes memory data) = address(usdc).call(
             abi.encodeWithSignature("transferFrom(address,address,uint256)", from, to, amount)
         );
@@ -142,6 +150,7 @@ contract ArcPaymentCommitment is ArcPayReentrancyGuard {
         c.commitmentType = CommitmentType.Delayed;
         c.status         = CommitmentStatus.Active;
         c.createdAt      = block.timestamp;
+        c.createdBlock   = block.number;
         c.dueDate        = dueDate;
         c.deadline       = deadline;
         c.paid           = false;
@@ -159,10 +168,10 @@ contract ArcPaymentCommitment is ArcPayReentrancyGuard {
         require(c.commitmentType == CommitmentType.Delayed, "Not delayed");
         require(c.status == CommitmentStatus.Active, "Not active");
         require(!c.paid, "Already paid");
-        // No deadline check — customer can pay until merchant explicitly cancels
 
-        c.paid = true;
-        c.status = CommitmentStatus.Fulfilled;
+        c.paid        = true;
+        c.status      = CommitmentStatus.Fulfilled;
+        c.closedBlock = block.number;
 
         _safeTransferFrom(msg.sender, c.merchant, c.totalAmount);
 
@@ -200,22 +209,25 @@ contract ArcPaymentCommitment is ArcPayReentrancyGuard {
         commitmentId = _nextId++;
 
         Commitment storage c = _commitments[commitmentId];
-        c.merchant = merchant;
-        c.customer = msg.sender;
-        c.totalAmount = total;
-        c.ref = ref;
-        c.description = description;
-        c.metadataHash = metadataHash;
-        c.commitmentType = CommitmentType.Tranche;
-        c.status = CommitmentStatus.Active;
-        c.createdAt = block.timestamp;
-        c.trancheAmounts = trancheAmounts;
-        c.trancheDueDates = trancheDueDates;
+        c.merchant         = merchant;
+        c.customer         = msg.sender;
+        c.totalAmount      = total;
+        c.ref              = ref;
+        c.description      = description;
+        c.metadataHash     = metadataHash;
+        c.commitmentType   = CommitmentType.Tranche;
+        c.status           = CommitmentStatus.Active;
+        c.createdAt        = block.timestamp;
+        c.createdBlock     = block.number;
+        c.trancheAmounts   = trancheAmounts;
+        c.trancheDueDates  = trancheDueDates;
         c.trancheDeadlines = trancheDeadlines;
         c.tranchesPaidCount = 0;
 
-        bool[] memory paid = new bool[](trancheAmounts.length);
-        c.tranchePaid = paid;
+        bool[]    memory paid       = new bool[](trancheAmounts.length);
+        uint256[] memory paidBlocks = new uint256[](trancheAmounts.length);
+        c.tranchePaid       = paid;
+        c.tranchePaidBlocks = paidBlocks;
 
         _merchantCommitments[merchant].push(commitmentId);
         _customerCommitments[msg.sender].push(commitmentId);
@@ -232,14 +244,15 @@ contract ArcPaymentCommitment is ArcPayReentrancyGuard {
         require(trancheIndex < c.trancheAmounts.length, "Invalid tranche index");
         require(!c.tranchePaid[trancheIndex], "Tranche already paid");
         require(trancheIndex == c.tranchesPaidCount, "Must pay tranches in order");
-        // No deadline check — customer can pay until merchant explicitly cancels
 
         uint256 amount = c.trancheAmounts[trancheIndex];
-        c.tranchePaid[trancheIndex] = true;
+        c.tranchePaid[trancheIndex]       = true;
+        c.tranchePaidBlocks[trancheIndex] = block.number;
         c.tranchesPaidCount++;
 
         if (c.tranchesPaidCount == c.trancheAmounts.length) {
-            c.status = CommitmentStatus.Fulfilled;
+            c.status      = CommitmentStatus.Fulfilled;
+            c.closedBlock = block.number;
         }
 
         _safeTransferFrom(msg.sender, c.merchant, amount);
@@ -267,7 +280,8 @@ contract ArcPaymentCommitment is ArcPayReentrancyGuard {
             require(block.timestamp > c.trancheDeadlines[nextIdx], "Tranche deadline not yet passed");
         }
 
-        c.status = CommitmentStatus.Cancelled;
+        c.status      = CommitmentStatus.Cancelled;
+        c.closedBlock = block.number;
         emit CommitmentCancelled(commitmentId, msg.sender, c.ref);
     }
 
@@ -290,7 +304,8 @@ contract ArcPaymentCommitment is ArcPayReentrancyGuard {
             require(block.timestamp > c.trancheDeadlines[nextIdx], "Tranche deadline not yet passed");
         }
 
-        c.status = CommitmentStatus.Expired;
+        c.status      = CommitmentStatus.Expired;
+        c.closedBlock = block.number;
         emit CommitmentExpired(commitmentId, c.ref);
     }
 

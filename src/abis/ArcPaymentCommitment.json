@@ -480,6 +480,21 @@
             "internalType": "uint256",
             "name": "tranchesPaidCount",
             "type": "uint256"
+          },
+          {
+            "name": "createdBlock",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "closedBlock",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "tranchePaidBlocks",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
           }
         ],
         "internalType": "struct ArcPaymentCommitment.Commitment",
