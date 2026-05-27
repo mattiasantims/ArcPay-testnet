@@ -56,12 +56,12 @@ export default function PayoutDashboardPage() {
 
       // Build unique merchant profile lookup
       const merchantProfileCache = {}
-      const uniqueMerchants = [...new Set(list.map(p => (p.merchant || '').toLowerCase()).filter(Boolean))]
+      const uniqueMerchants = [...new Set(list.map(p => (p.merchant || '')).filter(Boolean))]
       if (isMerchantRegistryConfigured()) {
         await Promise.all(uniqueMerchants.map(async mw => {
           try {
             const m = await getMerchantByWallet(mw)
-            if (m && m.tradingName) merchantProfileCache[mw] = m
+            if (m && m.active) merchantProfileCache[mw.toLowerCase()] = m
           } catch {}
         }))
       }

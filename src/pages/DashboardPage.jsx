@@ -123,11 +123,21 @@ export default function DashboardPage({ account, onConnect, connecting }) {
       // Build merchant profile cache from unique payees
       const merchantProfileCache = {}
       if (isMerchantRegistryConfigured()) {
-        const uniquePayees = [...new Set(fetched.map(({ proof }) => (proof?.payee || '').toLowerCase()).filter(Boolean))]
+        // Use checksummed addresses as-is for contract calls; key cache by lowercase for lookup
+        const seen = new Set()
+        const uniquePayees = []
+        for (const { proof } of fetched) {
+          const w = proof?.payee
+          if (!w) continue
+          const k = w.toLowerCase()
+          if (seen.has(k)) continue
+          seen.add(k)
+          uniquePayees.push(w)
+        }
         await Promise.all(uniquePayees.map(async w => {
           try {
             const m = await getMerchantByWallet(w)
-            if (m && m.tradingName) merchantProfileCache[w] = m
+            if (m && m.active) merchantProfileCache[w.toLowerCase()] = m
           } catch {}
         }))
       }
@@ -168,11 +178,19 @@ export default function DashboardPage({ account, onConnect, connecting }) {
           // Build merchant profile cache for commitments
           const cMerchantCache = {}
           if (isMerchantRegistryConfigured()) {
-            const uniqueM = [...new Set(commitmentList.map(c => (c?.merchant || '').toLowerCase()).filter(Boolean))]
+            const seenC = new Set()
+            const uniqueM = []
+            for (const c of commitmentList) {
+              const w = c?.merchant
+              if (!w) continue
+              const k = w.toLowerCase()
+              if (seenC.has(k)) continue
+              seenC.add(k); uniqueM.push(w)
+            }
             await Promise.all(uniqueM.map(async mw => {
               try {
                 const m = await getMerchantByWallet(mw)
-                if (m && m.tradingName) cMerchantCache[mw] = m
+                if (m && m.active) cMerchantCache[mw.toLowerCase()] = m
               } catch {}
             }))
           }
@@ -210,11 +228,19 @@ export default function DashboardPage({ account, onConnect, connecting }) {
           // Build merchant profile cache for refunds
           const rMerchantCache = {}
           if (isMerchantRegistryConfigured()) {
-            const uniqueM = [...new Set(refundList.map(r => (r?.merchant || '').toLowerCase()).filter(Boolean))]
+            const seenR = new Set()
+            const uniqueM = []
+            for (const r of refundList) {
+              const w = r?.merchant
+              if (!w) continue
+              const k = w.toLowerCase()
+              if (seenR.has(k)) continue
+              seenR.add(k); uniqueM.push(w)
+            }
             await Promise.all(uniqueM.map(async mw => {
               try {
                 const m = await getMerchantByWallet(mw)
-                if (m && m.tradingName) rMerchantCache[mw] = m
+                if (m && m.active) rMerchantCache[mw.toLowerCase()] = m
               } catch {}
             }))
           }

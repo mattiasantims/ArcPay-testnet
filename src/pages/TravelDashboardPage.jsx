@@ -81,11 +81,11 @@ export default function TravelDashboardPage({ account }) {
       // Build merchant profile cache
       const merchantProfileCache = {}
       if (isMerchantRegistryConfigured()) {
-        const uniqueMerchants = [...new Set(fetched.map(t => (t?.merchant || '').toLowerCase()).filter(Boolean))]
+        const uniqueMerchants = [...new Set(fetched.map(t => (t?.merchant || '')).filter(Boolean))]
         await Promise.all(uniqueMerchants.map(async mw => {
           try {
             const m = await getMerchantByWallet(mw)
-            if (m && m.tradingName) merchantProfileCache[mw] = m
+            if (m && m.active) merchantProfileCache[mw.toLowerCase()] = m
           } catch {}
         }))
       }

@@ -100,7 +100,7 @@ export default function MyPaymentsPage() {
         if (isMerchantRegistryConfigured()) {
           try {
             const m = await getMerchantByWallet(p.payee)
-            if (m && m.tradingName) {
+            if (m && m.active) {
               merchantName      = m.tradingName
               merchantLegalName = m.legalName || ''
               merchantCountry   = m.country   || ''
@@ -124,7 +124,7 @@ export default function MyPaymentsPage() {
             await Promise.all(list.map(async c => {
               try {
                 const m = await getMerchantByWallet(c.merchant)
-                if (m && m.tradingName) {
+                if (m && m.active) {
                   c.merchantName      = m.tradingName
                   c.merchantLegalName = m.legalName || ''
                   c.merchantCountry   = m.country   || ''

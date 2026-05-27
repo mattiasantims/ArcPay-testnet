@@ -71,7 +71,7 @@ export default function MyCommitmentsPage() {
         await Promise.all(list.map(async c => {
           try {
             const m = await getMerchantByWallet(c.merchant)
-            if (m && m.tradingName) {
+            if (m && m.active) {
               c.merchantName      = m.tradingName
               c.merchantLegalName = m.legalName || ''
               c.merchantCountry   = m.country   || ''

@@ -85,11 +85,11 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
       // Build merchant profile lookup (unique merchants only)
       const merchantProfileCache = {}
       if (isMerchantRegistryConfigured()) {
-        const uniqueMerchants = [...new Set(fetched.map(({ booking }) => (booking?.merchant || '').toLowerCase()).filter(Boolean))]
+        const uniqueMerchants = [...new Set(fetched.map(({ booking }) => (booking?.merchant || '')).filter(Boolean))]
         await Promise.all(uniqueMerchants.map(async mw => {
           try {
             const m = await getMerchantByWallet(mw)
-            if (m && m.tradingName) merchantProfileCache[mw] = m
+            if (m && m.active) merchantProfileCache[mw.toLowerCase()] = m
           } catch {}
         }))
       }

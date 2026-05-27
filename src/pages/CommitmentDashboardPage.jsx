@@ -60,11 +60,11 @@ export default function CommitmentDashboardPage({ account }) {
       // Build merchant profile cache
       const merchantProfileCache = {}
       if (isMerchantRegistryConfigured()) {
-        const uniqueM = [...new Set(list.map(c => (c?.merchant || '').toLowerCase()).filter(Boolean))]
+        const uniqueM = [...new Set(list.map(c => (c?.merchant || '')).filter(Boolean))]
         await Promise.all(uniqueM.map(async mw => {
           try {
             const m = await getMerchantByWallet(mw)
-            if (m && m.tradingName) merchantProfileCache[mw] = m
+            if (m && m.active) merchantProfileCache[mw.toLowerCase()] = m
           } catch {}
         }))
       }

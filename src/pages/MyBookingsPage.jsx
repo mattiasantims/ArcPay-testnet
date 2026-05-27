@@ -34,7 +34,7 @@ export default function MyBookingsPage() {
         if (isMerchantRegistryConfigured()) {
           try {
             const m = await getMerchantByWallet(b.merchant)
-            if (m && m.tradingName) {
+            if (m && m.active) {
               merchantName      = m.tradingName
               merchantLegalName = m.legalName || ''
               merchantCountry   = m.country   || ''
