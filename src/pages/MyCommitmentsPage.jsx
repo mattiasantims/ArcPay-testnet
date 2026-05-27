@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
+import { getMerchantByWallet } from '../utils/merchant.js'
 import {
   fetchCustomerCommitmentIds, fetchCommitment,
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
@@ -11,7 +12,7 @@ import {
   REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 import { downloadUnifiedCSV } from '../utils/csv.js'
-import { isCommitmentContractConfigured, isRefundContractConfigured } from '../config.js'
+import { isCommitmentContractConfigured, isRefundContractConfigured, isMerchantRegistryConfigured} from '../config.js'
 
 function formatTs(unix) {
   if (!unix || unix === 0) return '—'
@@ -64,6 +65,19 @@ export default function MyCommitmentsPage() {
       for (const id of [...ids].reverse()) {
         const c = await fetchCommitment(id)
         if (c) list.push(c)
+      }
+      // Enrich with merchant profile
+      if (isMerchantRegistryConfigured()) {
+        await Promise.all(list.map(async c => {
+          try {
+            const m = await getMerchantByWallet(c.merchant)
+            if (m && m.tradingName) {
+              c.merchantName      = m.tradingName
+              c.merchantLegalName = m.legalName || ''
+              c.merchantCountry   = m.country   || ''
+            }
+          } catch {}
+        }))
       }
       setCommitments(list)
 

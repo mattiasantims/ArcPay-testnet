@@ -54,7 +54,7 @@ function makePdfBase() {
 }
 
 // ── Commitment creation PDF ───────────────────────────────────────────────────
-export function downloadCommitmentPDF(c, txHash) {
+export function downloadCommitmentPDF(c, txHash, merchantProfile = null) {
   if (!c) return
   const base = makePdfBase(); if (!base) return
   const { doc, margin, addField, addDivider, addDisclaimer } = base
@@ -75,7 +75,13 @@ export function downloadCommitmentPDF(c, txHash) {
   if (c.description) y = addField('Description', c.description, y)
   y = addDivider(y)
 
-  y = addField('Merchant',     c.merchant, y)
+  if (merchantProfile?.tradingName)     y = addField('Merchant',     merchantProfile.tradingName, y)
+  if (merchantProfile?.legalName)       y = addField('Legal Name',   merchantProfile.legalName, y)
+  if (merchantProfile?.country)         y = addField('Country',      merchantProfile.country, y)
+  if (merchantProfile?.businessAddress) y = addField('Reg. Office',  merchantProfile.businessAddress, y)
+  if (merchantProfile?.vatOrCompanyId)  y = addField('VAT / Co. ID', merchantProfile.vatOrCompanyId, y)
+  if (merchantProfile?.lei)             y = addField('LEI',          merchantProfile.lei, y)
+  y = addField('Merchant wallet', c.merchant, y)
   y = addField('Customer',     c.customer, y)
   y = addDivider(y)
 
@@ -103,7 +109,7 @@ export function downloadCommitmentPDF(c, txHash) {
 }
 
 // ── Fulfill / tranche paid PDF ────────────────────────────────────────────────
-export function downloadFulfillPDF(c, txHash, trancheIndex = null) {
+export function downloadFulfillPDF(c, txHash, trancheIndex = null, merchantProfile = null) {
   if (!c) return
   const base = makePdfBase(); if (!base) return
   const { doc, margin, addField, addDivider, addDisclaimer } = base
@@ -127,7 +133,13 @@ export function downloadFulfillPDF(c, txHash, trancheIndex = null) {
   if (c.description) y = addField('Description', c.description, y)
   y = addDivider(y)
 
-  y = addField('Merchant',     c.merchant, y)
+  if (merchantProfile?.tradingName)     y = addField('Merchant',     merchantProfile.tradingName, y)
+  if (merchantProfile?.legalName)       y = addField('Legal Name',   merchantProfile.legalName, y)
+  if (merchantProfile?.country)         y = addField('Country',      merchantProfile.country, y)
+  if (merchantProfile?.businessAddress) y = addField('Reg. Office',  merchantProfile.businessAddress, y)
+  if (merchantProfile?.vatOrCompanyId)  y = addField('VAT / Co. ID', merchantProfile.vatOrCompanyId, y)
+  if (merchantProfile?.lei)             y = addField('LEI',          merchantProfile.lei, y)
+  y = addField('Merchant wallet', c.merchant, y)
   y = addField('Customer',     c.customer, y)
   y = addDivider(y)
 
@@ -151,7 +163,7 @@ export function downloadFulfillPDF(c, txHash, trancheIndex = null) {
 }
 
 // ── Cancellation PDF ──────────────────────────────────────────────────────────
-export function downloadCancelPDF(c, txHash) {
+export function downloadCancelPDF(c, txHash, merchantProfile = null) {
   if (!c) return
   const base = makePdfBase(); if (!base) return
   const { doc, margin, addField, addDivider, addDisclaimer } = base
@@ -169,7 +181,13 @@ export function downloadCancelPDF(c, txHash) {
   y = addField('Type',         COMMITMENT_TYPE_LABEL[c.type] ?? String(c.type), y)
   y = addField('Ref',          c.ref, y)
   y = addDivider(y)
-  y = addField('Merchant',     c.merchant, y)
+  if (merchantProfile?.tradingName)     y = addField('Merchant',     merchantProfile.tradingName, y)
+  if (merchantProfile?.legalName)       y = addField('Legal Name',   merchantProfile.legalName, y)
+  if (merchantProfile?.country)         y = addField('Country',      merchantProfile.country, y)
+  if (merchantProfile?.businessAddress) y = addField('Reg. Office',  merchantProfile.businessAddress, y)
+  if (merchantProfile?.vatOrCompanyId)  y = addField('VAT / Co. ID', merchantProfile.vatOrCompanyId, y)
+  if (merchantProfile?.lei)             y = addField('LEI',          merchantProfile.lei, y)
+  y = addField('Merchant wallet', c.merchant, y)
   y = addField('Customer',     c.customer, y)
   y = addDivider(y)
   y = addField('Total Amount', `${c.totalAmount} USDC`, y)
@@ -187,7 +205,7 @@ export function downloadCancelPDF(c, txHash) {
 }
 
 // ── Refund event PDF ──────────────────────────────────────────────────────────
-export function downloadRefundPDF(c, refund, txHash) {
+export function downloadRefundPDF(c, refund, txHash, merchantProfile = null) {
   if (!c || !refund) return
   const base = makePdfBase(); if (!base) return
   const { doc, margin, addField, addDivider, addDisclaimer } = base
@@ -230,7 +248,7 @@ export function downloadRefundPDF(c, refund, txHash) {
 
 // ── Full commitment PDF with all events ───────────────────────────────────────
 // events: [{ label, txHash, timestamp, detail, note }]
-export function downloadFullCommitmentPDF(c, events = []) {
+export function downloadFullCommitmentPDF(c, events = [], merchantProfile = null) {
   if (!c) return
   if (typeof window === 'undefined' || !window.jspdf) {
     alert('PDF generation not available.')

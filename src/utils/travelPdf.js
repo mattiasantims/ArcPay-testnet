@@ -114,6 +114,11 @@ export function downloadTravelReceiptPDF(receipt) {
   addField('Description',         receipt.description)
   addField('Agency / Merchant',   receipt.merchant_wallet)
   addField('Agency',              receipt.agency_name !== receipt.merchant_wallet ? receipt.agency_name : receipt.merchant_wallet)
+  if (receipt.merchant_legal_name) addField('Legal Name',  receipt.merchant_legal_name)
+  if (receipt.merchant_country)    addField('Country',     receipt.merchant_country)
+  if (receipt.merchant_address)    addField('Reg. Office', receipt.merchant_address)
+  if (receipt.merchant_vat)        addField('VAT / Co. ID', receipt.merchant_vat)
+  if (receipt.merchant_lei)        addField('LEI',         receipt.merchant_lei)
   addField('Customer',            receipt.customer_wallet)
 
   y += 2; doc.line(margin, y, 192, y); y += 4
@@ -219,6 +224,11 @@ export function downloadTrancheReceiptPDF(receipt) {
   addField('Customer',        receipt.customer_wallet)
   addField('Agency',          receipt.merchant_wallet)
   addField('Agency Name',     receipt.agency_name)
+  if (receipt.merchant_legal_name) addField('Legal Name',   receipt.merchant_legal_name)
+  if (receipt.merchant_country)    addField('Country',      receipt.merchant_country)
+  if (receipt.merchant_address)    addField('Reg. Office',  receipt.merchant_address)
+  if (receipt.merchant_vat)        addField('VAT / Co. ID', receipt.merchant_vat)
+  if (receipt.merchant_lei)        addField('LEI',          receipt.merchant_lei)
   addField('Tranche Amount',  `${receipt.tranche_amount} USDC`)
   addField('Paid At',         receipt.tranche_paid_at)
   addField('TX Hash',         receipt.transaction_hash)

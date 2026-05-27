@@ -95,13 +95,19 @@ export default function MyPaymentsPage() {
       const withTx = await Promise.all(valid.map(async p => {
         const txHash = getCachedTxHash(p.proofId) || await recoverTxHash(p.proofId, p.createdBlock)
         let merchantName = ''
+        let merchantLegalName = ''
+        let merchantCountry   = ''
         if (isMerchantRegistryConfigured()) {
           try {
             const m = await getMerchantByWallet(p.payee)
-            if (m && m.tradingName) merchantName = m.tradingName
+            if (m && m.tradingName) {
+              merchantName      = m.tradingName
+              merchantLegalName = m.legalName || ''
+              merchantCountry   = m.country   || ''
+            }
           } catch {}
         }
-        return { ...p, txHash, merchantName }
+        return { ...p, txHash, merchantName, merchantLegalName, merchantCountry }
       }))
       setPayments(withTx)
 
@@ -112,6 +118,19 @@ export default function MyPaymentsPage() {
           for (const id of [...cIds].reverse()) {
             const cm = await fetchCommitment(id)
             if (cm) list.push(cm)
+          }
+          // Enrich with merchant profile
+          if (isMerchantRegistryConfigured()) {
+            await Promise.all(list.map(async c => {
+              try {
+                const m = await getMerchantByWallet(c.merchant)
+                if (m && m.tradingName) {
+                  c.merchantName      = m.tradingName
+                  c.merchantLegalName = m.legalName || ''
+                  c.merchantCountry   = m.country   || ''
+                }
+              } catch {}
+            }))
           }
           setCommitments(list)
         } catch {}
@@ -163,8 +182,10 @@ export default function MyPaymentsPage() {
 
   function exportCSV() {
     const receipts = payments.map(p => ({
-      timestamp_utc:    formatTs(Number(p.timestamp)),
-      merchant_name:    p.merchantName || '',
+      timestamp_utc:       formatTs(Number(p.timestamp)),
+      merchant_name:       p.merchantName || '',
+      merchant_legal_name: p.merchantLegalName || '',
+      merchant_country:    p.merchantCountry   || '',
       merchant_wallet:  p.payee,
       customer_wallet:  p.payer,
       amount:           formatUsdc(p.amount),

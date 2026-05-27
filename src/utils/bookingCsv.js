@@ -6,6 +6,7 @@ export function downloadBookingCSV(bookings, walletAddress) {
 
   const headers = [
     'timestamp','status','guestWallet','merchantWallet','merchantName',
+    'merchantLegalName','merchantCountry',
     'totalAmount','nonRefundable','refundable','nonRefundablePct',
     'bookingRef','cancellationDeadline','checkInDate','createdAt',
     'createTxHash','createArcScan',
@@ -48,6 +49,8 @@ export function downloadBookingCSV(bookings, walletAddress) {
       guest,
       merchant,
       b._name || b.merchant_name || '',
+      b.merchant_legal_name || '',
+      b.merchant_country || '',
       totalAmount,
       nonRef,
       refund,

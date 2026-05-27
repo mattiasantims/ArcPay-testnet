@@ -11,6 +11,7 @@ export function downloadCommitmentCSV(commitments, walletAddress) {
 
   const headers = [
     'timestamp', 'type', 'status', 'customerWallet', 'merchantWallet',
+    'merchantName', 'merchantLegalName', 'merchantCountry',
     'ref', 'description', 'totalAmount',
     'dueDate', 'deadline',
     'trancheCount', 'tranchesPaid',
@@ -26,6 +27,9 @@ export function downloadCommitmentCSV(commitments, walletAddress) {
       COMMITMENT_STATUS_LABEL[c.status] ?? '',
       c.customer  ?? '',
       c.merchant  ?? '',
+      c.merchantName       ?? '',
+      c.merchantLegalName  ?? '',
+      c.merchantCountry    ?? '',
       c.ref       ?? '',
       c.description ?? '',
       c.totalAmount ?? '',

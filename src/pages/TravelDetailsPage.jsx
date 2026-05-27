@@ -16,6 +16,7 @@ import {
   buildTrancheReceiptObject, downloadTrancheReceiptPDF, downloadTrancheReceiptJSON,
   downloadTravelCancelPDF, downloadTravelReleasePDF, downloadTrancheRequestPDF, downloadFullTravelPDF,
 } from '../utils/travelPdf.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 import { shortAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, isTravelContractConfigured, APP_URL } from '../config.js'
 
@@ -25,7 +26,8 @@ export default function TravelDetailsPage() {
   const { address, isConnected } = useAccount()
   const { open }   = useWeb3Modal()
 
-  const [travel,    setTravel]    = useState(null)
+  const [travel,          setTravel]          = useState(null)
+  const [merchantProfile, setMerchantProfile] = useState(null)
   const [txHashes,  setTxHashes]  = useState({ createHash: null, cancelHash: null, releaseHash: null, trancheReqHash: null, tranchePaidHash: null })
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
@@ -49,6 +51,11 @@ export default function TravelDetailsPage() {
       const t = await fetchTravelBooking(id)
       if (t) {
         fetchTravelTxHashes(t).then(setTxHashes).catch(() => {})
+        if (isMerchantRegistryConfigured()) {
+          getMerchantByWallet(t.merchant).then(m => {
+            if (m && m.tradingName) setMerchantProfile(m)
+          }).catch(() => {})
+        }
       }
       setTravel(t)
       if (!t) setError('Travel booking not found.')
@@ -227,7 +234,7 @@ export default function TravelDetailsPage() {
         const ARCSCAN = 'https://testnet.arcscan.app'
         const ts = (unix) => unix && Number(unix) > 0 ? new Date(Number(unix) * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null
         const fmt = raw => fromUsdc(raw).toFixed(2)
-        const receipt = buildTravelReceiptObject({ travel, txHash: createHash || getCachedTravelTxHash(travel.travelId), travelId: travel.travelId, agencyName, description })
+        const receipt = buildTravelReceiptObject({ travel, txHash: createHash || getCachedTravelTxHash(travel.travelId), travelId: travel.travelId, agencyName, description, merchantProfile })
 
         const events = []
         events.push({
@@ -247,7 +254,7 @@ export default function TravelDetailsPage() {
           })
         }
         if (travel.tranchePaid) {
-          const trancheReceipt = buildTrancheReceiptObject({ travel, txHash: tranchePaidHash, travelId: travel.travelId, agencyName })
+          const trancheReceipt = buildTrancheReceiptObject({ travel, txHash: tranchePaidHash, travelId: travel.travelId, agencyName, merchantProfile })
           events.push({
             label:     'Tranche Payment Paid',
             txHash:    tranchePaidHash,

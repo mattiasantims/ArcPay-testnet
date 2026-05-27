@@ -10,6 +10,7 @@ import { getCachedBookingTxHash, getBookingRequests } from '../utils/bookingRequ
 import { isValidAddress } from '../utils/wallet.js'
 import { downloadBookingCSV } from '../utils/bookingCsv.js'
 import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 import { isMerchantRegistryConfigured, isBookingContractConfigured, ARCSCAN_BASE } from '../config.js'
 import BookingStatusBadge from '../components/BookingStatusBadge.jsx'
 
@@ -80,6 +81,19 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
 
       const localReqs = getBookingRequests()
       const totalMerchantBookings = fetched.length
+
+      // Build merchant profile lookup (unique merchants only)
+      const merchantProfileCache = {}
+      if (isMerchantRegistryConfigured()) {
+        const uniqueMerchants = [...new Set(fetched.map(({ booking }) => (booking?.merchant || '').toLowerCase()).filter(Boolean))]
+        await Promise.all(uniqueMerchants.map(async mw => {
+          try {
+            const m = await getMerchantByWallet(mw)
+            if (m && m.tradingName) merchantProfileCache[mw] = m
+          } catch {}
+        }))
+      }
+
       const built = await Promise.all(fetched.map(async ({ id, booking }, idx) => {
         const txHash   = getCachedBookingTxHash(id)
         const localReq = localReqs.find(r => r.bookingRef === booking.bookingRef)
@@ -95,6 +109,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
             booking, txHash: txHash || createTxHash, bookingId: id,
             merchantName: localReq?.merchantName || null,
             description:  localReq?.description  || null,
+            merchantProfile: merchantProfileCache[(booking?.merchant || '').toLowerCase()],
           }),
           create_tx_hash:  createTxHash,
           cancel_tx_hash:  cancelTxHash,

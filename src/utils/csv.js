@@ -38,7 +38,9 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
   if (receipts.length > 0) {
     lines.push('"=== IMMEDIATE PAYMENTS ==="')
     lines.push(csvRow([
-      'timestamp', 'merchantWallet', 'customerWallet', 'amount',
+      'timestamp', 'merchantWallet',
+      'merchantName', 'merchantLegalName', 'merchantCountry',
+      'customerWallet', 'amount',
       'paymentRef', 'purposeCode', 'description',
       'paymentStatus',                    // Paid / Refund Requested / Refunded / Refund Denied
       'txHash', 'arcscanUrl', 'receiptUrl',
@@ -47,6 +49,9 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
       lines.push(csvRow([
         r.timestamp_utc    ?? '',
         r.merchant_wallet  ?? '',
+        r.merchant_name        ?? '',
+        r.merchant_legal_name  ?? '',
+        r.merchant_country     ?? '',
         r.customer_wallet  ?? '',
         r.amount           ?? '',
         r.payment_ref      ?? '',
@@ -66,7 +71,9 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
     lines.push('"=== DELAYED & TRANCHE PAYMENTS ==="')
     lines.push(csvRow([
       'createdAt', 'type', 'commitmentStatus', 'ref', 'description',
-      'merchantWallet', 'customerWallet', 'totalAmount',
+      'merchantWallet',
+      'merchantName', 'merchantLegalName', 'merchantCountry',
+      'customerWallet', 'totalAmount',
       'dueDate', 'deadline', 'trancheCount', 'tranchesPaid',
       'createTxHash', 'createArcScan',
       'fulfillTxHash', 'fulfillArcScan',
@@ -84,6 +91,9 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
         c.ref          ?? '',
         c.description  ?? '',
         c.merchant     ?? '',
+        c.merchantName       ?? '',
+        c.merchantLegalName  ?? '',
+        c.merchantCountry    ?? '',
         c.customer     ?? '',
         c.totalAmount  ?? '',
         formatTs(c.dueDate),
@@ -105,7 +115,9 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
     lines.push(csvRow([
       'requestedAt', 'processedAt', 'refundStatus',
       'proofRef', 'reason',                         // no refundId column
-      'merchantWallet', 'customerWallet', 'amount',
+      'merchantWallet',
+      'merchantName', 'merchantLegalName', 'merchantCountry',
+      'customerWallet', 'amount',
       'requestTxHash', 'requestArcScan',
       'processTxHash', 'processArcScan',
     ]))
@@ -119,6 +131,9 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
         r.proofRef  ?? '',
         r.reason    ?? '',
         r.merchant  ?? '',
+        r.merchantName       ?? '',
+        r.merchantLegalName  ?? '',
+        r.merchantCountry    ?? '',
         r.customer  ?? '',
         r.amount    ?? '',
         reqTx,
@@ -139,13 +154,17 @@ export function downloadCSV(receipts, merchantWallet) {
   if (!receipts || receipts.length === 0) return
   const lines = []
   lines.push(csvRow([
-    'timestamp', 'merchantWallet', 'customerWallet', 'amount',
+    'timestamp', 'merchantWallet',
+    'merchantName', 'merchantLegalName', 'merchantCountry',
+    'customerWallet', 'amount',
     'paymentRef', 'purposeCode', 'description', 'paymentStatus',
     'txHash', 'arcscanUrl', 'receiptUrl',
   ]))
   for (const r of receipts) {
     lines.push(csvRow([
-      r.timestamp_utc ?? '', r.merchant_wallet ?? '', r.customer_wallet ?? '',
+      r.timestamp_utc ?? '', r.merchant_wallet ?? '',
+      r.merchant_name ?? '', r.merchant_legal_name ?? '', r.merchant_country ?? '',
+      r.customer_wallet ?? '',
       r.amount ?? '', r.payment_ref ?? '', r.purpose_code ?? '',
       r.description ?? '', paymentStatus(r),
       r.transaction_hash ?? '',

@@ -9,8 +9,9 @@ import {
   getCachedCommitmentTxHash,
 } from '../utils/commitment.js'
 import { isValidAddress, shortAddress } from '../utils/wallet.js'
-import { isCommitmentContractConfigured, ARCSCAN_BASE } from '../config.js'
+import { isCommitmentContractConfigured, ARCSCAN_BASE, isMerchantRegistryConfigured} from '../config.js'
 import { downloadCommitmentCSV } from '../utils/commitmentCsv.js'
+import { getMerchantByWallet } from '../utils/merchant.js'
 
 function StatusBadge({ status, type }) {
   return (
@@ -56,7 +57,28 @@ export default function CommitmentDashboardPage({ account }) {
         const c = await fetchCommitment(id)
         if (c) { c.txHash = getCachedCommitmentTxHash(id); list.push(c) }
       }
-      setCommitments(list)
+      // Build merchant profile cache
+      const merchantProfileCache = {}
+      if (isMerchantRegistryConfigured()) {
+        const uniqueM = [...new Set(list.map(c => (c?.merchant || '').toLowerCase()).filter(Boolean))]
+        await Promise.all(uniqueM.map(async mw => {
+          try {
+            const m = await getMerchantByWallet(mw)
+            if (m && m.tradingName) merchantProfileCache[mw] = m
+          } catch {}
+        }))
+      }
+      // Enrich with merchant profile
+      const enriched = list.map(c => {
+        const mp = merchantProfileCache[(c?.merchant || '').toLowerCase()]
+        return {
+          ...c,
+          merchantName:      mp?.tradingName || '',
+          merchantLegalName: mp?.legalName   || '',
+          merchantCountry:   mp?.country     || '',
+        }
+      })
+      setCommitments(enriched)
     } catch { setError('Failed to load. Are you on Arc Testnet?') }
     finally { setLoading(false) }
   }

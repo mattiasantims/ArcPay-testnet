@@ -46,7 +46,8 @@ export default function CommitmentDetailsPage() {
   const { open }    = useWeb3Modal()
   const configured  = isCommitmentContractConfigured()
 
-  const [c,          setC]          = useState(null)
+  const [c,               setC]               = useState(null)
+  const [merchantProfile, setMerchantProfile] = useState(null)
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState('')
   const [success,    setSuccess]    = useState('')
@@ -88,6 +89,11 @@ export default function CommitmentDetailsPage() {
     try {
       const data = await fetchCommitment(id)
       setC(data)
+      if (data && isMerchantRegistryConfigured()) {
+        getMerchantByWallet(data.merchant).then(m => {
+          if (m && m.tradingName) setMerchantProfile(m)
+        }).catch(() => {})
+      }
       if (!data) setError('Commitment not found.')
     } catch { setError('Failed to load commitment.') }
     finally { setLoading(false) }
@@ -327,7 +333,7 @@ export default function CommitmentDetailsPage() {
                       </a>
                     )}
                     {c.tranchePaid[i] && (
-                      <button onClick={() => downloadFulfillPDF(c, trancheHash, i)} className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>PDF</button>
+                      <button onClick={() => downloadFulfillPDF(c, trancheHash, i, merchantProfile)} className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}>PDF</button>
                     )}
                   </div>
                 </div>
@@ -572,7 +578,7 @@ export default function CommitmentDetailsPage() {
             timestamp: ts(c.createdAt),
             detail:   `${c.totalAmount} USDC · ${c.ref}`,
             note:     null,
-            pdf:      () => downloadCommitmentPDF(c, createHash),
+            pdf:      () => downloadCommitmentPDF(c, createHash, merchantProfile),
           })
 
           // 2. Delayed payment fulfilled
@@ -583,7 +589,7 @@ export default function CommitmentDetailsPage() {
               timestamp: null,
               detail:   `${c.totalAmount} USDC transferred to merchant`,
               note:     null,
-              pdf:      () => downloadFulfillPDF(c, fulfillHash),
+              pdf:      () => downloadFulfillPDF(c, fulfillHash, null, merchantProfile),
             })
           }
 
@@ -597,7 +603,7 @@ export default function CommitmentDetailsPage() {
                   timestamp: null,
                   detail:   `${amt} USDC`,
                   note:     null,
-                  pdf:      () => downloadFulfillPDF(c, trancheHashes[i] || null, i),
+                  pdf:      () => downloadFulfillPDF(c, trancheHashes[i] || null, i, merchantProfile),
                 })
               }
             })
@@ -611,7 +617,7 @@ export default function CommitmentDetailsPage() {
               timestamp: null,
               detail:   `${c.totalAmount} USDC · ${c.ref}`,
               note:     null,
-              pdf:      () => downloadCancelPDF(c, cancelHash),
+              pdf:      () => downloadCancelPDF(c, cancelHash, merchantProfile),
             })
           }
 
@@ -634,7 +640,7 @@ export default function CommitmentDetailsPage() {
                 timestamp: ts(refund.processedAt),
                 detail:   `${refund.amount} USDC transferred to customer`,
                 note:     null,
-                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx),
+                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx, merchantProfile),
               })
             }
             if (refund.status === 2) {
@@ -644,7 +650,7 @@ export default function CommitmentDetailsPage() {
                 timestamp: ts(refund.processedAt),
                 detail:   'Merchant denied the refund request',
                 note:     null,
-                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx),
+                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx, merchantProfile),
               })
             }
             if (refund.status === 3) {
@@ -654,7 +660,7 @@ export default function CommitmentDetailsPage() {
                 timestamp: ts(refund.processedAt),
                 detail:   `${refund.amount} USDC sent directly to customer`,
                 note:     refund.reason || null,
-                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx),
+                pdf:      () => downloadRefundPDF(c, refund, refundProcessTx || refundRequestTx, merchantProfile),
               })
             }
           }
@@ -703,7 +709,7 @@ export default function CommitmentDetailsPage() {
 
               {/* Action buttons */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={() => downloadFullCommitmentPDF(c, events)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                <button onClick={() => downloadFullCommitmentPDF(c, events, merchantProfile)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
                   🖨️ Full PDF (all events)
                 </button>
                 <button onClick={() => navigator.clipboard.writeText(receiptUrl)} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>

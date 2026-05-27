@@ -10,7 +10,7 @@ import {
 } from '../utils/travel.js'
 import { isValidAddress, shortAddress } from '../utils/wallet.js'
 import { isTravelContractConfigured, isMerchantRegistryConfigured, ARCSCAN_BASE } from '../config.js'
-import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
+import { getMerchantIdByWallet, getMerchantWallets, getMerchantByWallet } from '../utils/merchant.js'
 import { downloadTravelCSV } from '../utils/travelCsv.js'
 
 export default function TravelDashboardPage({ account }) {
@@ -78,8 +78,21 @@ export default function TravelDashboardPage({ account }) {
         } catch {}
       }
       setBookings(fetched)
-      // Enrich with TX hashes from scanBlock
+      // Build merchant profile cache
+      const merchantProfileCache = {}
+      if (isMerchantRegistryConfigured()) {
+        const uniqueMerchants = [...new Set(fetched.map(t => (t?.merchant || '').toLowerCase()).filter(Boolean))]
+        await Promise.all(uniqueMerchants.map(async mw => {
+          try {
+            const m = await getMerchantByWallet(mw)
+            if (m && m.tradingName) merchantProfileCache[mw] = m
+          } catch {}
+        }))
+      }
+
+      // Enrich with TX hashes from scanBlock + merchant profile
       const enriched = await Promise.all(fetched.map(async t => {
+        const mp = merchantProfileCache[(t?.merchant || '').toLowerCase()]
         try {
           const h = await fetchTravelTxHashes(t)
           return {
@@ -89,8 +102,18 @@ export default function TravelDashboardPage({ account }) {
             releaseTxHash:        h.releaseHash,
             trancheRequestTxHash: h.trancheReqHash,
             tranchePaidTxHash:    h.tranchePaidHash,
+            merchantName:         mp?.tradingName || '',
+            merchantLegalName:    mp?.legalName   || '',
+            merchantCountry:      mp?.country     || '',
           }
-        } catch { return t }
+        } catch {
+          return {
+            ...t,
+            merchantName:         mp?.tradingName || '',
+            merchantLegalName:    mp?.legalName   || '',
+            merchantCountry:      mp?.country     || '',
+          }
+        }
       }))
       setBookings(enriched)
       setTxHashesReady(true)

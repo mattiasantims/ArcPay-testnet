@@ -119,6 +119,19 @@ export default function DashboardPage({ account, onConnect, connecting }) {
       setProofs(fetched)
 
       const localRequests = getPaymentRequests()
+
+      // Build merchant profile cache from unique payees
+      const merchantProfileCache = {}
+      if (isMerchantRegistryConfigured()) {
+        const uniquePayees = [...new Set(fetched.map(({ proof }) => (proof?.payee || '').toLowerCase()).filter(Boolean))]
+        await Promise.all(uniquePayees.map(async w => {
+          try {
+            const m = await getMerchantByWallet(w)
+            if (m && m.tradingName) merchantProfileCache[w] = m
+          } catch {}
+        }))
+      }
+
       const built = []
       for (const { id, proof } of fetched) {
         let txHash = getCachedTxHash(id)
@@ -126,12 +139,14 @@ export default function DashboardPage({ account, onConnect, connecting }) {
           txHash = await recoverTxHash(id, proof.createdBlock)
         }
         const localReq = localRequests.find(r => r.ref === proof.paymentRef)
+        const mp = merchantProfileCache[(proof?.payee || '').toLowerCase()]
         built.push(buildReceiptObject({
           proofData:    proof,
           txHash,
           proofId:      id,
           merchantName: localReq?.name  || null,
           description:  localReq?.desc  || null,
+          merchantProfile: mp,
         }))
       }
       setReceipts(built)
@@ -150,12 +165,29 @@ export default function DashboardPage({ account, onConnect, connecting }) {
             const cm = await fetchCommitment(id)
             if (cm) commitmentList.push(cm)
           }
-          // Enrich commitments with TX hashes for CSV export
+          // Build merchant profile cache for commitments
+          const cMerchantCache = {}
+          if (isMerchantRegistryConfigured()) {
+            const uniqueM = [...new Set(commitmentList.map(c => (c?.merchant || '').toLowerCase()).filter(Boolean))]
+            await Promise.all(uniqueM.map(async mw => {
+              try {
+                const m = await getMerchantByWallet(mw)
+                if (m && m.tradingName) cMerchantCache[mw] = m
+              } catch {}
+            }))
+          }
+          // Enrich commitments with TX hashes + merchant profile for CSV export
           const enrichedC = await Promise.all(commitmentList.map(async cm => {
+            const mp = cMerchantCache[(cm?.merchant || '').toLowerCase()]
+            const extra = {
+              merchantName:      mp?.tradingName || '',
+              merchantLegalName: mp?.legalName   || '',
+              merchantCountry:   mp?.country     || '',
+            }
             try {
               const hashes = await fetchCommitmentTxHashes(cm)
-              return { ...cm, createTxHash: hashes.createHash, fulfillTxHash: hashes.fulfillHash, cancelTxHash: hashes.cancelHash }
-            } catch { return cm }
+              return { ...cm, ...extra, createTxHash: hashes.createHash, fulfillTxHash: hashes.fulfillHash, cancelTxHash: hashes.cancelHash }
+            } catch { return { ...cm, ...extra } }
           }))
           setCommitments(enrichedC)
         } catch {}
@@ -175,10 +207,27 @@ export default function DashboardPage({ account, onConnect, connecting }) {
             const r = await fetchRefundRequest(id)
             if (r) refundList.push(r)
           }
-          // Enrich refunds with TX hashes from on-chain logs
+          // Build merchant profile cache for refunds
+          const rMerchantCache = {}
+          if (isMerchantRegistryConfigured()) {
+            const uniqueM = [...new Set(refundList.map(r => (r?.merchant || '').toLowerCase()).filter(Boolean))]
+            await Promise.all(uniqueM.map(async mw => {
+              try {
+                const m = await getMerchantByWallet(mw)
+                if (m && m.tradingName) rMerchantCache[mw] = m
+              } catch {}
+            }))
+          }
+          // Enrich refunds with TX hashes from on-chain logs + merchant profile
           const enriched = await Promise.all(refundList.map(async r => {
+            const mp = rMerchantCache[(r?.merchant || '').toLowerCase()]
             const { requestTxHash, processTxHash } = await fetchRefundTxHashes(r)
-            return { ...r, requestTxHash, processTxHash }
+            return {
+              ...r, requestTxHash, processTxHash,
+              merchantName:      mp?.tradingName || '',
+              merchantLegalName: mp?.legalName   || '',
+              merchantCountry:   mp?.country     || '',
+            }
           }))
           setRefunds(enriched)
           // Build lookup: proofRef -> most recent refund

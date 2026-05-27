@@ -29,10 +29,16 @@ export default function MyBookingsPage() {
       // Recupera nome merchant dal registry
       const withNames = await Promise.all(valid.map(async b => {
         let merchantName = shortAddress(b.merchant)
+        let merchantLegalName = ''
+        let merchantCountry   = ''
         if (isMerchantRegistryConfigured()) {
           try {
             const m = await getMerchantByWallet(b.merchant)
-            if (m && m.tradingName) merchantName = m.tradingName
+            if (m && m.tradingName) {
+              merchantName      = m.tradingName
+              merchantLegalName = m.legalName || ''
+              merchantCountry   = m.country   || ''
+            }
           } catch {}
         }
         let createTxHash = null, cancelTxHash = null, releaseTxHash = null
@@ -42,7 +48,7 @@ export default function MyBookingsPage() {
           cancelTxHash  = hashes.cancelHash
           releaseTxHash = hashes.releaseHash
         } catch {}
-        return { ...b, merchantName, createTxHash, cancelTxHash, releaseTxHash }
+        return { ...b, merchantName, merchantLegalName, merchantCountry, createTxHash, cancelTxHash, releaseTxHash }
       }))
       setBookings(withNames)
     }).finally(() => setLoading(false))
@@ -58,13 +64,15 @@ export default function MyBookingsPage() {
 
   function exportCSV() {
     if (!bookings.length) return
-    const headers = ['timestamp','status','guestWallet','merchantWallet','merchantName','totalAmount','nonRefundable','refundable','nonRefundablePct','bookingRef','cancellationDeadline','checkInDate','createdAt','createTxHash','createArcScan','cancelTxHash','cancelArcScan','releaseTxHash','releaseArcScan','bookingUrl','network','testnetDisclaimer']
+    const headers = ['timestamp','status','guestWallet','merchantWallet','merchantName','merchantLegalName','merchantCountry','totalAmount','nonRefundable','refundable','nonRefundablePct','bookingRef','cancellationDeadline','checkInDate','createdAt','createTxHash','createArcScan','cancelTxHash','cancelArcScan','releaseTxHash','releaseArcScan','bookingUrl','network','testnetDisclaimer']
     const rows = bookings.map(b => [
       b.createdAt ? new Date(Number(b.createdAt)*1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : '',
       ['Active','Cancelled','Released to Hotel'][Number(b.status)] ?? '',
       address ?? '',
       b.merchant ?? '',
       b.merchantName || shortAddress(b.merchant),
+      b.merchantLegalName || '',
+      b.merchantCountry   || '',
       b.totalAmount ? (Number(b.totalAmount)/1e6).toFixed(2) + ' USDC' : '',
       b.nonRefundableAmount ? (Number(b.nonRefundableAmount)/1e6).toFixed(2) + ' USDC' : '',
       b.refundableAmount ? (Number(b.refundableAmount)/1e6).toFixed(2) + ' USDC' : '',

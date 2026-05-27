@@ -31,10 +31,16 @@ export default function MyTravelPage() {
       const valid = all.filter(Boolean).sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
       const withNames = await Promise.all(valid.map(async b => {
         let merchantName = shortAddress(b.merchant)
+        let merchantLegalName = ''
+        let merchantCountry   = ''
         if (isMerchantRegistryConfigured()) {
           try {
             const m = await getMerchantByWallet(b.merchant)
-            if (m && m.tradingName) merchantName = m.tradingName
+            if (m && m.tradingName) {
+              merchantName      = m.tradingName
+              merchantLegalName = m.legalName || ''
+              merchantCountry   = m.country   || ''
+            }
           } catch {}
         }
         let createTxHash = null, cancelTxHash = null, releaseTxHash = null, trancheRequestTxHash = null, tranchePaidTxHash = null
@@ -46,7 +52,7 @@ export default function MyTravelPage() {
           trancheRequestTxHash = h.trancheReqHash
           tranchePaidTxHash    = h.tranchePaidHash
         } catch {}
-        return { ...b, merchantName, createTxHash, cancelTxHash, releaseTxHash, trancheRequestTxHash, tranchePaidTxHash }
+        return { ...b, merchantName, merchantLegalName, merchantCountry, createTxHash, cancelTxHash, releaseTxHash, trancheRequestTxHash, tranchePaidTxHash }
       }))
       setBookings(withNames)
     }).finally(() => setLoading(false))
