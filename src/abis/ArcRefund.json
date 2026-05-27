@@ -1,7 +1,13 @@
 [
   {
     "type": "constructor",
-    "inputs": [{ "name": "_usdc", "type": "address", "internalType": "address" }],
+    "inputs": [
+      {
+        "name": "_usdc",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -9,11 +15,36 @@
     "name": "RefundRequested",
     "anonymous": false,
     "inputs": [
-      { "name": "refundId",  "type": "uint256", "indexed": true,  "internalType": "uint256" },
-      { "name": "customer",  "type": "address", "indexed": true,  "internalType": "address" },
-      { "name": "merchant",  "type": "address", "indexed": true,  "internalType": "address" },
-      { "name": "amount",    "type": "uint256", "indexed": false, "internalType": "uint256" },
-      { "name": "proofRef",  "type": "string",  "indexed": false, "internalType": "string"  }
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "customer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "proofRef",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
     ]
   },
   {
@@ -21,11 +52,36 @@
     "name": "RefundApproved",
     "anonymous": false,
     "inputs": [
-      { "name": "refundId",  "type": "uint256", "indexed": true,  "internalType": "uint256" },
-      { "name": "merchant",  "type": "address", "indexed": true,  "internalType": "address" },
-      { "name": "customer",  "type": "address", "indexed": true,  "internalType": "address" },
-      { "name": "amount",    "type": "uint256", "indexed": false, "internalType": "uint256" },
-      { "name": "proofRef",  "type": "string",  "indexed": false, "internalType": "string"  }
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "customer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "proofRef",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
     ]
   },
   {
@@ -33,9 +89,24 @@
     "name": "RefundDenied",
     "anonymous": false,
     "inputs": [
-      { "name": "refundId",  "type": "uint256", "indexed": true,  "internalType": "address" },
-      { "name": "merchant",  "type": "address", "indexed": true,  "internalType": "address" },
-      { "name": "proofRef",  "type": "string",  "indexed": false, "internalType": "string"  }
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "proofRef",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
     ]
   },
   {
@@ -43,12 +114,42 @@
     "name": "DirectRefund",
     "anonymous": false,
     "inputs": [
-      { "name": "refundId",  "type": "uint256", "indexed": true,  "internalType": "uint256" },
-      { "name": "merchant",  "type": "address", "indexed": true,  "internalType": "address" },
-      { "name": "customer",  "type": "address", "indexed": true,  "internalType": "address" },
-      { "name": "amount",    "type": "uint256", "indexed": false, "internalType": "uint256" },
-      { "name": "proofRef",  "type": "string",  "indexed": false, "internalType": "string"  },
-      { "name": "reason",    "type": "string",  "indexed": false, "internalType": "string"  }
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "customer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "proofRef",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
     ]
   },
   {
@@ -56,25 +157,59 @@
     "name": "requestRefund",
     "stateMutability": "nonpayable",
     "inputs": [
-      { "name": "merchant",  "type": "address", "internalType": "address" },
-      { "name": "amount",    "type": "uint256", "internalType": "uint256" },
-      { "name": "proofRef",  "type": "string",  "internalType": "string"  },
-      { "name": "reason",    "type": "string",  "internalType": "string"  }
+      {
+        "name": "merchant",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "proofRef",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    "outputs": [{ "name": "refundId", "type": "uint256", "internalType": "uint256" }]
+    "outputs": [
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "function",
     "name": "approveRefund",
     "stateMutability": "nonpayable",
-    "inputs": [{ "name": "refundId", "type": "uint256", "internalType": "uint256" }],
+    "inputs": [
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": []
   },
   {
     "type": "function",
     "name": "denyRefund",
     "stateMutability": "nonpayable",
-    "inputs": [{ "name": "refundId", "type": "uint256", "internalType": "uint256" }],
+    "inputs": [
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": []
   },
   {
@@ -82,74 +217,194 @@
     "name": "directRefund",
     "stateMutability": "nonpayable",
     "inputs": [
-      { "name": "customer",  "type": "address", "internalType": "address" },
-      { "name": "amount",    "type": "uint256", "internalType": "uint256" },
-      { "name": "proofRef",  "type": "string",  "internalType": "string"  },
-      { "name": "reason",    "type": "string",  "internalType": "string"  }
+      {
+        "name": "customer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "proofRef",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    "outputs": [{ "name": "refundId", "type": "uint256", "internalType": "uint256" }]
+    "outputs": [
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "function",
     "name": "getRefundRequest",
     "stateMutability": "view",
-    "inputs": [{ "name": "refundId", "type": "uint256", "internalType": "uint256" }],
-    "outputs": [{
-      "name": "",
-      "type": "tuple",
-      "internalType": "struct ArcRefund.RefundRequest",
-      "components": [
-        { "name": "merchant",    "type": "address", "internalType": "address" },
-        { "name": "customer",    "type": "address", "internalType": "address" },
-        { "name": "amount",      "type": "uint256", "internalType": "uint256" },
-        { "name": "proofRef",    "type": "string",  "internalType": "string"  },
-        { "name": "reason",      "type": "string",  "internalType": "string"  },
-        { "name": "status",      "type": "uint8",   "internalType": "enum ArcRefund.RefundStatus" },
-        { "name": "requestedAt", "type": "uint256", "internalType": "uint256" },
-        { "name": "processedAt", "type": "uint256", "internalType": "uint256" }
-      ]
-    }]
+    "inputs": [
+      {
+        "name": "refundId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ArcRefund.RefundRequest",
+        "components": [
+          {
+            "name": "merchant",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "customer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "proofRef",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum ArcRefund.RefundStatus"
+          },
+          {
+            "name": "requestedAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "processedAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "requestedBlock",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "processedBlock",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ]
   },
   {
     "type": "function",
     "name": "getMerchantRefunds",
     "stateMutability": "view",
-    "inputs": [{ "name": "merchant", "type": "address", "internalType": "address" }],
-    "outputs": [{ "name": "", "type": "uint256[]", "internalType": "uint256[]" }]
+    "inputs": [
+      {
+        "name": "merchant",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ]
   },
   {
     "type": "function",
     "name": "getCustomerRefunds",
     "stateMutability": "view",
-    "inputs": [{ "name": "customer", "type": "address", "internalType": "address" }],
-    "outputs": [{ "name": "", "type": "uint256[]", "internalType": "uint256[]" }]
+    "inputs": [
+      {
+        "name": "customer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ]
   },
   {
     "type": "function",
     "name": "totalRefunds",
     "stateMutability": "view",
     "inputs": [],
-    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }]
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "function",
     "name": "usdc",
     "stateMutability": "view",
     "inputs": [],
-    "outputs": [{ "name": "", "type": "address", "internalType": "address" }]
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "function",
     "name": "MAX_REF_LENGTH",
     "stateMutability": "view",
     "inputs": [],
-    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }]
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "function",
     "name": "MAX_REASON_LENGTH",
     "stateMutability": "view",
     "inputs": [],
-    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }]
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   }
 ]

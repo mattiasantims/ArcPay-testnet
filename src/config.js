@@ -46,7 +46,7 @@ export function isTravelContractConfigured() {
 // v2 — Registry v4, Delayed Payment, Tranche, Refund
 export const ARCMERCHANT_REGISTRY_ADDRESS = '0xcfA93Ec583ff0cecB74eB02F9a18939D5609E303'
 export const ARC_COMMITMENT_ADDRESS       = '0xC19d95C36C83F88082127204Fe32D5Cd8F838039'
-export const ARC_REFUND_ADDRESS           = '0xeaCDdf3c38D566c349c65898d2f4805F79D00580'
+export const ARC_REFUND_ADDRESS           = '0x0ad3F01645c419fc42dAef4ecF5A7213A8a030dC'
 
 export function isMerchantRegistryConfigured() {
   return ARCMERCHANT_REGISTRY_ADDRESS && !ARCMERCHANT_REGISTRY_ADDRESS.startsWith('DEPLOY')

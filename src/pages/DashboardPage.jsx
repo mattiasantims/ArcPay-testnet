@@ -487,81 +487,143 @@ export default function DashboardPage({ account, onConnect, connecting }) {
         </div>
       )}
 
-      {/* ── Refund Inbox ── */}
-      {refunds.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            💸 Refund Requests ({refunds.length})
-          </h3>
-          {refundMsg && (
-            <div className={refundMsg.startsWith('Error') ? 'error-box' : 'success-box'} style={{ marginBottom: 12 }}>
-              {refundMsg}
-            </div>
-          )}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {(() => {
-              const pending   = refunds.filter(r => r.status === 0)
-              const processed = refunds.filter(r => r.status !== 0)
-              return (
-                <>
-                  {pending.length > 0 && (
-                    <>
-                      <SectionHeader emoji="⏳" label="Pending — action required" count={pending.length} color="var(--yellow)" />
-                      {pending.map(r => <RefundRow key={r.refundId} r={r} />)}
-                    </>
-                  )}
-                  {processed.length > 0 && (
-                    <>
-                      <SectionHeader emoji="✓" label="Processed" count={processed.length} />
-                      {processed.map(r => <RefundRow key={r.refundId} r={r} />)}
-                    </>
-                  )}
-                </>
-              )
-            })()}
-          </div>
-        </div>
-      )}
+      {/* ── Unified Payments Table ── */}
+      {(receipts.length > 0 || commitments.length > 0) && (() => {
+        // Build unified rows
+        const rows = []
+        // Add immediate payments
+        for (const r of receipts) {
+          const refund = refundsByRef[r.payment_ref]
+          rows.push({
+            key:        'pay-' + r.receipt_id,
+            ts:         r.timestamp_utc ? Math.floor(new Date(r.timestamp_utc.replace(' UTC','Z').replace(' ','T')).getTime()/1000) : 0,
+            ref:        r.payment_ref,
+            description:r.description && r.description !== 'Not available — frontend-only metadata not stored on-chain' ? r.description : '',
+            type:       'Immediate',
+            typeColor:  'var(--usdc)',
+            status:     refund ? REFUND_STATUS_LABEL[refund.status] : 'Fulfilled',
+            statusColor: refund ? (REFUND_STATUS_COLOR[refund.status] || 'var(--text3)') : 'var(--green)',
+            amount:     r.amount,
+            counterparty: r.customer_wallet,
+            href:       '/receipt/' + r.receipt_id + '?mode=merchant',
+            actions:    refund && refund.status === 0 ? 'refund-action' : null,
+            refund,
+            raw: r,
+          })
+        }
+        // Add commitments (delayed + tranche)
+        for (const cm of commitments) {
+          const isOverdue = cm.status === 0 && now >= (cm.deadline || cm.trancheDeadlines?.[cm.tranchesPaidCount] || 0)
+          const statusLabel = isOverdue ? 'Overdue' : COMMITMENT_STATUS_LABEL[cm.status]
+          const statusColor = isOverdue ? '#f08080' : (COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)')
+          const refund = refundsByRef[cm.ref]
+          rows.push({
+            key:        'com-' + cm.commitmentId,
+            ts:         cm.createdAt,
+            ref:        cm.ref,
+            description:cm.description || '',
+            type:       COMMITMENT_TYPE_LABEL[cm.type] || (cm.type === 0 ? 'Delayed' : 'Tranche'),
+            typeColor:  'var(--usdc)',
+            status:     refund ? REFUND_STATUS_LABEL[refund.status] : statusLabel,
+            statusColor: refund ? (REFUND_STATUS_COLOR[refund.status] || 'var(--text3)') : statusColor,
+            amount:     cm.totalAmount,
+            counterparty: cm.customer,
+            href:       '/commitment/' + cm.commitmentId + '?mode=merchant',
+            actions:    refund && refund.status === 0 ? 'refund-action' : null,
+            refund,
+            raw: cm,
+          })
+        }
+        // Sort by timestamp DESC
+        rows.sort((a, b) => Number(b.ts) - Number(a.ts))
 
-      {/* ── Commitments section ── */}
-      {commitments.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              📅 Delayed & Tranche Payments ({commitments.length})
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+              💳 All payments ({rows.length})
             </h3>
-            <Link to="/commitment-dashboard" style={{ textDecoration: 'none' }}>
-              <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 12px' }}>Full dashboard →</button>
-            </Link>
+            {refundMsg && (
+              <div className={refundMsg.startsWith('Error') ? 'error-box' : 'success-box'} style={{ marginBottom: 12 }}>
+                {refundMsg}
+              </div>
+            )}
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1.4fr 1fr 1.1fr 1.3fr 0.9fr auto',
+                gap: 12, padding: '10px 16px',
+                borderBottom: '1px solid var(--border)',
+                background: 'var(--bg2, rgba(255,255,255,0.02))',
+                fontSize: 11, color: 'var(--text3)',
+                textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600,
+              }}>
+                <div>Payment Ref</div>
+                <div>Type</div>
+                <div>Status</div>
+                <div>From</div>
+                <div style={{ textAlign: 'right' }}>Amount</div>
+                <div></div>
+              </div>
+              {/* Rows */}
+              {rows.map(row => (
+                <div key={row.key} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.4fr 1fr 1.1fr 1.3fr 0.9fr auto',
+                  gap: 12, padding: '12px 16px',
+                  borderBottom: '1px solid var(--border)',
+                  alignItems: 'center', fontSize: 13,
+                }}>
+                  <div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text)' }}>{row.ref}</div>
+                    {row.description && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.description}>{row.description}</div>
+                    )}
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, border: '1px solid ' + row.typeColor + '44', color: row.typeColor, fontWeight: 600 }}>
+                      {row.type}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: row.statusColor + '22', color: row.statusColor, border: '1px solid ' + row.statusColor + '44', fontWeight: 700 }}>
+                      {row.status}
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text2)' }}>
+                    {shortAddress(row.counterparty)}
+                    {row.ts > 0 && (
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
+                        {new Date(Number(row.ts) * 1000).toISOString().slice(0,10)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right', fontFamily: 'var(--display)', fontWeight: 700, color: 'var(--usdc)' }}>
+                    {row.amount} <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 400 }}>USDC</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <Link to={row.href} style={{ textDecoration: 'none' }}>
+                      <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 10px' }}>View →</button>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pending refund inbox callout */}
+            {refunds.filter(r => r.status === 0).length > 0 && (
+              <div className="card" style={{ marginTop: 14, padding: 14, borderColor: 'var(--yellow)' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--yellow)', marginBottom: 8 }}>
+                  ⏳ {refunds.filter(r => r.status === 0).length} refund request{refunds.filter(r => r.status === 0).length === 1 ? '' : 's'} pending — action required
+                </div>
+                {refunds.filter(r => r.status === 0).map(r => (
+                  <RefundRow key={r.refundId} r={r} />
+                ))}
+              </div>
+            )}
           </div>
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {overdue.length > 0 && (
-              <>
-                <SectionHeader emoji="⚠️" label="Overdue" count={overdue.length} color="#f08080" />
-                {overdue.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
-              </>
-            )}
-            {onTime.length > 0 && (
-              <>
-                <SectionHeader emoji="🔵" label="Active" count={onTime.length} color="var(--usdc)" />
-                {onTime.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
-              </>
-            )}
-            {fulfilled.length > 0 && (
-              <>
-                <SectionHeader emoji="✓" label="Fulfilled" count={fulfilled.length} color="var(--green)" />
-                {fulfilled.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
-              </>
-            )}
-            {cancelled.length > 0 && (
-              <>
-                <SectionHeader emoji="✕" label="Cancelled / Expired" count={cancelled.length} color="var(--text3)" />
-                {cancelled.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
-              </>
-            )}
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Empty state */}
       {receipts.length === 0 && commitments.length === 0 && refunds.length === 0 && !loading && merchantAddr && (
@@ -573,57 +635,6 @@ export default function DashboardPage({ account, onConnect, connecting }) {
               Create payment request →
             </button>
           </Link>
-        </div>
-      )}
-
-      {/* ── Immediate payments list ── */}
-      {receipts.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {receipts.map((r) => (
-            <div key={r.receipt_id} className="card" style={{ padding: '16px 20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{r.purpose_code}</span>
-                    {refundsByRef[r.payment_ref] && (() => {
-                      const ref = refundsByRef[r.payment_ref]
-                      const col = REFUND_STATUS_COLOR[ref.status] || 'var(--text3)'
-                      return (
-                        <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, fontWeight: 700,
-                          background: col + '22', color: col, border: `1px solid ${col}44` }}>
-                          Refund: {REFUND_STATUS_LABEL[ref.status]}
-                        </span>
-                      )
-                    })()}
-                  </div>
-                  <div style={{ fontSize: 13, fontFamily: 'var(--mono)', marginBottom: 4 }}>{r.payment_ref}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>
-                    From: {shortAddress(r.customer_wallet)} · {r.timestamp_utc?.slice(0, 10)}
-                  </div>
-                  {r.description && r.description !== 'Not available — frontend-only metadata not stored on-chain' && (
-                    <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{r.description}</div>
-                  )}
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, color: 'var(--usdc)', letterSpacing: '-0.5px' }}>
-                    {r.amount}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>{r.token_symbol}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Link to={`/receipt/${r.receipt_id}?mode=merchant`} style={{ textDecoration: 'none' }}>
-                  <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>View receipt</button>
-                </Link>
-                {r.transaction_hash && (
-                  <a href={`${ARCSCAN_BASE}/tx/${r.transaction_hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                    <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>ArcScan ↗</button>
-                  </a>
-                )}
-                <button onClick={() => downloadReceiptPDF(r)} className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>PDF</button>
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </div>

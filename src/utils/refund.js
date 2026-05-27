@@ -112,26 +112,45 @@ async function findEventTxHash(eventName, refundIdBigInt, timestamp, requestedAt
 // Returns { requestTxHash, processTxHash } for a given refund
 export async function fetchRefundTxHashes(refund) {
   if (!refund) return { requestTxHash: null, processTxHash: null }
-  const id = BigInt(refund.refundId)
+  const id    = BigInt(refund.refundId)
+  const idHex = '0x' + id.toString(16).padStart(64, '0')
 
-  const [requestTxHash, processTxHash] = await Promise.all([
-    refund.requestedAt
-      ? findEventTxHash('RefundRequested', id, refund.requestedAt, refund.requestedAt)
-      : Promise.resolve(null),
-    refund.processedAt
-      ? findEventTxHash(
-          refund.status === 1 ? 'RefundApproved'
-          : refund.status === 2 ? 'RefundDenied'
-          : 'DirectRefund',
-          id,
-          refund.processedAt,
-          refund.requestedAt || refund.processedAt
-        )
-      : Promise.resolve(null),
-  ])
+  // Scan a single block for a tx to the refund contract matching refundId in topics[1]
+  async function scanBlock(blockNumber) {
+    if (!blockNumber || blockNumber <= 0n) return null
+    try {
+      const pc    = client()
+      const block = await pc.getBlock({ blockNumber })
+      if (!block?.transactions?.length) return null
+      for (const txHash of block.transactions) {
+        try {
+          const receipt = await pc.getTransactionReceipt({ hash: txHash })
+          if (receipt?.to?.toLowerCase() !== ARC_REFUND_ADDRESS.toLowerCase()) continue
+          for (const log of receipt.logs) {
+            if (log.address?.toLowerCase() === ARC_REFUND_ADDRESS.toLowerCase()) {
+              if (log.topics?.[1] === idHex) return txHash
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+    return null
+  }
+
+  const requestedBlock = refund.requestedBlock ? BigInt(refund.requestedBlock) : null
+  const processedBlock = refund.processedBlock ? BigInt(refund.processedBlock) : null
+
+  // requestTxHash: cache → scanBlock(requestedBlock)
+  const requestTxHash = getCachedRefundRequestTx(refund.refundId)
+    || (requestedBlock ? await scanBlock(requestedBlock) : null)
+
+  // processTxHash: cache → scanBlock(processedBlock)
+  const processTxHash = getCachedRefundProcessTx(refund.refundId)
+    || (processedBlock ? await scanBlock(processedBlock) : null)
 
   return { requestTxHash, processTxHash }
 }
+
 
 // ── Write functions ───────────────────────────────────────────────────────────
 
@@ -262,5 +281,8 @@ function parseRefund(raw, id) {
     status:      Number(raw.status),
     requestedAt: Number(raw.requestedAt),
     processedAt: Number(raw.processedAt),
+    // v4 block tracking for scanBlock-based TX hash recovery
+    requestedBlock: Number(raw.requestedBlock ?? 0),
+    processedBlock: Number(raw.processedBlock ?? 0),
   }
 }

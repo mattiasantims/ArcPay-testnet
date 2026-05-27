@@ -6,14 +6,12 @@ interface IArcRefundERC20 {
 }
 
 /**
- * @title ArcRefund v3
+ * @title ArcRefund v4
  * @notice Manages refund requests for ArcPay luxury payments (instant, delayed, tranche).
  *
- * Design:
- *   - Customer requests refund on-chain (no expiry — merchant can approve any time).
- *   - Merchant approves, denies, or issues a direct refund at any time.
- *   - Both requestRefund and directRefund use transferFrom — merchant must approve
- *     the contract to spend USDC before calling directRefund or approveRefund.
+ * v4 changes vs v3:
+ *   - Added: requestedBlock, processedBlock to RefundRequest struct
+ *   - Enables reliable on-chain TX hash recovery via scanBlock pattern
  */
 contract ArcRefund {
 
@@ -33,6 +31,9 @@ contract ArcRefund {
         RefundStatus status;
         uint256      requestedAt;
         uint256      processedAt;
+        // v4 block tracking
+        uint256      requestedBlock;
+        uint256      processedBlock;
     }
 
     uint256 private _nextId = 1;
@@ -50,7 +51,6 @@ contract ArcRefund {
         usdc = IArcRefundERC20(_usdc);
     }
 
-    // ── Customer: request refund ──────────────────────────────────────────────
     function requestRefund(
         address merchant,
         uint256 amount,
@@ -71,7 +71,9 @@ contract ArcRefund {
             reason:      reason,
             status:      RefundStatus.Requested,
             requestedAt: block.timestamp,
-            processedAt: 0
+            processedAt: 0,
+            requestedBlock: block.number,
+            processedBlock: 0
         });
         _merchantRefunds[merchant].push(refundId);
         _customerRefunds[msg.sender].push(refundId);
@@ -79,39 +81,31 @@ contract ArcRefund {
         emit RefundRequested(refundId, msg.sender, merchant, amount, proofRef);
     }
 
-    // ── Merchant: approve customer request ────────────────────────────────────
-    // Merchant must approve this contract to spend `amount` USDC before calling.
     function approveRefund(uint256 refundId) external {
         RefundRequest storage r = _requests[refundId];
         require(r.merchant == msg.sender,           "Not the merchant");
         require(r.status == RefundStatus.Requested, "Not in Requested status");
 
-        r.status      = RefundStatus.Approved;
-        r.processedAt = block.timestamp;
+        r.status         = RefundStatus.Approved;
+        r.processedAt    = block.timestamp;
+        r.processedBlock = block.number;
 
-        require(
-            usdc.transferFrom(msg.sender, r.customer, r.amount),
-            "USDC transfer failed"
-        );
-
+        require(usdc.transferFrom(msg.sender, r.customer, r.amount), "USDC transfer failed");
         emit RefundApproved(refundId, msg.sender, r.customer, r.amount, r.proofRef);
     }
 
-    // ── Merchant: deny customer request ──────────────────────────────────────
     function denyRefund(uint256 refundId) external {
         RefundRequest storage r = _requests[refundId];
         require(r.merchant == msg.sender,           "Not the merchant");
         require(r.status == RefundStatus.Requested, "Not in Requested status");
 
-        r.status      = RefundStatus.Denied;
-        r.processedAt = block.timestamp;
+        r.status         = RefundStatus.Denied;
+        r.processedAt    = block.timestamp;
+        r.processedBlock = block.number;
 
         emit RefundDenied(refundId, msg.sender, r.proofRef);
     }
 
-    // ── Merchant: direct refund ───────────────────────────────────────────────
-    // Off-chain agreed refund. No prior customer request needed.
-    // Merchant must approve this contract to spend `amount` USDC before calling.
     function directRefund(
         address customer,
         uint256 amount,
@@ -132,21 +126,17 @@ contract ArcRefund {
             reason:      reason,
             status:      RefundStatus.Direct,
             requestedAt: 0,
-            processedAt: block.timestamp
+            processedAt: block.timestamp,
+            requestedBlock: 0,
+            processedBlock: block.number
         });
         _merchantRefunds[msg.sender].push(refundId);
         _customerRefunds[customer].push(refundId);
 
-        // Pull USDC from merchant wallet to customer — merchant must have approved this contract
-        require(
-            usdc.transferFrom(msg.sender, customer, amount),
-            "USDC transfer failed - approve contract first"
-        );
-
+        require(usdc.transferFrom(msg.sender, customer, amount), "USDC transfer failed - approve contract first");
         emit DirectRefund(refundId, msg.sender, customer, amount, proofRef, reason);
     }
 
-    // ── Views ─────────────────────────────────────────────────────────────────
     function getRefundRequest(uint256 refundId) external view returns (RefundRequest memory) {
         return _requests[refundId];
     }
