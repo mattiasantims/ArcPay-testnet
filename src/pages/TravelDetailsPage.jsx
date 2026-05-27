@@ -18,7 +18,7 @@ import {
 } from '../utils/travelPdf.js'
 import { getMerchantByWallet } from '../utils/merchant.js'
 import { shortAddress } from '../utils/wallet.js'
-import { ARCSCAN_BASE, isTravelContractConfigured, APP_URL } from '../config.js'
+import { ARCSCAN_BASE, isTravelContractConfigured, isMerchantRegistryConfigured, APP_URL } from '../config.js'
 
 export default function TravelDetailsPage() {
   const { id }     = useParams()
