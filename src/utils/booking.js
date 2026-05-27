@@ -258,26 +258,38 @@ export async function fetchBookingTxHashes(booking) {
 
   const idHex = '0x' + id.toString(16).padStart(64, '0')
 
-  // Scan a block: get block (tx hashes only), then getTransactionReceipt for each tx
+  // Scan a block (or a small range around it) for a tx matching idHex on ArcBooking
   async function scanBlock(blockNumber) {
     if (!blockNumber || blockNumber <= 0n) return null
-    try {
-      const pc    = getPublicClient()
-      // Get block with tx hashes only (includeTransactions: false = default)
-      const block = await pc.getBlock({ blockNumber })
-      if (!block?.transactions?.length) return null
-      for (const txHash of block.transactions) {
-        try {
-          const receipt = await pc.getTransactionReceipt({ hash: txHash })
-          if (receipt?.to?.toLowerCase() !== ARCBOOKING_ADDRESS.toLowerCase()) continue
-          for (const log of receipt.logs) {
-            if (log.address?.toLowerCase() === ARCBOOKING_ADDRESS.toLowerCase()) {
-              if (log.topics?.[1] === idHex) return txHash
+    const pc = getPublicClient()
+    // Try the exact block, then ±1 ±2 (some RPC return slightly different block numbers)
+    const candidates = [blockNumber, blockNumber - 1n, blockNumber + 1n, blockNumber - 2n, blockNumber + 2n]
+    for (const bn of candidates) {
+      if (bn <= 0n) continue
+      try {
+        const block = await pc.getBlock({ blockNumber: bn })
+        if (!block?.transactions?.length) continue
+        for (const txHash of block.transactions) {
+          try {
+            const receipt = await pc.getTransactionReceipt({ hash: txHash })
+            if (receipt?.to?.toLowerCase() !== ARCBOOKING_ADDRESS.toLowerCase()) continue
+            for (const log of receipt.logs) {
+              if (log.address?.toLowerCase() === ARCBOOKING_ADDRESS.toLowerCase()) {
+                if (log.topics?.[1] === idHex) {
+                  console.log('[BK] match found id=' + id + ' at block=' + bn + ' tx=' + txHash)
+                  return txHash
+                }
+              }
             }
+          } catch (e) {
+            console.log('[BK] getTransactionReceipt error for tx=' + txHash, e?.message)
           }
-        } catch {}
+        }
+      } catch (e) {
+        console.log('[BK] getBlock error for block=' + bn, e?.message)
       }
-    } catch {}
+    }
+    console.log('[BK] NO match found for id=' + id + ' near block=' + blockNumber)
     return null
   }
 
