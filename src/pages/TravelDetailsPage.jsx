@@ -393,7 +393,7 @@ export default function TravelDetailsPage() {
         </div>
       </div>
 
-      <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6, padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.6, padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
         <strong style={{ color: 'var(--text2)' }}>Note:</strong> Only the refundable escrow from the initial payment is managed by this contract. If a tranche was already paid directly to the agency, tranche refund treatment is outside this contract scope. TESTNET ONLY.
       </div>
     </div>
