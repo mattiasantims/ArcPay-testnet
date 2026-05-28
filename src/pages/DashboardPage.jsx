@@ -204,7 +204,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
             }
             try {
               const hashes = await fetchCommitmentTxHashes(cm)
-              return { ...cm, ...extra, createTxHash: hashes.createHash, fulfillTxHash: hashes.fulfillHash, cancelTxHash: hashes.cancelHash }
+              return { ...cm, ...extra, createTxHash: hashes.createHash, fulfillTxHash: hashes.fulfillHash, cancelTxHash: hashes.cancelHash, trancheHashes: hashes.trancheHashes || [] }
             } catch { return { ...cm, ...extra } }
           }))
           setCommitments(enrichedC)

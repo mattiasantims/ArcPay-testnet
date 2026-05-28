@@ -16,7 +16,7 @@ import {
   REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 import {
-  fetchCustomerCommitmentIds, fetchCommitment,
+  fetchCustomerCommitmentIds, fetchCommitment, fetchCommitmentTxHashes,
   fulfillDelayedCommitment, fulfillTranche,
   COMMITMENT_STATUS_LABEL, COMMITMENT_STATUS_COLOR, COMMITMENT_TYPE_LABEL,
 } from '../utils/commitment.js'
@@ -131,6 +131,16 @@ export default function MyPaymentsPage() {
                 }
               } catch {}
             }))
+          }
+          // Enrich with TX hashes
+          for (const cm of list) {
+            try {
+              const hashes = await fetchCommitmentTxHashes(cm)
+              cm.createTxHash  = hashes.createHash  || null
+              cm.fulfillTxHash = hashes.fulfillHash || null
+              cm.cancelTxHash  = hashes.cancelHash  || null
+              cm.trancheHashes = hashes.trancheHashes || []
+            } catch {}
           }
           setCommitments(list)
         } catch {}
