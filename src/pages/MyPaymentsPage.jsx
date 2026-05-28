@@ -419,6 +419,8 @@ export default function MyPaymentsPage() {
               </h3>
 
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <div style={{ minWidth: 640 }}>
                 {/* Table header */}
                 <div style={{
                   display: 'grid',
@@ -508,6 +510,8 @@ export default function MyPaymentsPage() {
                     </div>
                   </div>
                 ))}
+                </div>
+                </div>
               </div>
 
               {/* Pending refund requests callout */}

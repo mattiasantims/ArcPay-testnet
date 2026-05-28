@@ -548,6 +548,8 @@ export default function DashboardPage({ account, onConnect, connecting }) {
               </div>
             )}
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <div style={{ minWidth: 640 }}>
               {/* Header */}
               <div style={{
                 display: 'grid',
@@ -608,6 +610,8 @@ export default function DashboardPage({ account, onConnect, connecting }) {
                   </div>
                 </div>
               ))}
+              </div>
+              </div>
             </div>
 
             {/* Pending refund inbox callout */}

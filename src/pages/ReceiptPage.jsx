@@ -580,6 +580,27 @@ export default function ReceiptPage() {
                     className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
                     🖨️ Payment PDF
                   </button>
+                  {existingRefund && existingRefund.requestedAt > 0 && (
+                    <button
+                      onClick={() => downloadRefundRequestedPDF(receipt, existingRefund, refundRequestTx)}
+                      className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                      🖨️ Refund Request PDF
+                    </button>
+                  )}
+                  {existingRefund && (existingRefund.status === 1 || existingRefund.status === 2) && (
+                    <button
+                      onClick={() => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, existingRefund.status === 1 ? 'Approved' : 'Denied')}
+                      className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                      🖨️ {existingRefund.status === 1 ? 'Refund Approved' : 'Refund Denied'} PDF
+                    </button>
+                  )}
+                  {existingRefund && existingRefund.status === 3 && (
+                    <button
+                      onClick={() => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, 'Direct refund')}
+                      className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
+                      🖨️ Direct Refund PDF
+                    </button>
+                  )}
                   {txHash && (
                     <a href={`${ARCSCAN_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
                       <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>Payment TX ↗</button>
