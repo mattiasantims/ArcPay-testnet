@@ -119,7 +119,7 @@ export default function CommitmentDetailsPage() {
           : isMerc ? await fetchMerchantRefundIds(address) : []
         for (const rid of [...ids].reverse()) {
           const r = await fetchRefundRequest(rid)
-          if (r && r.proofRef === c.ref) { setRefund(r); return }
+          if (r && r.proofRef === c.ref.slice(0, 64)) { setRefund(r); return }
         }
       } catch {}
     }
@@ -673,7 +673,7 @@ export default function CommitmentDetailsPage() {
                 timestamp: ts(refund.requestedAt),
                 detail:   `${refund.amount} USDC`,
                 note:     refund.reason || null,
-                pdf:      null,
+                pdf:      () => downloadRefundPDF(c, refund, refundRequestTx, merchantProfile),
               })
             }
             if (refund.status === 1) {

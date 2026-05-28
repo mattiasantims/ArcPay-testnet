@@ -108,7 +108,8 @@ export default function ReceiptPage() {
   // Load existing refund for this proof (by paymentRef match)
   useEffect(() => {
     if (!proof || !refundContractReady || !address) return
-    const proofRef   = proof.paymentRef || id
+    // proofRef stored on-chain is sliced to 64 chars in requestRefund/directRefund — must match exactly
+    const proofRef   = (proof.paymentRef || id).slice(0, 64)
     const isCustomer = address.toLowerCase() === proof.payer?.toLowerCase()
     const isMerchant = address.toLowerCase() === proof.payee?.toLowerCase()
     async function findRefund() {
@@ -116,12 +117,9 @@ export default function ReceiptPage() {
         const ids = isCustomer
           ? await fetchCustomerRefundIds(address)
           : isMerchant ? await fetchMerchantRefundIds(address) : []
-        console.log('[Refund] proofRef:', proofRef, 'ids:', ids, 'role:', isCustomer ? 'customer' : isMerchant ? 'merchant' : 'none')
         for (const rid of [...ids].reverse()) {
           const r = await fetchRefundRequest(rid)
-          console.log('[Refund] checking id', rid, 'r.proofRef:', r?.proofRef)
           if (r && r.proofRef === proofRef) {
-            console.log('[Refund] FOUND', r)
             setExistingRefund(r)
             fetchRefundTxHashes(r).then(({ requestTxHash, processTxHash }) => {
               if (requestTxHash) setRefundRequestTx(requestTxHash)
@@ -130,8 +128,6 @@ export default function ReceiptPage() {
             return
           }
         }
-        console.log('[Refund] not found for proofRef:', proofRef)
-      } catch (e) {
         console.error('[Refund] error:', e)
       }
     }
@@ -183,7 +179,7 @@ export default function ReceiptPage() {
       setShowDirect(false)
       // Reload refund status
       const rIds = await fetchMerchantRefundIds(address)
-      const proofRef = proof.paymentRef || id
+      const proofRef = (proof.paymentRef || id).slice(0, 64)
       for (const rid of [...rIds].reverse()) {
         const r = await fetchRefundRequest(rid)
         if (r && r.proofRef === proofRef) {
