@@ -541,17 +541,17 @@ export default function ReceiptPage() {
                         )}
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 8 }}>
-                        {ev.label === 'Payment' && receipt && (
-                          <button onClick={() => downloadReceiptPDF(receipt)} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
+                        {ev.label === 'Payment' && (
+                          <button onClick={() => receipt && downloadReceiptPDF(receipt)} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
                             🖨️ PDF
                           </button>
                         )}
-                        {ev.label === 'Refund Requested' && existingRefund && receipt && (
+                        {ev.label === 'Refund Requested' && existingRefund && (
                           <button onClick={() => downloadRefundRequestedPDF(receipt, existingRefund, refundRequestTx)} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
                             🖨️ PDF
                           </button>
                         )}
-                        {(ev.label === 'Refund Approved' || ev.label === 'Refund Denied' || ev.label === 'Direct Refund') && existingRefund && receipt && (
+                        {(ev.label === 'Refund Approved' || ev.label === 'Refund Denied' || ev.label === 'Direct Refund') && existingRefund && (
                           <button onClick={() => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, ev.label)} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
                             🖨️ PDF
                           </button>
