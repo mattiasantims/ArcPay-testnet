@@ -349,106 +349,169 @@ export default function MyPaymentsPage() {
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
           <span className="spinner" /> Loading payments...
         </div>
-      ) : (
-        <>
-          {/* ── Commitments section — booking-style layout ── */}
-          {commitments.length > 0 && (
+      ) : payments.length === 0 && commitments.length === 0 ? (
+        <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
+          No payments found for this wallet.
+        </div>
+      ) : (() => {
+        // Build unified rows: immediate + commitments sorted by ts DESC
+        const rows = []
+        for (const p of payments) {
+          const refund = refundsByRef[p.paymentRef]
+          rows.push({
+            key:         'pay-' + p.proofId.toString(),
+            ts:          Number(p.timestamp),
+            ref:         p.paymentRef || '',
+            description: p.description && !p.description.startsWith('Not available') ? p.description : '',
+            type:        'Immediate',
+            typeColor:   'var(--usdc)',
+            status:      refund ? REFUND_STATUS_LABEL[refund.status] : 'Fulfilled',
+            statusColor: refund ? (REFUND_STATUS_COLOR[refund.status] || 'var(--text3)') : 'var(--green)',
+            merchant:    p.merchantName || shortAddress(p.payee),
+            amount:      formatUsdc(p.amount),
+            href:        `/receipt/${p.proofId}?mode=customer`,
+            isActive:    false,
+            cm:          null,
+            refund,
+          })
+        }
+        for (const cm of commitments) {
+          const isOverdue   = cm.status === 0 && now >= (cm.deadline || cm.trancheDeadlines?.[cm.tranchesPaidCount] || 0)
+          const statusLabel = isOverdue ? 'Overdue' : COMMITMENT_STATUS_LABEL[cm.status]
+          const statusColor = isOverdue ? '#f08080' : (COMMITMENT_STATUS_COLOR[cm.status] || 'var(--text3)')
+          const refund      = refundsByRef[cm.ref]
+          rows.push({
+            key:         'com-' + cm.commitmentId,
+            ts:          cm.createdAt,
+            ref:         cm.ref || '',
+            description: cm.description || '',
+            type:        COMMITMENT_TYPE_LABEL[cm.type] || (cm.type === 0 ? 'Delayed Payment' : 'Tranche Payment'),
+            typeColor:   'var(--usdc)',
+            status:      refund ? REFUND_STATUS_LABEL[refund.status] : statusLabel,
+            statusColor: refund ? (REFUND_STATUS_COLOR[refund.status] || 'var(--text3)') : statusColor,
+            merchant:    cm.merchantName || shortAddress(cm.merchant),
+            amount:      cm.totalAmount,
+            href:        `/commitment/${cm.commitmentId}?mode=customer`,
+            isActive:    cm.status === 0,
+            cm,
+            refund,
+          })
+        }
+        rows.sort((a, b) => Number(b.ts) - Number(a.ts))
+
+        const pendingRefunds = refunds.filter(r => r.status === 0)
+
+        return (
+          <>
             <div style={{ marginBottom: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  📅 Delayed & Tranche Payments ({commitments.length})
-                </h3>
-                <Link to="/my-commitments" style={{ textDecoration: 'none' }}>
-                  <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 12px' }}>All commitments →</button>
-                </Link>
-              </div>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                💳 All payments ({rows.length})
+              </h3>
 
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                {overdue.length > 0 && (
-                  <>
-                    <SectionHeader emoji="⚠️" label="Overdue" count={overdue.length} color="#f08080" />
-                    {overdue.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
-                  </>
-                )}
-                {onTime.length > 0 && (
-                  <>
-                    <SectionHeader emoji="🔵" label="Active" count={onTime.length} color="var(--usdc)" />
-                    {onTime.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
-                  </>
-                )}
-                {fulfilled.length > 0 && (
-                  <>
-                    <SectionHeader emoji="✓" label="Fulfilled" count={fulfilled.length} color="var(--green)" />
-                    {fulfilled.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
-                  </>
-                )}
-                {cancelled.length > 0 && (
-                  <>
-                    <SectionHeader emoji="✕" label="Cancelled / Expired" count={cancelled.length} color="var(--text3)" />
-                    {cancelled.map(cm => <CommitRow key={cm.commitmentId} cm={cm} />)}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Immediate payments ── */}
-          {payments.length === 0 && commitments.length === 0 ? (
-            <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
-              No payments found for this wallet.
-            </div>
-          ) : payments.length > 0 ? (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <SectionHeader emoji="⚡" label="Immediate Payments" count={payments.length} />
-              {payments.map((p, i) => (
-                <div key={p.proofId.toString()} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '14px 20px', borderBottom: i < payments.length - 1 ? '1px solid var(--border)' : 'none',
+                {/* Table header */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.4fr 1fr 1.1fr 1.3fr 0.9fr auto',
+                  gap: 12, padding: '10px 16px',
+                  borderBottom: '1px solid var(--border)',
+                  background: 'var(--bg2, rgba(255,255,255,0.02))',
+                  fontSize: 11, color: 'var(--text3)',
+                  textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600,
                 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span className="badge badge-gray" style={{ fontSize: 10 }}>{p.purposeCode}</span>
-                      {refundsByRef[p.paymentRef] && (() => {
-                        const ref = refundsByRef[p.paymentRef]
-                        const col = REFUND_STATUS_COLOR[ref.status] || 'var(--text3)'
-                        return (
-                          <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, fontWeight: 700,
-                            background: col + '22', color: col, border: `1px solid ${col}44` }}>
-                            Refund: {REFUND_STATUS_LABEL[ref.status]}
-                          </span>
-                        )
-                      })()}
-                      {p.merchantName && (
-                        <span style={{ fontSize: 12, color: 'var(--text2)' }}>{p.merchantName}</span>
+                  <div>Payment Ref</div>
+                  <div>Type</div>
+                  <div>Status</div>
+                  <div>Merchant</div>
+                  <div style={{ textAlign: 'right' }}>Amount</div>
+                  <div></div>
+                </div>
+
+                {rows.map(row => (
+                  <div key={row.key} style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1.4fr 1fr 1.1fr 1.3fr 0.9fr auto',
+                    gap: 12, padding: '12px 16px',
+                    borderBottom: '1px solid var(--border)',
+                    alignItems: 'center', fontSize: 13,
+                  }}>
+                    <div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text)' }}>{row.ref}</div>
+                      {row.description && (
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.description}>
+                          {row.description}
+                        </div>
                       )}
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{p.paymentRef}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                      To: {shortAddress(p.payee)} · {formatTs(Number(p.timestamp))}
+                    <div>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, border: '1px solid ' + row.typeColor + '44', color: row.typeColor, fontWeight: 600 }}>
+                        {row.type}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: row.statusColor + '22', color: row.statusColor, border: '1px solid ' + row.statusColor + '44', fontWeight: 700 }}>
+                        {row.status}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>
+                      {row.merchant}
+                      {row.ts > 0 && (
+                        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
+                          {new Date(Number(row.ts) * 1000).toISOString().slice(0, 10)}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: 'right', fontFamily: 'var(--display)', fontWeight: 700, color: 'var(--usdc)' }}>
+                      {row.amount} <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 400 }}>USDC</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexDirection: 'column', alignItems: 'flex-end' }}>
+                      <Link to={row.href} style={{ textDecoration: 'none' }}>
+                        <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 10px' }}>View →</button>
+                      </Link>
+                      {/* Pay button for active commitments */}
+                      {row.isActive && row.cm && row.cm.type === 0 && (
+                        <button
+                          onClick={() => handlePay(row.cm)}
+                          disabled={!!acting}
+                          className="btn-primary"
+                          style={{ fontSize: 11, padding: '5px 10px' }}
+                        >
+                          {acting === row.cm.commitmentId ? <><span className="spinner" /> Paying...</> : 'Pay now'}
+                        </button>
+                      )}
+                      {row.isActive && row.cm && row.cm.type === 1 && (() => {
+                        const unpaid = row.cm.trancheAmounts
+                          .map((amt, i) => ({ amt, i }))
+                          .filter(({ i }) => !row.cm.tranchePaid[i])
+                        return unpaid.slice(0, 1).map(({ amt, i }) => (
+                          <button
+                            key={i}
+                            onClick={() => handlePayTranche(row.cm, i)}
+                            disabled={!!acting}
+                            className="btn-primary"
+                            style={{ fontSize: 11, padding: '5px 10px' }}
+                          >
+                            {acting === `${row.cm.commitmentId}-${i}` ? <><span className="spinner" /> Paying...</> : `Pay tranche ${i + 1}`}
+                          </button>
+                        ))
+                      })()}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
-                    <div style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'var(--usdc)', marginBottom: 4 }}>
-                      {formatUsdc(p.amount)} USDC
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                      <Link to={`/receipt/${p.proofId}?mode=customer`} style={{ fontSize: 11, color: 'var(--usdc)', textDecoration: 'none' }}>
-                        Receipt →
-                      </Link>
-                      {p.txHash && (
-                        <a href={`${ARCSCAN_BASE}/tx/${p.txHash}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 11, color: 'var(--text3)', textDecoration: 'none' }}>
-                          ArcScan ↗
-                        </a>
-                      )}
-                    </div>
+                ))}
+              </div>
+
+              {/* Pending refund requests callout */}
+              {pendingRefunds.length > 0 && (
+                <div className="card" style={{ marginTop: 14, padding: 14, borderColor: 'var(--yellow)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--yellow)' }}>
+                    ⏳ {pendingRefunds.length} refund request{pendingRefunds.length === 1 ? '' : 's'} pending merchant review
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          ) : null}
-        </>
-      )}
+          </>
+        )
+      })()}
     </div>
   )
 }

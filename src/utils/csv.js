@@ -32,124 +32,141 @@ function paymentStatus(r) {
 
 // ── Unified export ────────────────────────────────────────────────────────────
 export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = [], walletAddress, role = 'merchant' }) {
-  const lines = []
+  const arc = ARCSCAN
 
-  // ── Immediate payments ───────────────────────────────────────────────────
-  if (receipts.length > 0) {
-    lines.push('"=== IMMEDIATE PAYMENTS ==="')
-    lines.push(csvRow([
-      'timestamp', 'merchantWallet',
-      'merchantName', 'merchantLegalName', 'merchantCountry',
-      'customerWallet', 'amount',
-      'paymentRef', 'purposeCode', 'description',
-      'paymentStatus',                    // Paid / Refund Requested / Refunded / Refund Denied
-      'txHash', 'arcscanUrl', 'receiptUrl',
-    ]))
-    for (const r of receipts) {
-      lines.push(csvRow([
-        r.timestamp_utc    ?? '',
-        r.merchant_wallet  ?? '',
-        r.merchant_name        ?? '',
-        r.merchant_legal_name  ?? '',
-        r.merchant_country     ?? '',
-        r.customer_wallet  ?? '',
-        r.amount           ?? '',
-        r.payment_ref      ?? '',
-        r.purpose_code     ?? '',
-        r.description      ?? '',
-        paymentStatus(r),
-        r.transaction_hash ?? '',
-        r.transaction_hash ? `${ARCSCAN}/tx/${r.transaction_hash}` : '',
-        r.receipt_page     ?? '',
-      ]))
-    }
-    lines.push('')
+  // Build refund lookup by proofRef
+  const refundByRef = {}
+  for (const r of refunds) {
+    if (r.proofRef) refundByRef[r.proofRef] = r
   }
 
-  // ── Delayed & tranche payments ────────────────────────────────────────────
-  if (commitments.length > 0) {
-    lines.push('"=== DELAYED & TRANCHE PAYMENTS ==="')
-    lines.push(csvRow([
-      'createdAt', 'type', 'commitmentStatus', 'ref', 'description',
-      'merchantWallet',
-      'merchantName', 'merchantLegalName', 'merchantCountry',
-      'customerWallet', 'totalAmount',
-      'dueDate', 'deadline', 'trancheCount', 'tranchesPaid',
-      'createTxHash', 'createArcScan',
-      'fulfillTxHash', 'fulfillArcScan',
-      'cancelTxHash', 'cancelArcScan',
-      'commitmentUrl',
+  // Fixed headers — one row per payment
+  const headers = [
+    'timestamp',
+    'paymentRef',
+    'paymentType',       // Immediate | Delayed Payment | Tranche Payment
+    'paymentStatus',     // Fulfilled | Active | Overdue | Cancelled
+    'refundStatus',      // — | Requested | Approved | Denied | Direct refund
+    'merchantWallet',
+    'merchantName',
+    'merchantLegalName',
+    'merchantCountry',
+    'customerWallet',
+    'totalAmount',
+    'description',
+    // TX hashes
+    'txPayment',          // immediate payment OR commitment creation
+    'txFulfilled',        // delayed fulfillment
+    'txTranche1',
+    'txTranche2',
+    'txTranche3',
+    'txCancellation',
+    'txRefundRequested',
+    'txRefundProcessed',  // approve / deny
+    'txDirectRefund',
+    // ArcScan links
+    'arcscanPayment',
+    'arcscanRefund',
+    // Page link
+    'receiptUrl',
+  ]
+
+  const rows = [csvRow(headers)]
+
+  // ── Immediate payments ────────────────────────────────────────────────────
+  for (const r of receipts) {
+    const ref    = r.payment_ref || ''
+    const refund = refundByRef[ref] || refundByRef[r.payment_ref] || null
+    const rStatus = refund ? (REFUND_STATUS_LABEL[refund.status] || '—') : '—'
+    const reqTx   = refund?.requestTxHash || ''
+    const proTx   = refund?.processTxHash || ''
+    const isDirect = refund?.status === 3
+
+    rows.push(csvRow([
+      r.timestamp_utc          ?? '',
+      ref,
+      'Immediate',
+      'Fulfilled',
+      rStatus,
+      r.merchant_wallet        ?? '',
+      r.merchant_name          ?? '',
+      r.merchant_legal_name    ?? '',
+      r.merchant_country       ?? '',
+      r.customer_wallet        ?? '',
+      r.amount                 ?? '',
+      r.description            ?? '',
+      // TX hashes
+      r.transaction_hash       ?? '',
+      '',  // fulfilled
+      '',  // tranche1
+      '',  // tranche2
+      '',  // tranche3
+      '',  // cancellation
+      isDirect ? '' : reqTx,
+      isDirect ? '' : proTx,
+      isDirect ? proTx : '',
+      // Links
+      r.transaction_hash ? `${arc}/tx/${r.transaction_hash}` : '',
+      reqTx ? `${arc}/tx/${reqTx}` : (proTx ? `${arc}/tx/${proTx}` : ''),
+      `${APP_URL}/receipt/${r.receipt_id || ''}`,
     ]))
-    for (const c of commitments) {
-      const cTx = c.createTxHash  || ''
-      const fTx = c.fulfillTxHash || ''
-      const xTx = c.cancelTxHash  || ''
-      lines.push(csvRow([
-        formatTs(c.createdAt),
-        COMMITMENT_TYPE_LABEL[c.type]    ?? '',
-        COMMITMENT_STATUS_LABEL[c.status] ?? '',
-        c.ref          ?? '',
-        c.description  ?? '',
-        c.merchant     ?? '',
-        c.merchantName       ?? '',
-        c.merchantLegalName  ?? '',
-        c.merchantCountry    ?? '',
-        c.customer     ?? '',
-        c.totalAmount  ?? '',
-        formatTs(c.dueDate),
-        formatTs(c.deadline),
-        c.trancheAmounts?.length  ?? 0,
-        c.tranchesPaidCount       ?? 0,
-        cTx, cTx ? `${ARCSCAN}/tx/${cTx}` : '',
-        fTx, fTx ? `${ARCSCAN}/tx/${fTx}` : '',
-        xTx, xTx ? `${ARCSCAN}/tx/${xTx}` : '',
-        `${APP_URL}/commitment/${c.commitmentId}`,
-      ]))
-    }
-    lines.push('')
   }
 
-  // ── Refund requests ───────────────────────────────────────────────────────
-  if (refunds.length > 0) {
-    lines.push('"=== REFUND REQUESTS ==="')
-    lines.push(csvRow([
-      'requestedAt', 'processedAt', 'refundStatus',
-      'proofRef', 'reason',                         // no refundId column
-      'merchantWallet',
-      'merchantName', 'merchantLegalName', 'merchantCountry',
-      'customerWallet', 'amount',
-      'requestTxHash', 'requestArcScan',
-      'processTxHash', 'processArcScan',
+  // ── Delayed & Tranche payments ────────────────────────────────────────────
+  for (const c of commitments) {
+    const ref       = c.ref || ''
+    const refund    = refundByRef[ref] || null
+    const rStatus   = refund ? (REFUND_STATUS_LABEL[refund.status] || '—') : '—'
+    const reqTx     = refund?.requestTxHash || ''
+    const proTx     = refund?.processTxHash || ''
+    const isDirect  = refund?.status === 3
+    const isOverdue = c.status === 0 && Math.floor(Date.now()/1000) >= (c.deadline || 0)
+    const pStatus   = isOverdue ? 'Overdue' : (COMMITMENT_STATUS_LABEL[c.status] || '')
+    const tHashes   = c.trancheHashes || []
+    const typeLabel = c.type === 0 ? 'Delayed Payment' : 'Tranche Payment'
+
+    rows.push(csvRow([
+      c.createdAt ? formatTs(c.createdAt) : '',
+      ref,
+      typeLabel,
+      pStatus,
+      rStatus,
+      c.merchant    ?? '',
+      c.merchantName ?? '',
+      c.merchantLegalName ?? '',
+      c.merchantCountry   ?? '',
+      c.customer    ?? '',
+      c.totalAmount ?? '',
+      c.description ?? '',
+      // TX hashes
+      c.createTxHash   || '',
+      c.fulfillTxHash  || '',
+      tHashes[0]       || '',
+      tHashes[1]       || '',
+      tHashes[2]       || '',
+      c.cancelTxHash   || '',
+      isDirect ? '' : reqTx,
+      isDirect ? '' : proTx,
+      isDirect ? proTx : '',
+      // Links
+      c.createTxHash ? `${arc}/tx/${c.createTxHash}` : '',
+      reqTx ? `${arc}/tx/${reqTx}` : (proTx ? `${arc}/tx/${proTx}` : ''),
+      `${APP_URL}/commitment/${c.commitmentId || ''}`,
     ]))
-    for (const r of refunds) {
-      const reqTx  = r.requestTxHash  || ''
-      const procTx = r.processTxHash  || ''
-      lines.push(csvRow([
-        formatTs(r.requestedAt),
-        formatTs(r.processedAt),
-        REFUND_STATUS_LABEL[r.status] ?? '',
-        r.proofRef  ?? '',
-        r.reason    ?? '',
-        r.merchant  ?? '',
-        r.merchantName       ?? '',
-        r.merchantLegalName  ?? '',
-        r.merchantCountry    ?? '',
-        r.customer  ?? '',
-        r.amount    ?? '',
-        reqTx,
-        reqTx  ? `${ARCSCAN}/tx/${reqTx}`  : '',
-        procTx,
-        procTx ? `${ARCSCAN}/tx/${procTx}` : '',
-      ]))
-    }
-    lines.push('')
   }
 
-  lines.push('"TESTNET ONLY. Testnet tokens have no real economic value."')
-  exportCsv(lines, `arcpay_${role}_${walletAddress?.slice(0, 8)}_${today()}.csv`)
+  const csv  = rows.join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const a    = document.createElement('a')
+  a.href     = URL.createObjectURL(blob)
+  a.download = role === 'merchant'
+    ? `arcpay_merchant_${walletAddress?.slice(0,8)}_${new Date().toISOString().slice(0,10)}.csv`
+    : `arcpay_customer_${walletAddress?.slice(0,8)}_${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
 }
 
-// ── Legacy single-section export (kept for compatibility) ─────────────────────
+
 export function downloadCSV(receipts, merchantWallet) {
   if (!receipts || receipts.length === 0) return
   const lines = []

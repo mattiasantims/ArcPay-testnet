@@ -18,7 +18,7 @@ import {
   REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 import ReceiptActions from '../components/ReceiptActions.jsx'
-import { downloadReceiptPDF, downloadFullReceiptPDF } from '../utils/pdf.js'
+import { downloadReceiptPDF, downloadFullReceiptPDF, downloadRefundRequestedPDF, downloadRefundProcessedPDF } from '../utils/pdf.js'
 
 export default function ReceiptPage() {
   const { id }   = useParams()
@@ -484,6 +484,7 @@ export default function ReceiptPage() {
                   timestamp: new Date(existingRefund.requestedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC',
                   detail:    `${existingRefund.amount} USDC${existingRefund.reason ? ' · "' + existingRefund.reason + '"' : ''}`,
                   note:      existingRefund.reason || null,
+                  pdf:       () => downloadRefundRequestedPDF(receipt, existingRefund, refundRequestTx),
                 })
               }
               if (existingRefund.status === 1) {
@@ -493,6 +494,7 @@ export default function ReceiptPage() {
                   timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
                   detail:    `${existingRefund.amount} USDC transferred from merchant to customer`,
                   note:      null,
+                  pdf:       () => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, 'Approved'),
                 })
               }
               if (existingRefund.status === 2) {
@@ -502,6 +504,7 @@ export default function ReceiptPage() {
                   timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
                   detail:    'Merchant denied the refund request',
                   note:      null,
+                  pdf:       () => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, 'Denied'),
                 })
               }
               if (existingRefund.status === 3) {
@@ -511,6 +514,7 @@ export default function ReceiptPage() {
                   timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
                   detail:    `${existingRefund.amount} USDC sent directly by merchant`,
                   note:      existingRefund.reason || null,
+                  pdf:       () => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, 'Direct refund'),
                 })
               }
             }

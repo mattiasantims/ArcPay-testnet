@@ -232,3 +232,104 @@ export function downloadFullReceiptPDF(receipt, events = []) {
 
   doc.save(`arcpay_full_receipt_${(receipt.payment_ref || receipt.receipt_id || 'receipt').replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`)
 }
+
+
+// ── Refund Requested PDF ──────────────────────────────────────────────────────
+export function downloadRefundRequestedPDF(receipt, refund, txHash) {
+  if (typeof window === 'undefined' || !window.jspdf) { alert('PDF not available'); return }
+  const { jsPDF } = window.jspdf
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const margin = 20; let y = margin
+
+  const addLine  = (text, size=10, bold=false, color=[17,17,17]) => { doc.setFontSize(size); doc.setFont('helvetica',bold?'bold':'normal'); doc.setTextColor(...color); doc.text(text,margin,y); y+=size*0.5+2 }
+  const addField = (key, value) => { doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(100,100,100); doc.text(key,margin,y); doc.setFont('helvetica','normal'); doc.setTextColor(17,17,17); const lines=doc.splitTextToSize(value||'—',130); doc.text(lines,70,y); y+=Math.max(lines.length*5,7) }
+  const addDiv   = () => { doc.setDrawColor(220,220,220); doc.line(margin,y,210-margin,y); y+=5 }
+
+  // Header
+  doc.setFillColor(17,17,17); doc.rect(0,0,210,25,'F')
+  doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.text('ArcPay',margin,14)
+  doc.setFontSize(9);  doc.setFont('helvetica','normal'); doc.setTextColor(180,180,180); doc.text('Refund Request · Arc Testnet',margin,20)
+  doc.setFillColor(255,200,0); doc.roundedRect(155,8,40,8,2,2,'F')
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(80,60,0); doc.text('TESTNET ONLY',157,13.5)
+  y = 35
+
+  addLine(`Refund Requested · ${receipt?.payment_ref || refund?.proofRef || ''}`, 14, true)
+  y += 2
+  doc.setFontSize(24); doc.setFont('helvetica','bold'); doc.setTextColor(230,170,0)
+  doc.text(`${refund?.amount || ''} USDC`, margin, y); y += 10
+  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100)
+  doc.text(refund?.requestedAt ? new Date(Number(refund.requestedAt)*1000).toISOString().replace('T',' ').slice(0,19)+' UTC' : '', margin, y); y += 10
+  addDiv()
+
+  addField('Status',          'Refund Requested')
+  addField('Payment Ref',     receipt?.payment_ref || refund?.proofRef || '—')
+  addField('Refund Reason',   refund?.reason || '—')
+  addDiv()
+  addField('Merchant Wallet', receipt?.merchant_wallet || refund?.merchant || '—')
+  addField('Trading Name',    receipt?.merchant_name || '—')
+  if (receipt?.merchant_legal_name && receipt.merchant_legal_name !== '—') addField('Legal Name', receipt.merchant_legal_name)
+  if (receipt?.merchant_country    && receipt.merchant_country    !== '—') addField('Country',    receipt.merchant_country)
+  addField('Customer Wallet', receipt?.customer_wallet || refund?.customer || '—')
+  addDiv()
+  addField('Refund Amount',   `${refund?.amount || ''} USDC`)
+  addField('Original Payment',`${receipt?.amount || ''} USDC`)
+  addDiv()
+  addField('TX Hash',         txHash || 'recovering...')
+  if (txHash) addField('ArcScan', `https://testnet.arcscan.app/tx/${txHash}`)
+
+  y = 270; doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150)
+  doc.text('ArcPay Testnet — tokens have no real economic value. Not a financial service.',margin,y)
+  doc.save(`arcpay_refund_requested_${(refund?.proofRef||'').replace(/[^a-zA-Z0-9-_]/g,'_')}.pdf`)
+}
+
+// ── Refund Approved / Denied PDF ──────────────────────────────────────────────
+export function downloadRefundProcessedPDF(receipt, refund, txHash, status) {
+  if (typeof window === 'undefined' || !window.jspdf) { alert('PDF not available'); return }
+  const { jsPDF } = window.jspdf
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const margin = 20; let y = margin
+
+  const addLine  = (text, size=10, bold=false, color=[17,17,17]) => { doc.setFontSize(size); doc.setFont('helvetica',bold?'bold':'normal'); doc.setTextColor(...color); doc.text(text,margin,y); y+=size*0.5+2 }
+  const addField = (key, value) => { doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(100,100,100); doc.text(key,margin,y); doc.setFont('helvetica','normal'); doc.setTextColor(17,17,17); const lines=doc.splitTextToSize(value||'—',130); doc.text(lines,70,y); y+=Math.max(lines.length*5,7) }
+  const addDiv   = () => { doc.setDrawColor(220,220,220); doc.line(margin,y,210-margin,y); y+=5 }
+
+  const isApproved = status === 'Approved' || status === 1
+  const isDirect   = status === 'Direct refund' || status === 3
+  const label      = isDirect ? 'Direct Refund' : isApproved ? 'Refund Approved' : 'Refund Denied'
+  const amtColor   = isDirect || isApproved ? [39,160,80] : [200,60,60]
+
+  doc.setFillColor(17,17,17); doc.rect(0,0,210,25,'F')
+  doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.text('ArcPay',margin,14)
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(180,180,180); doc.text(`${label} · Arc Testnet`,margin,20)
+  doc.setFillColor(255,200,0); doc.roundedRect(155,8,40,8,2,2,'F')
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(80,60,0); doc.text('TESTNET ONLY',157,13.5)
+  y = 35
+
+  addLine(`${label} · ${receipt?.payment_ref || refund?.proofRef || ''}`, 14, true)
+  y += 2
+  doc.setFontSize(24); doc.setFont('helvetica','bold'); doc.setTextColor(...amtColor)
+  doc.text(`${refund?.amount || ''} USDC`, margin, y); y += 10
+  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100)
+  doc.text(refund?.processedAt ? new Date(Number(refund.processedAt)*1000).toISOString().replace('T',' ').slice(0,19)+' UTC' : '', margin, y); y += 10
+  addDiv()
+
+  addField('Status',          label)
+  addField('Payment Ref',     receipt?.payment_ref || refund?.proofRef || '—')
+  if (refund?.reason) addField('Note', refund.reason)
+  addDiv()
+  addField('Merchant Wallet', receipt?.merchant_wallet || refund?.merchant || '—')
+  addField('Trading Name',    receipt?.merchant_name || '—')
+  if (receipt?.merchant_legal_name && receipt.merchant_legal_name !== '—') addField('Legal Name', receipt.merchant_legal_name)
+  if (receipt?.merchant_country    && receipt.merchant_country    !== '—') addField('Country',    receipt.merchant_country)
+  addField('Customer Wallet', receipt?.customer_wallet || refund?.customer || '—')
+  addDiv()
+  addField('Refund Amount',   `${refund?.amount || ''} USDC`)
+  addField('Original Payment',`${receipt?.amount || ''} USDC`)
+  addDiv()
+  addField('TX Hash',         txHash || 'recovering...')
+  if (txHash) addField('ArcScan', `https://testnet.arcscan.app/tx/${txHash}`)
+
+  y = 270; doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150)
+  doc.text('ArcPay Testnet — tokens have no real economic value. Not a financial service.',margin,y)
+  doc.save(`arcpay_refund_${label.toLowerCase().replace(/ /g,'_')}_${(refund?.proofRef||'').replace(/[^a-zA-Z0-9-_]/g,'_')}.pdf`)
+}

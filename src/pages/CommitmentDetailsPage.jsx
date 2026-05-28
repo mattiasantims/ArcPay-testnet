@@ -88,15 +88,24 @@ export default function CommitmentDetailsPage() {
     setLoading(true); setError('')
     try {
       const data = await fetchCommitment(id)
-      setC(data)
-      if (data && isMerchantRegistryConfigured()) {
-        getMerchantByWallet(data.merchant).then(m => {
-          if (m && m.active) setMerchantProfile(m)
-        }).catch(() => {})
+      if (data) {
+        setC(data)
+        setError('')
+        if (isMerchantRegistryConfigured()) {
+          getMerchantByWallet(data.merchant).then(m => {
+            if (m && m.active) setMerchantProfile(m)
+          }).catch(() => {})
+        }
+      } else {
+        setC(null)
+        setError('Commitment not found.')
       }
-      if (!data) setError('Commitment not found.')
-    } catch { setError('Failed to load commitment.') }
-    finally { setLoading(false) }
+    } catch (e) {
+      // Only show error if we don't already have commitment data loaded
+      setC(prev => { if (!prev) setError('Failed to load commitment.'); return prev })
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Load existing refund for this commitment
@@ -469,7 +478,7 @@ export default function CommitmentDetailsPage() {
             )}
           </div>
 
-          {error   && <div className="error-box"   style={{ marginTop: 12 }}>{error}</div>}
+          {error && !error.startsWith('Failed to load') && !error.startsWith('Commitment not found') && <div className="error-box" style={{ marginTop: 12 }}>{error}</div>}
           {success && <div className="success-box" style={{ marginTop: 12 }}>{success}</div>}
         </div>
       )}
