@@ -128,8 +128,7 @@ export default function ReceiptPage() {
             return
           }
         }
-        console.error('[Refund] error:', e)
-      }
+      } catch {}
     }
     findRefund()
   }, [proof, address, refundContractReady])
