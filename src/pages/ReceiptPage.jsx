@@ -116,11 +116,13 @@ export default function ReceiptPage() {
         const ids = isCustomer
           ? await fetchCustomerRefundIds(address)
           : isMerchant ? await fetchMerchantRefundIds(address) : []
+        console.log('[Refund] proofRef:', proofRef, 'ids:', ids, 'role:', isCustomer ? 'customer' : isMerchant ? 'merchant' : 'none')
         for (const rid of [...ids].reverse()) {
           const r = await fetchRefundRequest(rid)
+          console.log('[Refund] checking id', rid, 'r.proofRef:', r?.proofRef)
           if (r && r.proofRef === proofRef) {
+            console.log('[Refund] FOUND', r)
             setExistingRefund(r)
-            // Load TX hashes from on-chain logs
             fetchRefundTxHashes(r).then(({ requestTxHash, processTxHash }) => {
               if (requestTxHash) setRefundRequestTx(requestTxHash)
               if (processTxHash) setRefundProcessTx(processTxHash)
@@ -128,7 +130,10 @@ export default function ReceiptPage() {
             return
           }
         }
-      } catch {}
+        console.log('[Refund] not found for proofRef:', proofRef)
+      } catch (e) {
+        console.error('[Refund] error:', e)
+      }
     }
     findRefund()
   }, [proof, address, refundContractReady])
@@ -580,7 +585,7 @@ export default function ReceiptPage() {
                     className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
                     🖨️ Payment PDF
                   </button>
-                  {existingRefund && existingRefund.requestedAt > 0 && (
+                  {existingRefund && existingRefund.status !== 3 && (
                     <button
                       onClick={() => downloadRefundRequestedPDF(receipt, existingRefund, refundRequestTx)}
                       className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
