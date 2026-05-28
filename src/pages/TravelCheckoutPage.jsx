@@ -58,7 +58,7 @@ export default function TravelCheckoutPage() {
         description: req.description || '',
         metadataHash,
       })
-      navigate(`/receipt/${proofId}?name=${encodeURIComponent(req.agencyName || '')}&desc=${encodeURIComponent(req.description || '')}`)
+      window.location.href = `/receipt/${proofId}?name=${encodeURIComponent(req.agencyName || '')}&desc=${encodeURIComponent(req.description || '')}&mode=customer`
     } catch (e) {
       setError(e.message || 'Full payment failed.')
       setStep('idle')
@@ -89,7 +89,7 @@ export default function TravelCheckoutPage() {
         metadataHash:         req.metadataHash,
       })
       if (travelId) cacheTravelTxHash(travelId, hash)
-      navigate(`/travel/${travelId || 1}?name=${encodeURIComponent(req.agencyName || '')}&desc=${encodeURIComponent(req.description || '')}`)
+      window.location.href = `/travel/${travelId || 1}?name=${encodeURIComponent(req.agencyName || '')}&desc=${encodeURIComponent(req.description || '')}&mode=customer`
     } catch (e) {
       setError(e.message || 'Transaction failed.')
       setStep('idle')

@@ -64,7 +64,7 @@ export default function BookingCheckoutPage() {
         description:          req.description || '',
         metadataHash,
       })
-      navigate(`/booking/${bookingId}?name=${encodeURIComponent(req.merchantName||'')}&desc=${encodeURIComponent(req.description||'')}`)
+      window.location.href = `/booking/${bookingId}?name=${encodeURIComponent(req.merchantName||'')}&desc=${encodeURIComponent(req.description||'')}&mode=customer`
     } catch (e) {
       console.error(e)
       setError(e.message || 'Transaction failed.')

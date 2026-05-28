@@ -70,7 +70,13 @@ export default function CheckoutPage() {
           description:  req.desc || '',
           metadataHash,
         })
-        navigate(`/commitment/${commitmentId}`)
+        // Hard redirect: MetaMask mobile reloads the original URL after signing,
+        // so we need window.location instead of React navigate()
+        if (commitmentId) {
+          window.location.href = `/commitment/${commitmentId}?mode=customer`
+        } else {
+          window.location.href = '/my-commitments'
+        }
       } catch (e) {
         setError(e.message || 'Transaction failed.')
         setStep('idle')
@@ -91,7 +97,11 @@ export default function CheckoutPage() {
           description:     req.desc || '',
           metadataHash,
         })
-        navigate(`/commitment/${commitmentId}`)
+        if (commitmentId) {
+          window.location.href = `/commitment/${commitmentId}?mode=customer`
+        } else {
+          window.location.href = '/my-commitments'
+        }
       } catch (e) {
         setError(e.message || 'Transaction failed.')
         setStep('idle')
@@ -124,7 +134,7 @@ export default function CheckoutPage() {
         receiptParams.set('refundWindowMin', String(req.refundClaimWindowDays ?? 14))
         receiptParams.set('refundBps', String(req.refundClaimBps ?? 10000))
       }
-      navigate(`/receipt/${proofId}?${receiptParams.toString()}`)
+      window.location.href = `/receipt/${proofId}?${receiptParams.toString()}&mode=customer`
     } catch (e) {
       console.error(e)
       setError(e.message || 'Transaction failed. Check MetaMask and try again.')

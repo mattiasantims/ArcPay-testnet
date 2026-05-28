@@ -88,24 +88,15 @@ export default function CommitmentDetailsPage() {
     setLoading(true); setError('')
     try {
       const data = await fetchCommitment(id)
-      if (data) {
-        setC(data)
-        setError('')
-        if (isMerchantRegistryConfigured()) {
-          getMerchantByWallet(data.merchant).then(m => {
-            if (m && m.active) setMerchantProfile(m)
-          }).catch(() => {})
-        }
-      } else {
-        setC(null)
-        setError('Commitment not found.')
+      setC(data)
+      if (data && isMerchantRegistryConfigured()) {
+        getMerchantByWallet(data.merchant).then(m => {
+          if (m && m.active) setMerchantProfile(m)
+        }).catch(() => {})
       }
-    } catch (e) {
-      // Only show error if we don't already have commitment data loaded
-      setC(prev => { if (!prev) setError('Failed to load commitment.'); return prev })
-    } finally {
-      setLoading(false)
-    }
+      if (!data) setError('Commitment not found.')
+    } catch { setError('Failed to load commitment.') }
+    finally { setLoading(false) }
   }
 
   // Load existing refund for this commitment
@@ -138,9 +129,14 @@ export default function CommitmentDetailsPage() {
 
   async function act(fn, label) {
     setActing(label); setError(''); setSuccess('')
-    try { const result = await fn(); setSuccess(`${label} successful.`); await load(); return result }
-    catch (e) { setError(e.message || `${label} failed.`) }
-    finally { setActing(null) }
+    try {
+      const result = await fn()
+      // Hard reload after TX: MetaMask mobile returns to original URL,
+      // so we force a page reload to ensure we're on the right URL with fresh state
+      window.location.reload()
+      return result
+    }
+    catch (e) { setError(e.message || `${label} failed.`); setActing(null) }
   }
 
   async function handleRefundRequest() {
@@ -478,7 +474,7 @@ export default function CommitmentDetailsPage() {
             )}
           </div>
 
-          {error && !error.startsWith('Failed to load') && !error.startsWith('Commitment not found') && <div className="error-box" style={{ marginTop: 12 }}>{error}</div>}
+          {error   && <div className="error-box"   style={{ marginTop: 12 }}>{error}</div>}
           {success && <div className="success-box" style={{ marginTop: 12 }}>{success}</div>}
         </div>
       )}

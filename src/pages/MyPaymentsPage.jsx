@@ -191,20 +191,17 @@ export default function MyPaymentsPage() {
     setActing(cm.commitmentId)
     try {
       await fulfillDelayedCommitment(address, cm.commitmentId)
-      const updated = await fetchCommitment(cm.commitmentId)
-      setCommitments(prev => prev.map(c => c.commitmentId === cm.commitmentId ? updated : c))
-    } catch (e) { alert(e.message || 'Transaction failed') }
-    finally { setActing(null) }
+      // Hard navigation to commitment page: prevents MetaMask mobile from returning to wrong URL
+      window.location.href = `/commitment/${cm.commitmentId}?mode=customer`
+    } catch (e) { alert(e.message || 'Transaction failed'); setActing(null) }
   }
 
   async function handlePayTranche(cm, idx) {
     setActing(`${cm.commitmentId}-${idx}`)
     try {
       await fulfillTranche(address, cm.commitmentId, idx)
-      const updated = await fetchCommitment(cm.commitmentId)
-      setCommitments(prev => prev.map(c => c.commitmentId === cm.commitmentId ? updated : c))
-    } catch (e) { alert(e.message || 'Transaction failed') }
-    finally { setActing(null) }
+      window.location.href = `/commitment/${cm.commitmentId}?mode=customer`
+    } catch (e) { alert(e.message || 'Transaction failed'); setActing(null) }
   }
 
   function exportCSV() {
