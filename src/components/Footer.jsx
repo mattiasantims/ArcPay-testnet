@@ -6,7 +6,7 @@ export default function Footer() {
           ArcPay v0.1 · Built on{' '}
           <a href="https://arc.network" target="_blank" rel="noopener noreferrer">Arc Network</a>
           {' '}Testnet · Powered by Circle USDC ·{' '}
-          <a href="https://github.com/mattiasantims/arcproof-testnet" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://github.com/mattiasantims/ArcPay-testnet" target="_blank" rel="noopener noreferrer">GitHub</a>
         </p>
         <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
           TESTNET ONLY · No custody · Testnet MVP · Not a regulated payment service
