@@ -159,9 +159,9 @@ export default function MerchantProfilePage() {
       })
       setSuccess('Policy updated on-chain.')
       // Aggiorna stato locale direttamente — non ricaricare dal RPC che potrebbe essere stale
-      setPolicy({
+      const updatedPolicy = {
         allowScheduledTranche:          policyForm.allowScheduledTranche,
-        allowRefund:                    policyForm.allowRefund,
+        allowRefund:                    policyForm.allowRefund ?? true,
         defaultNonRefundableBps:        bps(Number(policyForm.defaultNonRefundableBps)),
         defaultInitialPaymentBps:       bps(Number(policyForm.defaultInitialPaymentBps)),
         defaultTrancheBps:              bps(Number(policyForm.defaultTrancheBps)),
@@ -178,6 +178,14 @@ export default function MerchantProfilePage() {
         allowRefundClaim:               policyForm.allowRefundClaim               ?? false,
         refundClaimWindowDays:          parseInt(policyForm.refundClaimWindowDays           || 14),
         refundClaimBps:                 bps(Number(policyForm.refundClaimBps                || 100)),
+        policyVersion:                  Number(policy?.policyVersion || 0) + 1,
+        updatedAt:                      Math.floor(Date.now() / 1000),
+      }
+      setPolicy(updatedPolicy)
+      setPolicyForm({
+        ...policyForm,
+        paymentDueOffsetDays: fixedDue,
+        paymentDeadlineOffsetDays: fixedDeadline,
       })
       setMode('view')
     } catch (e) { setError(e.message || 'Policy update failed.') }

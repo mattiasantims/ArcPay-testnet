@@ -163,19 +163,36 @@ function parseMerchant(m) {
 
 function parsePolicy(p) {
   if (!p) return defaultPolicy()
+
+  // viem usually decodes named tuple fields as object properties, but depending
+  // on ABI/runtime shape it can also expose tuple values by numeric index.
+  // Keep both paths so the UI can always reload policy data from chain after a
+  // refresh, including the v3 fields added for delayed/tranche/refund claim.
+  const v = (name, index, fallback) => p?.[name] ?? p?.[index] ?? fallback
+
   return {
-    allowScheduledTranche:     p.allowScheduledTranche ?? false,
-    allowRefund:               p.allowRefund ?? true,
-    defaultNonRefundableBps:   Number(p.defaultNonRefundableBps   ?? 3000),
-    defaultInitialPaymentBps:  Number(p.defaultInitialPaymentBps  ?? 1000),
-    defaultTrancheBps:         Number(p.defaultTrancheBps         ?? 3000),
-    paymentDueOffsetDays:      Number(p.paymentDueOffsetDays      ?? 90),
-    paymentDeadlineOffsetDays: Number(p.paymentDeadlineOffsetDays ?? 75),
-    cancellationCutoffDays:    Number(p.cancellationCutoffDays    ?? 30),
-    refundBpsBeforeCutoff:     Number(p.refundBpsBeforeCutoff     ?? 7000),
-    refundBpsAfterCutoff:      Number(p.refundBpsAfterCutoff      ?? 0),
-    policyVersion:             Number(p.policyVersion             ?? 1),
-    updatedAt:                 Number(p.updatedAt                 ?? 0),
+    allowScheduledTranche:          Boolean(v('allowScheduledTranche',          0, false)),
+    // allowRefund is not part of the deployed v3 policy tuple; keep it as a UI
+    // compatibility flag for older components that still read it.
+    allowRefund:                    Boolean(p?.allowRefund ?? true),
+    defaultNonRefundableBps:        Number(v('defaultNonRefundableBps',         1, 3000)),
+    defaultInitialPaymentBps:       Number(v('defaultInitialPaymentBps',        2, 1000)),
+    defaultTrancheBps:              Number(v('defaultTrancheBps',               3, 3000)),
+    paymentDueOffsetDays:           Number(v('paymentDueOffsetDays',            4, 90)),
+    paymentDeadlineOffsetDays:      Number(v('paymentDeadlineOffsetDays',       5, 75)),
+    cancellationCutoffDays:         Number(v('cancellationCutoffDays',          6, 30)),
+    refundBpsBeforeCutoff:          Number(v('refundBpsBeforeCutoff',           7, 7000)),
+    refundBpsAfterCutoff:           Number(v('refundBpsAfterCutoff',            8, 0)),
+    allowDelayedPayment:            Boolean(v('allowDelayedPayment',            9, false)),
+    defaultDelayedPaymentDays:      Number(v('defaultDelayedPaymentDays',      10, 30)),
+    allowOnlineTranche:             Boolean(v('allowOnlineTranche',            11, false)),
+    defaultOnlineTrancheBps:        Number(v('defaultOnlineTrancheBps',        12, 5000)),
+    defaultOnlineTrancheOffsetDays: Number(v('defaultOnlineTrancheOffsetDays', 13, 15)),
+    allowRefundClaim:               Boolean(v('allowRefundClaim',              14, false)),
+    refundClaimWindowDays:          Number(v('refundClaimWindowDays',          15, 14)),
+    refundClaimBps:                 Number(v('refundClaimBps',                 16, 10000)),
+    policyVersion:                  Number(v('policyVersion',                  17, 1)),
+    updatedAt:                      Number(v('updatedAt',                      18, 0)),
   }
 }
 
