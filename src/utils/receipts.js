@@ -145,6 +145,6 @@ export function buildReceiptObject({ proofData, txHash, proofId, merchantName, d
     network:          'Arc Testnet (Chain ID: 5042002)',
     contract_address: ARCPROOF_ADDRESS,
     status:           'CONFIRMED',
-    disclaimer:       'TESTNET ONLY. Testnet tokens have no real economic value. This is not a financial instrument or tax document. ArcPay does not perform AML, KYC, or risk scoring.',
+    disclaimer:       'TESTNET ONLY. Testnet tokens have no real economic value. This receipt is for demo and transaction-record purposes only and does not represent a regulated payment service, tax document or compliance verification.',
   }
 }

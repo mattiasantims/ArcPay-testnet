@@ -141,7 +141,7 @@ export default function Header({ balance }) {
     { path: '/', icon: '🏠', label: 'Home' },
     ...(!isCustomerRoute ? acceptItems : []),
     ...reportsItems,
-  ]
+  ].filter(item => item && item !== 'divider')
 
   return (
     <>
@@ -189,7 +189,7 @@ export default function Header({ balance }) {
             </nav>
           )}
 
-          {/* ── Merchant / Customer switcher — desktop centre ── */}
+          {/* ── Merchant / Counterparty switcher — desktop centre ── */}
           {!isLandingPage && (
             <div style={{ display: 'flex', gap: 5, margin: '0 auto' }} className="desktop-switcher">
               <Link to="/merchant" style={{ textDecoration: 'none' }}>
@@ -206,7 +206,7 @@ export default function Header({ balance }) {
                   cursor: 'pointer', border: '1px solid var(--border)',
                   background: p.startsWith('/customer') ? 'var(--surface2)' : 'transparent',
                   color: p.startsWith('/customer') ? 'var(--text)' : 'var(--text3)',
-                }}>💳 Customer</button>
+                }}>👤 Counterparty</button>
               </Link>
             </div>
           )}
@@ -268,7 +268,7 @@ export default function Header({ balance }) {
               <button onClick={() => setMenuOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text2)', fontSize: 18, cursor: 'pointer' }}>✕</button>
             </div>
 
-            {/* Merchant / Customer switcher */}
+            {/* Merchant / Counterparty switcher */}
             <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
               <Link to="/merchant" style={{ flex: 1, textDecoration: 'none' }} onClick={() => setMenuOpen(false)}>
                 <button style={{ width: '100%', padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border)', background: p.startsWith('/merchant') ? 'var(--surface2)' : 'transparent', color: p.startsWith('/merchant') ? 'var(--text)' : 'var(--text3)' }}>
@@ -277,7 +277,7 @@ export default function Header({ balance }) {
               </Link>
               <Link to="/customer" style={{ flex: 1, textDecoration: 'none' }} onClick={() => setMenuOpen(false)}>
                 <button style={{ width: '100%', padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border)', background: p.startsWith('/customer') ? 'var(--surface2)' : 'transparent', color: p.startsWith('/customer') ? 'var(--text)' : 'var(--text3)' }}>
-                  💳 Customer
+                  👤 Counterparty
                 </button>
               </Link>
             </div>

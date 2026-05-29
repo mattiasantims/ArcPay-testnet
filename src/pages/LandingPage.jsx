@@ -166,7 +166,7 @@ export default function LandingPage() {
             className="btn-ghost"
             style={{ padding: '13px 28px', fontSize: 14, fontWeight: 600 }}
           >
-            💳 I'm a Customer
+            👤 I'm a Counterparty
           </button>
         </div>
       </div>

@@ -43,7 +43,7 @@ function makePdfBase() {
   const addDisclaimer = (y) => {
     doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150)
     const disc = doc.splitTextToSize(
-      'TESTNET ONLY. Testnet tokens have no real economic value. Not a regulated payment service. No custody. No KYC/AML.',
+      'TESTNET ONLY. Testnet tokens have no real economic value. Not a regulated payment service. No custody.',
       170
     )
     doc.text(disc, margin, y); y += disc.length * 4 + 4

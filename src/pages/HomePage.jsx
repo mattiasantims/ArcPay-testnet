@@ -166,7 +166,7 @@ export default function LandingPage() {
             className="btn-ghost"
             style={{ padding: '13px 28px', fontSize: 14, fontWeight: 600 }}
           >
-            💳 I'm a Customer
+            👤 I'm a Counterparty
           </button>
         </div>
       </div>
@@ -334,7 +334,7 @@ export default function LandingPage() {
             <p style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 8 }}>
               Visit the Arc testnet faucet to get free test USDC for transactions.
             </p>
-            <a href="https://faucet.cirle.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+            <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
               <button className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>Open faucet ↗</button>
             </a>
           </div>

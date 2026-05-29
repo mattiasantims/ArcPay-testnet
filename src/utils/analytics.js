@@ -475,7 +475,7 @@ export function generateAiAnswer(question, metrics, timeFilter) {
 
   // Payouts questions (outbound USDC)
   if (q.includes('payout') || q.includes('send') || q.includes('recipient') || q.includes('supplier') || q.includes('contractor')) {
-    if (metrics.payoutsCount === 0) return `No Merchant Payouts found for ${tf}. Send your first USDC payout from Accept USDC → Send USDC Payouts.`
+    if (metrics.payoutsCount === 0) return `No Merchant Payouts found for ${tf}. Send your first USDC payout from Move USDC → Send USDC Payouts.`
     if (q.includes('summarize') || q.includes('performing')) {
       return `Merchant Payouts over ${tf}: ${metrics.payoutsCount} payout${metrics.payoutsCount !== 1 ? 's' : ''} totalling ${fmt(metrics.payoutsVolume)} USDC to ${metrics.payoutsRecipients} unique recipient${metrics.payoutsRecipients !== 1 ? 's' : ''}. Single: ${metrics.payoutsSingleItems}. Batch items: ${metrics.payoutsBatchItems}. Average: ${fmt(metrics.payoutsAvg)} USDC.`
     }

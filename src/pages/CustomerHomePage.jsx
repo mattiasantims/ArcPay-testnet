@@ -16,7 +16,7 @@ const WANT_TO_TEST = (
       </div>
       <div>
         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>2. Add Arc Testnet</div>
-        <div style={{ fontSize: 12, color: 'var(--text2a)', lineHeight: 1.8, fontFamily: 'var(--mono)', background: 'var(--surface2)', padding: '8px 12px', borderRadius: 8 }}>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8, fontFamily: 'var(--mono)', background: 'var(--surface2)', padding: '8px 12px', borderRadius: 8 }}>
           Network: Arc Testnet<br />
           RPC: rpc.testnet.arc.network<br />
           Chain ID: 5042002<br />
@@ -47,7 +47,7 @@ export default function CustomerHomePage() {
       {/* Hero */}
       <div style={{ padding: '36px 0 28px', textAlign: 'center' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--usdc)', background: '#2775ca11', border: '1px solid #2775ca33', borderRadius: 20, padding: '4px 14px', marginBottom: 16, letterSpacing: '0.02em' }}>
-          💳 Customer & Counterparty Portal
+          👤 Counterparty Portal
         </div>
         <h1 style={{ fontFamily: 'var(--display)', fontSize: 36, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1, letterSpacing: '-1px', marginBottom: 12 }}>
           Verify your USDC activity on Arc.
@@ -103,7 +103,7 @@ export default function CustomerHomePage() {
           <div style={{ fontSize: 30, marginBottom: 12 }}>📤</div>
           <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, marginBottom: 8, color: '#fbbf24' }}>My Received Payouts</div>
           <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 'auto', paddingBottom: 18 }}>
-            View USDC payouts received from merchants, suppliers or teams with payment references and ArcScan proof.
+            View USDC payouts received from merchants with payment references, descriptions and ArcScan proof.
           </div>
           <Link to="/my-payouts" style={{ textDecoration: 'none' }}>
             <button style={{ width: '100%', padding: '10px', background: '#1c1306', border: '1px solid #f59e0b66', color: '#fbbf24', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>

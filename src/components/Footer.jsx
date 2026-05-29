@@ -9,7 +9,7 @@ export default function Footer() {
           <a href="https://github.com/mattiasantims/arcproof-testnet" target="_blank" rel="noopener noreferrer">GitHub</a>
         </p>
         <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
-          TESTNET ONLY · No custody · No KYC/AML · Not a regulated payment service
+          TESTNET ONLY · No custody · Testnet MVP · Not a regulated payment service
         </p>
       </div>
     </footer>
