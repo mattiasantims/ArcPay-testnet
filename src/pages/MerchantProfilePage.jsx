@@ -415,9 +415,9 @@ export default function MerchantProfilePage() {
                 { label: 'Non-refundable',       value: `${pct(policy.defaultNonRefundableBps)}%` },
                 { label: 'Initial payment',      value: `${pct(policy.defaultInitialPaymentBps)}%` },
                 { label: 'Tranche %',            value: `${pct(policy.defaultTrancheBps)}%` },
-                { label: 'Payment due offset',   value: `${policy.paymentDueOffsetDays} min` },
-                { label: 'Payment deadline',     value: `${policy.paymentDeadlineOffsetDays} min` },
-                { label: 'Cancel cutoff',        value: `${policy.cancellationCutoffDays} min` },
+                { label: 'Payment due offset',   value: `${policy.paymentDueOffsetDays} min before travel/service date` },
+                { label: 'Payment deadline',     value: `${policy.paymentDeadlineOffsetDays} min before travel/service date` },
+                { label: 'Cancel cutoff',        value: `${policy.cancellationCutoffDays} min before travel/service date` },
                 { label: 'Refund before cutoff', value: `${pct(policy.refundBpsBeforeCutoff)}%` },
                 { label: 'Refund after cutoff',  value: `${pct(policy.refundBpsAfterCutoff)}%` },
               ].map(s => (
@@ -519,9 +519,9 @@ export default function MerchantProfilePage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               {[
-                { label: 'Payment due offset (min — testnet workaround)', name: 'paymentDueOffsetDays' },
-                { label: 'Payment deadline offset (min — must be ≤ due offset)', name: 'paymentDeadlineOffsetDays' },
-                { label: 'Cancellation cutoff (min)', name: 'cancellationCutoffDays' },
+                { label: 'Payment due offset (min before travel/service date — testnet workaround)', name: 'paymentDueOffsetDays' },
+                { label: 'Payment deadline offset (min before travel/service date — must be ≤ due offset)', name: 'paymentDeadlineOffsetDays' },
+                { label: 'Cancellation cutoff (min before travel/service date)', name: 'cancellationCutoffDays' },
               ].map(f => (
                 <div key={f.name}>
                   <label className="label">{f.label}</label>
