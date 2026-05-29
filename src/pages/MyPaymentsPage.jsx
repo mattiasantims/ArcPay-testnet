@@ -228,6 +228,7 @@ export default function MyPaymentsPage() {
   }
 
   const total = payments.reduce((s, p) => s + Number(formatUsdc(p.amount)), 0).toFixed(2)
+  const paymentRecordsCount = payments.length + commitments.length
   const now   = Math.floor(Date.now() / 1000)
 
   // ── Commitment sections ────────────────────────────────────────────────────
@@ -324,7 +325,7 @@ export default function MyPaymentsPage() {
             <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.5px', marginBottom: 4 }}>My Payments</h1>
             <p style={{ color: 'var(--text2)', fontSize: 13 }}>Payments sent from {shortAddress(address)}</p>
           </div>
-          {payments.length > 0 && (
+          {(payments.length > 0 || commitments.length > 0 || refunds.length > 0) && (
             <button onClick={exportCSV} className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>⬇ Export CSV</button>
           )}
         </div>
@@ -339,7 +340,7 @@ export default function MyPaymentsPage() {
           </div>
           <div className="card" style={{ padding: 16, textAlign: 'center' }}>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Payments</div>
-            <div style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{payments.length}</div>
+            <div style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{paymentRecordsCount}</div>
           </div>
           {commitments.length > 0 && (
             <div className="card" style={{ padding: 16, textAlign: 'center' }}>

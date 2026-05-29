@@ -306,6 +306,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
   // ── Derived state ─────────────────────────────────────────────────────────
   const totalUsdc          = receipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0)
   const avgUsdc            = receipts.length > 0 ? (totalUsdc / receipts.length).toFixed(2) : '0.00'
+  const paymentRecordsCount = receipts.length + commitments.length
   const pendingCommitments = commitments.filter(c => c.status === 0).length
   const pendingRefunds     = refunds.filter(r => r.status === 0).length
 
@@ -455,7 +456,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
             { label: 'Total received',       value: `${totalUsdc.toFixed(2)} USDC`, color: 'var(--usdc)'  },
-            { label: 'Payments',             value: receipts.length.toString(),      color: 'var(--text)'  },
+            { label: 'Payments',             value: paymentRecordsCount.toString(), color: 'var(--text)'  },
             { label: 'Pending commitments',  value: pendingCommitments.toString(),   color: pendingCommitments > 0 ? 'var(--yellow)' : 'var(--text2)' },
             { label: 'Refund requests',      value: pendingRefunds.toString(),       color: pendingRefunds > 0 ? '#f08080' : 'var(--text2)' },
           ].map(s => (
