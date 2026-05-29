@@ -293,16 +293,16 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Roadmap */}
+      {/* Future path */}
       <div className="card" style={{ padding: 24, marginBottom: 20 }}>
-        <div style={smallCaps}>Roadmap — from web app to merchant infrastructure</div>
+        <div style={smallCaps}>Future path — if taken beyond testnet</div>
         <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7, margin: '0 0 16px' }}>
-          ArcPay is currently a web-based testnet MVP. The roadmap expands toward merchant APIs, webhooks, e-commerce plugins, accounting exports, EURC support and AI-assisted analytics.
+          ArcPay is currently a web-based testnet MVP built to demonstrate real merchant use cases. A production path would require separate security, legal, operational and infrastructure work before any mainnet or commercial launch.
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
-            'Checkout APIs', 'Signed webhooks', 'Shopify / WooCommerce plugins', 'POS and PMS integrations',
-            'ERP / accounting exports', 'EURC support', 'AI merchant analytics', 'Privacy-preserving reputation',
+            'Security review', 'Backend / indexer', 'Checkout APIs', 'Signed webhooks',
+            'Merchant integrations', 'Accounting exports', 'EURC support', 'AI-assisted analytics',
           ].map(item => <Chip key={item}>{item}</Chip>)}
         </div>
       </div>
