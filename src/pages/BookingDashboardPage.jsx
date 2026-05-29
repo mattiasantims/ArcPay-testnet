@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  fetchMerchantBookingIds, fetchGuestBookingIds, fetchBooking,
+  fetchMerchantBookingIds, fetchGuestBookingIds, fetchBooking, fetchBookingTxHashes,
   formatUsdc, formatTs, formatDeadlineCountdown,
   buildBookingReceiptObject,
   executeReleaseAfterDeadline, executeCancelBeforeDeadline,
@@ -102,7 +102,7 @@ export default function BookingDashboardPage({ account, onConnect, connecting })
         const localReq = localReqs.find(r => r.bookingRef === booking.bookingRef)
         let createTxHash = null, cancelTxHash = null, releaseTxHash = null
         try {
-          const hashes = await fetchBookingTxHashes(booking)
+          const hashes = await fetchBookingTxHashes({ ...booking, bookingId: id, id })
           createTxHash  = hashes.createHash
           cancelTxHash  = hashes.cancelHash
           releaseTxHash = hashes.releaseHash
