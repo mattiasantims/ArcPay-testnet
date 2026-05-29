@@ -79,6 +79,24 @@ export async function executeCreateCounterparty(account, { wallet, aliasName, ca
   return { hash, counterpartyId }
 }
 
+export async function executeUpdateCounterparty(account, counterpartyId, { wallet, aliasName, category, metadataHash, active = true }) {
+  const hash = await wc().writeContract({
+    address: ARC_MERCHANT_PAYOUTS_ADDRESS, abi: ABI,
+    functionName: 'updateCounterparty',
+    args: [
+      BigInt(counterpartyId),
+      wallet,
+      aliasName,
+      category,
+      metadataHash || ('0x' + '0'.repeat(64)),
+      Boolean(active),
+    ],
+    account,
+  })
+  await pc().waitForTransactionReceipt({ hash })
+  return hash
+}
+
 export async function executeDeactivateCounterparty(account, counterpartyId) {
   const hash = await wc().writeContract({
     address: ARC_MERCHANT_PAYOUTS_ADDRESS, abi: ABI,

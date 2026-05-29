@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
 import {
   PAYOUT_PURPOSE_CODES, COUNTERPARTY_CATEGORIES,
-  fetchMerchantCounterparties, executeCreateCounterparty, executeDeactivateCounterparty,
+  fetchMerchantCounterparties, executeCreateCounterparty, executeUpdateCounterparty, executeDeactivateCounterparty,
   executeSinglePayout, executeBatchPayout,
   computePayoutMetadataHash, fmtUsdc, formatTs,
 } from '../utils/payout.js'
@@ -50,6 +50,7 @@ export default function MerchantPayoutPage() {
   const [cpAlias,       setCpAlias]       = useState('')
   const [cpCategory,    setCpCategory]    = useState('Supplier')
   const [cpWallet,      setCpWallet]      = useState('')
+  const [editingCpId,   setEditingCpId]   = useState(null)
 
   // Single payout
   const [singleCp,      setSingleCp]      = useState('')   // counterpartyId or ''
@@ -82,18 +83,51 @@ export default function MerchantPayoutPage() {
 
   async function handleCreateCounterparty(e) {
     e?.preventDefault?.()
-    setError(''); setSubmitting(true)
+    setError(''); setSuccess(null); setSubmitting(true)
     try {
       if (!cpAlias.trim())  throw new Error('Alias required')
       if (!cpWallet.trim()) throw new Error('Wallet required')
       const metadataHash = computePayoutMetadataHash(cpAlias, cpCategory)
-      await executeCreateCounterparty(address, {
-        wallet: cpWallet.trim(), aliasName: cpAlias.trim(), category: cpCategory, metadataHash,
-      })
-      setCpAlias(''); setCpWallet(''); setCpCategory('Supplier')
+
+      if (editingCpId) {
+        await executeUpdateCounterparty(address, editingCpId, {
+          wallet: cpWallet.trim(),
+          aliasName: cpAlias.trim(),
+          category: cpCategory,
+          metadataHash,
+          active: true,
+        })
+        setSuccess({ type: 'counterparty', message: `Counterparty ${cpAlias.trim()} updated.` })
+      } else {
+        await executeCreateCounterparty(address, {
+          wallet: cpWallet.trim(),
+          aliasName: cpAlias.trim(),
+          category: cpCategory,
+          metadataHash,
+        })
+        setSuccess({ type: 'counterparty', message: `Counterparty ${cpAlias.trim()} created.` })
+      }
+
+      setCpAlias(''); setCpWallet(''); setCpCategory('Supplier'); setEditingCpId(null)
       await loadCounterparties()
     } catch (e) { setError(e?.shortMessage || e?.message || String(e)) }
     finally { setSubmitting(false) }
+  }
+
+  function handleEditCounterparty(cp) {
+    setError(''); setSuccess(null)
+    setEditingCpId(cp.id)
+    setCpAlias(cp.aliasName || '')
+    setCpCategory(cp.category || 'Supplier')
+    setCpWallet(cp.wallet || '')
+    setTab('counterparties')
+  }
+
+  function handleCancelCounterpartyEdit() {
+    setEditingCpId(null)
+    setCpAlias('')
+    setCpWallet('')
+    setCpCategory('Supplier')
   }
 
   async function handleDeactivate(cpId) {
@@ -231,23 +265,35 @@ export default function MerchantPayoutPage() {
       {success && (
         <div className="card" style={{ background: '#062814', border: '1px solid #22d47e44', padding: 14, marginBottom: 14 }}>
           <div style={{ color: 'var(--green)', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-            ✅ {success.type === 'batch' ? `Batch sent · ${success.count} payouts · ${success.total.toFixed(2)} USDC` : `Payout sent · ${success.amount} USDC`}
+            ✅ {success.type === 'batch'
+              ? `Batch sent · ${success.count} payouts · ${success.total.toFixed(2)} USDC`
+              : success.type === 'counterparty'
+                ? success.message
+                : `Payout sent · ${success.amount} USDC`}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'var(--mono)', wordBreak: 'break-all', marginBottom: 6 }}>
-            TX: {success.hash}
-          </div>
+
+          {success.hash && (
+            <div style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'var(--mono)', wordBreak: 'break-all', marginBottom: 6 }}>
+              TX: {success.hash}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <a href={`${ARCSCAN_BASE}/tx/${success.hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-              <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>ArcScan ↗</button>
-            </a>
+            {success.hash && (
+              <a href={`${ARCSCAN_BASE}/tx/${success.hash}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>ArcScan ↗</button>
+              </a>
+            )}
             {success.type === 'single' && success.payoutId && (
               <Link to={`/payout/${success.payoutId}`} style={{ textDecoration: 'none' }}>
                 <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>View receipt →</button>
               </Link>
             )}
-            <Link to="/payout-dashboard" style={{ textDecoration: 'none' }}>
-              <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Dashboard →</button>
-            </Link>
+            {success.type !== 'counterparty' && (
+              <Link to="/payout-dashboard" style={{ textDecoration: 'none' }}>
+                <button className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Dashboard →</button>
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -335,7 +381,7 @@ export default function MerchantPayoutPage() {
         <>
           <div className="card" style={{ padding: 20, marginBottom: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Create alias
+              {editingCpId ? 'Edit alias' : 'Create alias'}
             </div>
             <form onSubmit={handleCreateCounterparty} style={{ display: 'grid', gap: 12 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -344,9 +390,18 @@ export default function MerchantPayoutPage() {
                 <SelectField label="Category" value={cpCategory} onChange={setCpCategory} options={COUNTERPARTY_CATEGORIES} required />
               </div>
               <Field label="Wallet" value={cpWallet} onChange={setCpWallet} placeholder="0x..." required />
-              <button type="submit" disabled={submitting} className="btn-primary" style={{ padding: '10px 20px', width: 'fit-content' }}>
-                {submitting ? <><span className="spinner" /> Creating...</> : '➕ Create Alias'}
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="submit" disabled={submitting} className="btn-primary" style={{ padding: '10px 20px', width: 'fit-content' }}>
+                  {submitting
+                    ? <><span className="spinner" /> {editingCpId ? 'Updating...' : 'Creating...'}</>
+                    : editingCpId ? '💾 Update Alias' : '➕ Create Alias'}
+                </button>
+                {editingCpId && (
+                  <button type="button" onClick={handleCancelCounterpartyEdit} disabled={submitting} className="btn-ghost" style={{ padding: '10px 20px', width: 'fit-content' }}>
+                    Cancel edit
+                  </button>
+                )}
+              </div>
             </form>
           </div>
 
@@ -370,11 +425,16 @@ export default function MerchantPayoutPage() {
                     <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)', marginTop: 2 }}>{c.wallet}</div>
                     <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>Created {formatTs(c.createdAt)}</div>
                   </div>
-                  {c.active && (
-                    <button onClick={() => handleDeactivate(c.id)} disabled={submitting} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
-                      Deactivate
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button onClick={() => handleEditCounterparty(c)} disabled={submitting} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
+                      Edit
                     </button>
-                  )}
+                    {c.active && (
+                      <button onClick={() => handleDeactivate(c.id)} disabled={submitting} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
+                        Deactivate
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))
             )}
