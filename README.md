@@ -1,298 +1,143 @@
-# ArcPay
-
-**Your keys. Your payments. Your policy. On-chain.**
-
-ArcPay is a merchant USDC payment prototype on Arc Testnet. Merchants register a self-declared public profile and default payment/refund policy on-chain, accept USDC across four payment flows, and generate verifiable receipts — all without a backend or server.
-
-Not a production payment service. Not a regulated escrow. Not a lending or financing product. Testnet USDC has no real economic value.
-
+ArcPay
+Move USDC on Arc. Accept payments. Send payouts. Keep verifiable records.
+ArcPay is a web-based testnet MVP exploring how stablecoins can support practical merchant payment flows on Arc.
+It is not a production payment service. It is not a bank, custodial wallet, regulated payment institution, payroll processor, lending product, BNPL product, KYC provider or compliance verification tool. Testnet tokens have no real economic value.
+ArcPay is built around a simple product thesis: merchants should be able to use stablecoin payments without becoming crypto experts, while still keeping business-readable records that can be reconciled with their internal systems.
 ---
-
-## What ArcPay does
-
-- **Online payment links and QR codes** — instant USDC payments with on-chain ArcProof receipts
-- **Luxury retail in-store checkout** — physical QR checkout for boutiques and high-value retail
-- **Hotel booking deposits** — programmable escrow with refundable/non-refundable split and cancellation deadline
-- **Travel agency scheduled payments** — high-value packages with initial payment today and one future tranche; customer chooses full payment or scheduled tranche at checkout
-- **On-chain merchant policy** — merchants publish default payment/refund policies on-chain; customers see verifiable terms before paying
-- **Merchant profile registry** — self-declared public merchant identity with linked wallets
-- **Merchant analytics** — live on-chain dashboard across all four payment channels
-
+What ArcPay demonstrates
+ArcPay combines a browser-based frontend with smart contracts deployed on Arc Testnet.
+Current demo modules include:
+Online checkout — hosted USDC payment links and QR flows.
+Luxury and high-value retail — in-person QR payment flows for premium or dealer-style environments.
+Hotel booking deposits — refundable/non-refundable deposit split with escrow release or cancellation.
+Travel payment flows — full payment or scheduled-tranche travel payment demo.
+Merchant payouts — single and batch USDC payouts to suppliers, contractors or team wallets.
+Merchant profile and policy — self-declared public merchant profile and default payment terms.
+Refund and claim workflows — merchant-managed refund request, approval, denial and direct refund flows.
+PDF and CSV records — downloadable records for merchants and counterparties.
+ArcScan verification — transaction hashes and explorer links for supported flows.
+Merchant analytics — local dashboard views across payment channels.
+The current version is intentionally lightweight: no backend, no database, no hosted API and no custody of funds.
 ---
-
-## Smart contracts
-
-### ArcProof — instant payment receipt engine
-
-```
-Status:  Deployed
-Address: 0x9A284a4af4476Dddb353793A79C1a8BfC09e8334
-Source:  contracts/ArcProof.sol
-```
-
-Atomically executes a USDC payment and creates a structured on-chain Payment Receipt in the same transaction. Powers: Online Payments, Luxury Retail Checkout, Travel "Pay full amount now".
-
-### ArcBookingEscrow — hotel booking deposit engine
-
-```
-Status:  Deployed
-Address: 0xe83f411EaCe17C202598935cdD4E3646cD86899F
-Source:  contracts/ArcBookingEscrow.sol
-```
-
-Manages hotel booking deposits with refundable/non-refundable split and cancellation deadline enforced on-chain.
-
-Statuses: `Active` → `CancelledBeforeDeadline` or `ReleasedToMerchant`
-
-No tranche logic. No accept/reject. Not modified from original.
-
-### ArcTravelEscrow — travel scheduled payment engine
-
-```
-Status:  Deploy yourself via Remix
-Config:  ARCTRAVEL_ESCROW_ADDRESS in src/config.js
-Source:  contracts/ArcTravelEscrow.sol
-```
-
-Manages high-value travel bookings with an initial payment split (non-refundable to agency + refundable escrow) and one future scheduled tranche paid directly to the agency.
-
-Statuses: `Active` → `TranchePaid` → `ReleasedToMerchant` or `CancelledBeforeDeadline` or `CancelledForMissedPayment`
-
-Functions: `createTravelBooking()` · `requestTranchePayment()` · `payTranche()` · `cancelBeforeDeadline()` · `cancelForMissedPayment()` · `releaseAfterCancellationDeadline()`
-
-**Not lending. Not BNPL. Not consumer credit.** ArcPay does not advance funds. The tranche must be paid by the customer when due.
-
-### ArcMerchantRegistry — merchant profile and policy registry
-
-```
-Status:  Deploy yourself via Remix
-Config:  ARCMERCHANT_REGISTRY_ADDRESS in src/config.js
-Source:  contracts/ArcMerchantRegistry.sol
-```
-
-Self-declared public merchant identity, linked wallets, and default payment/refund policy. No admin. No fees. No KYC. No verification.
-
-The registry stores two structs:
-
-**Merchant** — public business identity:
-`merchantId` · `ownerWallet` · `tradingName` · `legalName` · `businessCategory` · `website` · `country` · `businessAddress` · `businessEmail` · `lei` · `vatOrCompanyId` · `otherPublicIdentifier` · `profileHash` · `profileVersion` · `active` · `createdAt` · `updatedAt`
-
-**MerchantPolicy** — default payment and refund settings:
-
-| Field | Default | Meaning |
-|-------|---------|---------|
-| `allowScheduledTranche` | `false` | Merchant accepts scheduled tranche payments |
-| `defaultNonRefundableBps` | `3000` | 30% non-refundable on initial payment |
-| `defaultInitialPaymentBps` | `1000` | 10% of total as initial payment (Travel) |
-| `defaultTrancheBps` | `3000` | 30% of total as tranche (Travel) |
-| `paymentDueOffsetDays` | `90` | Tranche due N days before travel/check-in |
-| `paymentDeadlineOffsetDays` | `75` | Tranche must be paid N days before travel |
-| `cancellationCutoffDays` | `30` | Refund terms change N days before travel |
-| `refundBpsBeforeCutoff` | `7000` | 70% refund if cancelled before cutoff |
-| `refundBpsAfterCutoff` | `0` | 0% refund if cancelled after cutoff |
-| `policyVersion` | `1` | Increments on each policy update |
-
-Policy defaults **pre-fill** new Hotel and Travel request forms only. They do NOT automatically modify existing bookings or change contract behavior. Final terms for each booking live in ArcBookingEscrow or ArcTravelEscrow.
-
-Functions:
-- `registerMerchant()` — registers profile + creates default policy automatically
-- `updateMerchantProfile()` — updates identity fields, increments profileVersion
-- `updateMerchantPolicy()` — updates all 9 policy fields, increments policyVersion
-- `addWallet()` / `removeWallet()` — manage linked wallets (owner only)
-- `getMerchantPolicy()` / `getMerchantPolicyByWallet()` — read policy on-chain
-
+Core principles
+Stablecoin-first
+ArcPay uses USDC on Arc Testnet as the core payment asset. The goal is to explore stablecoin payment flows without exposing merchants to the volatility of non-stable crypto-assets.
+Non-custodial
+ArcPay does not hold merchant, customer or counterparty funds. Users connect their own wallets, approve transactions and interact directly with smart contracts.
+> Your keys. Your assets. Your payments.
+Record-oriented
+Each payment or payout can be linked to a business reference such as an order ID, booking reference, invoice number, travel reference or payout reference.
+The blockchain provides transaction evidence. The merchant keeps detailed business records off-chain and links them through references, metadata hashes, PDFs, CSV exports and ArcScan links.
+Merchant-focused
+ArcPay is designed around practical merchant workflows, not only raw token transfers.
+Merchants can accept USDC, send USDC, publish default payment terms, view activity and export records.
 ---
-
-## The four payment flows
-
-### 1. Online Payments — `/create`
-
-Merchant creates a payment link or QR. Customer opens in any browser, connects wallet, pays USDC. ArcProof creates a Payment Receipt atomically.
-
-### 2. Luxury Retail Checkout — `/luxury`
-
-Merchant generates QR or link for physical checkout. Customer scans with mobile wallet and pays. ArcProof receipt immediately.
-
-### 3. Hotel Booking Deposit — `/booking`
-
-Merchant creates a booking deposit link. Guest pays 100%. Non-refundable portion goes immediately to hotel. Refundable portion stays in escrow until cancellation deadline.
-
-### 4. Travel Agency Scheduled Payments — `/travel`
-
-Merchant creates a travel booking with initial payment + scheduled tranche. Customer checkout shows two merchant-approved options:
-
-**Option A — Pay full amount now**
-→ ArcProof · instant receipt · no escrow
-
-**Option B — Pay initial + scheduled tranche**
-→ ArcTravelEscrow · initial split into non-refundable (to agency) + refundable (escrow) · future tranche on scheduled date
-
-The customer only sees the tranche option if the merchant enabled `allowScheduledTranche` for that specific booking request.
-
+Current product flows
+1. Online payments
+Merchants create a hosted payment link or QR code. A counterparty connects a wallet, pays USDC and receives a verifiable on-chain receipt.
+Online payments can support refund requests, merchant approval/denial and direct merchant refunds in the demo.
+2. Luxury and high-value retail
+Merchants can create QR-based payment flows for physical or premium environments where a customer scans and pays from a wallet.
+The demo also explores delayed payment, tranche payment and refund scenarios for high-value retail use cases.
+3. Hotel booking deposits
+The hotel booking flow demonstrates an escrow-backed deposit model:
+the non-refundable portion goes to the merchant;
+the refundable portion is held in escrow;
+cancellation before the cutoff returns the refundable portion;
+release after the cutoff sends the escrowed amount to the merchant.
+4. Travel payment flows
+The travel module demonstrates full payment and scheduled-tranche payment scenarios for travel packages.
+Scheduled travel payments are not lending, credit or BNPL. ArcPay does not advance funds. The merchant receives funds only when the customer actually pays.
+5. Merchant payouts
+Merchant Payouts allow merchants to send USDC outbound to suppliers, contractors, team wallets or other counterparties.
+The module supports:
+alias-based counterparty registry;
+single payouts;
+batch payouts;
+payment reference;
+description;
+metadata hash;
+PDF receipt;
+CSV export;
+ArcScan link.
+Counterparty aliases should not include personal, payroll, tax or confidential information. Detailed counterparty records should remain off-chain with the merchant.
 ---
-
-## Merchant profile and policy
-
-### How to access
-
-Click your wallet address (top-right when connected) → **Merchant Profile**, or go to `/merchant-profile`.
-
-### What to publish
-
-Profile and policy are permanently stored on-chain. Do NOT publish: customer data, private notes, personal data, bank details, internal metrics, revenue, or transaction counts.
-
-### Pre-fill
-
-After connecting a wallet linked to a merchant profile, ArcPay pre-fills:
-- **Travel Agency** → agency name, `allowScheduledTranche`, all 9 policy fields
-- **Hotel Booking** → hotel name, non-refundable %
-- **Luxury Retail / Online** → merchant name
-
----
-
-## Receipt types
-
-| Receipt | Powered by | Available formats |
-|---------|-----------|------------------|
-| Payment Receipt | ArcProof | PDF, JSON |
-| Hotel Booking Receipt | ArcBookingEscrow events | PDF, JSON |
-| Travel Booking Receipt | ArcTravelEscrow events | PDF, JSON |
-| Tranche Payment Receipt | ArcTravelEscrow events | PDF, JSON |
-
-ArcProof powers instant payment receipts. ArcBookingEscrow and ArcTravelEscrow generate lifecycle receipts through on-chain events and stored state.
-
----
-
-## Merchant analytics — `/analytics`
-
-Live analytics loaded from Arc Testnet on demand. No backend, no database.
-
-Tabs: Overview · Luxury Retail · Online Payments · Hotel Booking · Ask ArcPay AI · Coming Soon
-
-Ask ArcPay AI — local dynamic assistant, no GPT/Claude, no external API.
-
----
-
-## WalletConnect
-
-WalletConnect v2 (Web3Modal) + wagmi:
-- **Desktop** — MetaMask browser extension
-- **Mobile** — WalletConnect QR; scan with MetaMask Mobile, Rainbow, Trust Wallet, or any compatible wallet
-- **In-app** — open payment links in MetaMask Mobile's built-in browser
-
-Wallet menu (click address top-right when connected): Merchant Profile · Copy address · Switch wallet · Disconnect.
-
----
-
-## Arc Testnet
-
+Smart contracts
+ArcPay currently uses the following Arc Testnet contracts.
+Module	Purpose	Address
+`ArcProof`	Instant payments and on-chain receipts	`0x1c5DAc22997FFD5CAf81f9A3d81F5258587788a3`
+`ArcBookingEscrow`	Hotel booking deposit escrow	`0xd47E321a220B5aE86eb45d4c744C5E087aAa8d0C`
+`ArcTravelEscrow`	Travel scheduled payment flow	`0x894142646064CA2bBc8fE1e5E433E20a9DC2B024`
+`ArcMerchantRegistry`	Merchant profile and default policy	`0xcfA93Ec583ff0cecB74eB02F9a18939D5609E303`
+`ArcPaymentCommitment`	Delayed and tranche commitments	`0xC19d95C36C83F88082127204Fe32D5Cd8F838039`
+`ArcRefund`	Merchant-managed refund requests and direct refunds	`0x0ad3F01645c419fc42dAef4ecF5A7213A8a030dC`
+`ArcMerchantPayouts`	Outbound merchant payouts and alias counterparties	`0x70D9407b5C6fbE2b74C4E65221edCDBF4A74fA93`
+USDC ERC-20 on Arc Testnet:
+```text
+0x3600000000000000000000000000000000000000
 ```
-Network name:  Arc Testnet
-RPC URL:       https://rpc.testnet.arc.network
-Chain ID:      5042002
-Symbol:        USDC
-Explorer:      https://testnet.arcscan.app
-USDC ERC-20:   0x3600000000000000000000000000000000000000
+---
+Network
+ArcPay currently runs on Arc Testnet.
+```text
+Network:  Arc Testnet
+RPC:      https://rpc.testnet.arc.network
+Chain ID: 5042002
+Symbol:   USDC
+Explorer: https://testnet.arcscan.app
 ```
-
-USDC for transfers: 6 decimals. Arc native balance internally: 18 decimals.
-Testnet USDC faucet: `https://faucet.circle.com`
-
 ---
-
-## Tech stack
-
-React + Vite · viem · wagmi · @web3modal/wagmi · @tanstack/react-query · Recharts · jsPDF · qrcode.react · Vercel
-
-No backend. No database. No paid APIs. No external AI API.
-
----
-
-## Project structure
-
-```
-contracts/
-  ArcProof.sol               — instant payment receipt engine (deployed)
-  ArcBookingEscrow.sol       — hotel booking deposit engine (deployed)
-  ArcTravelEscrow.sol        — travel scheduled payment engine (deploy yourself)
-  ArcMerchantRegistry.sol    — merchant profile + policy registry (deploy yourself)
-
-src/
-  config.js                  — chain config, all contract addresses
-  walletConfig.js            — wagmi + WalletConnect v2
-
-  abis/
-    ArcProof.json · ArcBookingEscrow.json
-    ArcTravelEscrow.json · ArcMerchantRegistry.json · ERC20.json
-
-  pages/
-    HomePage.jsx
-    CreatePaymentPage.jsx / CheckoutPage.jsx / ReceiptPage.jsx / DashboardPage.jsx
-    LuxuryRetailPage.jsx
-    BookingPage.jsx / BookingCheckoutPage.jsx / BookingDetailsPage.jsx / BookingDashboardPage.jsx
-    TravelAgencyPage.jsx / TravelCheckoutPage.jsx / TravelDetailsPage.jsx / TravelDashboardPage.jsx
-    AnalyticsPage.jsx
-    MerchantProfilePage.jsx
-    QRPage.jsx
-
-  utils/
-    wallet.js · receipts.js · booking.js · travel.js · merchant.js
-    analytics.js · pdf.js · bookingPdf.js · travelPdf.js
-    csv.js · bookingCsv.js · paymentRequest.js · bookingRequest.js
-```
-
----
-
-## Routes
-
-| Route | Description |
-|-------|-------------|
-| `/` | Homepage |
-| `/create` | Create online payment link |
-| `/pay?r=...` | Customer checkout (online/luxury) |
-| `/receipt/:id` | ArcProof payment receipt |
-| `/dashboard` | Online/luxury payments dashboard |
-| `/luxury` | Luxury retail checkout creation |
-| `/booking` | Hotel booking deposit creation |
-| `/booking/pay?r=...` | Guest hotel booking checkout |
-| `/booking/:id` | Hotel booking status and actions |
-| `/booking-dashboard` | Hotel booking dashboard |
-| `/travel` | Travel booking creation |
-| `/travel/pay?r=...` | Customer travel checkout (full or tranche) |
-| `/travel/:id` | Travel booking status, actions, receipts |
-| `/travel-dashboard` | Travel agency dashboard |
-| `/analytics` | Merchant analytics |
-| `/merchant-profile` | Merchant profile and policy registry |
-| `/qr` | Fullscreen QR display |
-
----
-
-## Setup
-
+How to run locally
 ```bash
-npm install
-npm run build
+npm install --legacy-peer-deps
 npm run dev
+npm run build
 ```
-
-Vercel: Framework Vite · Build `npm run build` · Output `dist`
-
 Environment variable:
+```text
+VITE_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 ```
-VITE_WALLETCONNECT_PROJECT_ID = your_project_id
-```
-Register free at `https://cloud.walletconnect.com`.
-
-Deploy `ArcTravelEscrow.sol` and `ArcMerchantRegistry.sol` via Remix on Arc Testnet. Update addresses in `src/config.js`. ArcProof and ArcBookingEscrow are already deployed.
-
 ---
-
-## Roadmap
-
-Multi-tranche travel payments · Freelance Service Escrow · Marketplace Delivery Escrow · EURC/multi-stablecoin · x402/API payments · ERC-8183 work payments · GPT/Claude merchant copilot via secure backend · PMS/POS/ERP integrations · Privacy-preserving merchant reputation badges · Backend tranche payment notifications
-
+Current limitations
+ArcPay is a testnet MVP and remains under active iteration.
+Current limitations include:
+no backend;
+no database;
+no hosted checkout API;
+no API keys;
+no signed webhooks;
+no indexer;
+no production-grade access control;
+no formal security audit;
+no legal, compliance or regulatory review;
+no fiat settlement;
+no production custody or safeguarding services;
+no guarantee that the demo will be deployed to mainnet.
+The current frontend reads data directly from on-chain contracts and events. This is acceptable for a demo, but a production version would require backend/indexing infrastructure for performance, reliability and reconciliation.
 ---
-
-## Disclaimers
-
-ArcPay is an Arc Testnet proof of concept. Testnet USDC has no real value. ArcTravelEscrow is not lending/BNPL/credit — ArcPay does not advance funds. ArcMerchantRegistry records self-declared public information only — it does not verify identity or legal status. Merchant policy defaults pre-fill forms only — they do not modify existing bookings. No KYC/AML. Payment Receipts are not legally valid tax invoices. Smart contracts do not auto-execute at deadlines. Not affiliated with Circle or Arc Network.
+Potential production path
+ArcPay may be evaluated for future development beyond testnet. Any production path would require additional work, including:
+security review and contract hardening;
+backend/indexer;
+merchant API and checkout sessions;
+signed webhooks;
+pagination and performance optimization;
+e-commerce, POS, PMS or accounting integrations;
+legal and compliance assessment;
+operational monitoring;
+clear go-to-market scope.
+Possible future extensions include:
+merchant APIs;
+signed webhooks;
+SDK or checkout widgets;
+Shopify/WooCommerce plugins;
+POS/PMS integrations;
+ERP/accounting exports;
+EURC or additional stablecoin support;
+AI-assisted merchant analytics;
+privacy-preserving merchant reputation signals.
+These are potential future directions, not current production commitments.
+---
+Why publish this project
+ArcPay is a builder prototype for stablecoin merchant payments on Arc. The goal is to demonstrate real-world payment patterns, not to claim production readiness.
+The project explores how USDC, non-custodial wallets, smart contracts, payment references, receipts and merchant records can work together in a practical merchant payment layer.
