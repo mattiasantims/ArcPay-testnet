@@ -52,13 +52,19 @@ export default function TravelAgencyPage() {
       }
       if (p) {
         setAllowScheduledTranche(p.allowScheduledTranche)
-        // Testnet: offset sono in minuti (workaround testnet)
-        const nowSec   = Math.floor(Date.now() / 1000)
-        const MIN      = 60 // secondi in un minuto
-        const dueSec        = nowSec + Number(p.paymentDueOffsetDays)      * MIN
-        const deadlineSec   = nowSec + Number(p.paymentDeadlineOffsetDays) * MIN
-        const cancelSec     = nowSec + Number(p.cancellationCutoffDays)    * MIN
-        const startSec      = cancelSec + 5 * MIN
+        // Merchant Registry policy offsets are stored as minutes BEFORE the future
+        // travel/service date. Convert them into absolute dates for the TravelEscrow
+        // chronological model: due < deadline < cancellation < travel start.
+        const nowSec = Math.floor(Date.now() / 1000)
+        const MIN = 60
+        const dueOffset = Number(p.paymentDueOffsetDays || 0)
+        const deadlineOffset = Number(p.paymentDeadlineOffsetDays || 0)
+        const cancelOffset = Number(p.cancellationCutoffDays || 0)
+        const maxOffset = Math.max(dueOffset, deadlineOffset, cancelOffset, 1)
+        const startSec = nowSec + (maxOffset + 5) * MIN
+        const dueSec = startSec - dueOffset * MIN
+        const deadlineSec = startSec - deadlineOffset * MIN
+        const cancelSec = startSec - cancelOffset * MIN
 
         setForm(prev => ({
           ...prev,
