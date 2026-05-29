@@ -1,4 +1,4 @@
-import { parseUnits } from 'viem'
+import { decodeEventLog } from 'viem'
 import { getWalletClient, getPublicClient } from './wallet.js'
 import { ARC_REFUND_ADDRESS, USDC_ADDRESS, USDC_DECIMALS } from '../config.js'
 import ABI   from '../abis/ArcRefund.json'
@@ -18,6 +18,33 @@ export const REFUND_STATUS_COLOR = {
   2: '#f08080',
   3: 'var(--green)',
 }
+
+export function normalizeRefundStatus(status) {
+  if (typeof status === 'bigint') return Number(status)
+  if (typeof status === 'number') return status
+  const text = String(status ?? '').trim().toLowerCase()
+  if (!text) return null
+  if (text === '0' || text.includes('requested')) return 0
+  if (text === '1' || text.includes('approved')) return 1
+  if (text === '2' || text.includes('denied')) return 2
+  if (text === '3' || text.includes('direct')) return 3
+  return null
+}
+
+export function getRefundStatusLabel(status) {
+  const s = normalizeRefundStatus(status)
+  return s == null ? '—' : (REFUND_STATUS_LABEL[s] || '—')
+}
+
+export function getRefundStatusColor(status) {
+  const s = normalizeRefundStatus(status)
+  return s == null ? 'var(--text3)' : (REFUND_STATUS_COLOR[s] || 'var(--text3)')
+}
+
+export function isDirectRefund(status) { return normalizeRefundStatus(status) === 3 }
+export function isApprovedRefund(status) { return normalizeRefundStatus(status) === 1 }
+export function isDeniedRefund(status) { return normalizeRefundStatus(status) === 2 }
+export function isRequestedRefund(status) { return normalizeRefundStatus(status) === 0 }
 
 function toUsdc(amount) { return BigInt(Math.round(parseFloat(amount) * 1e6)) }
 function fromUsdc(v)    { return (Number(v) / 1e6).toFixed(2) }
@@ -152,6 +179,20 @@ export async function fetchRefundTxHashes(refund) {
 }
 
 
+function extractRefundIdFromReceipt(receipt, eventName) {
+  if (!receipt?.logs?.length) return null
+  for (const log of receipt.logs) {
+    if (log.address?.toLowerCase() !== ARC_REFUND_ADDRESS.toLowerCase()) continue
+    try {
+      const decoded = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics })
+      if (decoded?.eventName === eventName && decoded.args?.refundId != null) {
+        return BigInt(decoded.args.refundId).toString()
+      }
+    } catch {}
+  }
+  return null
+}
+
 // ── Write functions ───────────────────────────────────────────────────────────
 
 export async function requestRefund(account, { merchant, amount, proofRef, reason }) {
@@ -164,9 +205,7 @@ export async function requestRefund(account, { merchant, amount, proofRef, reaso
     account,
   })
   const receipt = await waitAndCheck(hash, 'Refund request')
-  const id = receipt.logs?.[0]?.topics?.[1]
-    ? BigInt(receipt.logs[0].topics[1]).toString()
-    : null
+  const id = extractRefundIdFromReceipt(receipt, 'RefundRequested')
   if (id) cacheRefundRequestTx(id, hash)
   return { hash, refundId: id }
 }
@@ -227,9 +266,7 @@ export async function directRefund(account, { customerWallet, amount, proofRef, 
   })
   const receipt = await waitAndCheck(hash, 'Direct refund')
   // Cache with real refundId so fetchRefundTxHashes can find it
-  const refundId = receipt.logs?.[0]?.topics?.[1]
-    ? BigInt(receipt.logs[0].topics[1]).toString()
-    : null
+  const refundId = extractRefundIdFromReceipt(receipt, 'DirectRefund')
   if (refundId) cacheRefundProcessTx(refundId, hash)
   return hash
 }
@@ -271,18 +308,19 @@ export async function totalRefunds() {
 
 function parseRefund(raw, id) {
   if (!raw) return null
+  const get = (name, index, fallback = undefined) => raw?.[name] ?? raw?.[index] ?? fallback
   return {
-    refundId:    id.toString(),
-    merchant:    raw.merchant,
-    customer:    raw.customer,
-    amount:      fromUsdc(raw.amount),
-    proofRef:    raw.proofRef,
-    reason:      raw.reason,
-    status:      Number(raw.status),
-    requestedAt: Number(raw.requestedAt),
-    processedAt: Number(raw.processedAt),
+    refundId:       id.toString(),
+    merchant:       get('merchant', 0),
+    customer:       get('customer', 1),
+    amount:         fromUsdc(get('amount', 2, 0n)),
+    proofRef:       get('proofRef', 3, ''),
+    reason:         get('reason', 4, ''),
+    status:         normalizeRefundStatus(get('status', 5, 0)) ?? 0,
+    requestedAt:    Number(get('requestedAt', 6, 0)),
+    processedAt:    Number(get('processedAt', 7, 0)),
     // v4 block tracking for scanBlock-based TX hash recovery
-    requestedBlock: Number(raw.requestedBlock ?? 0),
-    processedBlock: Number(raw.processedBlock ?? 0),
+    requestedBlock: Number(get('requestedBlock', 8, 0)),
+    processedBlock: Number(get('processedBlock', 9, 0)),
   }
 }

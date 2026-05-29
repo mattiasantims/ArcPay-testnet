@@ -12,7 +12,7 @@ import ArcProofABI from '../abis/ArcProof.json'
 import { getCachedTxHash } from '../utils/paymentRequest.js'
 import { downloadUnifiedCSV } from '../utils/csv.js'
 import {
-  fetchCustomerRefundIds, fetchRefundRequest,
+  fetchCustomerRefundIds, fetchRefundRequest, fetchRefundTxHashes,
   REFUND_STATUS_LABEL, REFUND_STATUS_COLOR,
 } from '../utils/refund.js'
 import {
@@ -180,7 +180,7 @@ export default function MyPaymentsPage() {
           }))
           setRefunds(enrichedR)
           const enrichedByRef = {}
-          for (const r of enrichedR) { if (r.proofRef) enrichedByRef[r.proofRef] = r }
+          for (const r of enrichedR) { if (r.proofRef && !enrichedByRef[r.proofRef]) enrichedByRef[r.proofRef] = r }
           setRefundsByRef(enrichedByRef)
         } catch {}
       }

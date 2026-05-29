@@ -1,5 +1,5 @@
 import { COMMITMENT_STATUS_LABEL, COMMITMENT_TYPE_LABEL } from './commitment.js'
-import { REFUND_STATUS_LABEL } from './refund.js'
+import { getRefundStatusLabel, isDirectRefund } from './refund.js'
 import { APP_URL } from '../config.js'
 
 const ARCSCAN = 'https://testnet.arcscan.app'
@@ -34,10 +34,11 @@ function paymentStatus(r) {
 export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = [], walletAddress, role = 'merchant' }) {
   const arc = ARCSCAN
 
-  // Build refund lookup by proofRef
+  // Build refund lookup by proofRef. Refund arrays are loaded newest-first; keep the
+  // first match so a newer direct/processed refund is not overwritten by an older request.
   const refundByRef = {}
   for (const r of refunds) {
-    if (r.proofRef) refundByRef[r.proofRef] = r
+    if (r.proofRef && !refundByRef[r.proofRef]) refundByRef[r.proofRef] = r
   }
 
   // Fixed headers — one row per payment
@@ -77,10 +78,10 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
   for (const r of receipts) {
     const ref    = r.payment_ref || ''
     const refund = refundByRef[ref] || refundByRef[r.payment_ref] || null
-    const rStatus = refund ? (REFUND_STATUS_LABEL[refund.status] || '—') : '—'
+    const rStatus = refund ? getRefundStatusLabel(refund.status) : '—'
     const reqTx   = refund?.requestTxHash || ''
     const proTx   = refund?.processTxHash || ''
-    const isDirect = refund?.status === 3
+    const isDirect = isDirectRefund(refund?.status)
 
     rows.push(csvRow([
       r.timestamp_utc          ?? '',
@@ -107,7 +108,7 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
       isDirect ? proTx : '',
       // Links
       r.transaction_hash ? `${arc}/tx/${r.transaction_hash}` : '',
-      reqTx ? `${arc}/tx/${reqTx}` : (proTx ? `${arc}/tx/${proTx}` : ''),
+      isDirect ? (proTx ? `${arc}/tx/${proTx}` : '') : (proTx ? `${arc}/tx/${proTx}` : (reqTx ? `${arc}/tx/${reqTx}` : '')),
       `${APP_URL}/receipt/${r.receipt_id || ''}`,
     ]))
   }
@@ -116,10 +117,10 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
   for (const c of commitments) {
     const ref       = c.ref || ''
     const refund    = refundByRef[ref] || null
-    const rStatus   = refund ? (REFUND_STATUS_LABEL[refund.status] || '—') : '—'
+    const rStatus   = refund ? getRefundStatusLabel(refund.status) : '—'
     const reqTx     = refund?.requestTxHash || ''
     const proTx     = refund?.processTxHash || ''
-    const isDirect  = refund?.status === 3
+    const isDirect  = isDirectRefund(refund?.status)
     const isOverdue = c.status === 0 && Math.floor(Date.now()/1000) >= (c.deadline || 0)
     const pStatus   = isOverdue ? 'Overdue' : (COMMITMENT_STATUS_LABEL[c.status] || '')
     const tHashes   = c.trancheHashes || []
@@ -150,7 +151,7 @@ export function downloadUnifiedCSV({ receipts = [], commitments = [], refunds = 
       isDirect ? proTx : '',
       // Links
       c.createTxHash ? `${arc}/tx/${c.createTxHash}` : '',
-      reqTx ? `${arc}/tx/${reqTx}` : (proTx ? `${arc}/tx/${proTx}` : ''),
+      isDirect ? (proTx ? `${arc}/tx/${proTx}` : '') : (proTx ? `${arc}/tx/${proTx}` : (reqTx ? `${arc}/tx/${reqTx}` : '')),
       `${APP_URL}/commitment/${c.commitmentId || ''}`,
     ]))
   }

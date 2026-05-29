@@ -390,6 +390,10 @@ export default function ReceiptPage() {
                   await approveRefund(address, existingRefund.refundId)
                   const r = await fetchRefundRequest(existingRefund.refundId)
                   setExistingRefund(r)
+                  fetchRefundTxHashes(r).then(({ requestTxHash, processTxHash }) => {
+                    if (requestTxHash) setRefundRequestTx(requestTxHash)
+                    if (processTxHash) setRefundProcessTx(processTxHash)
+                  }).catch(() => {})
                 } catch (e) { setDirectError(e.message || 'Approve failed') }
               }} className="btn-primary" style={{ fontSize: 12, padding: '8px 16px', background: 'var(--green)', border: 'none' }}>
                 ✓ Approve refund
@@ -400,6 +404,10 @@ export default function ReceiptPage() {
                   await denyRefund(address, existingRefund.refundId)
                   const r = await fetchRefundRequest(existingRefund.refundId)
                   setExistingRefund(r)
+                  fetchRefundTxHashes(r).then(({ requestTxHash, processTxHash }) => {
+                    if (requestTxHash) setRefundRequestTx(requestTxHash)
+                    if (processTxHash) setRefundProcessTx(processTxHash)
+                  }).catch(() => {})
                 } catch (e) { setDirectError(e.message || 'Deny failed') }
               }} style={{ fontSize: 12, padding: '8px 16px', background: '#1a0808', border: '1px solid #f04f4f', color: '#f08080', borderRadius: 8, cursor: 'pointer' }}>
                 ✕ Deny
@@ -514,7 +522,7 @@ export default function ReceiptPage() {
                   timestamp: existingRefund.processedAt ? new Date(existingRefund.processedAt * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC' : null,
                   detail:    `${existingRefund.amount} USDC sent directly by merchant`,
                   note:      existingRefund.reason || null,
-                  pdf:       () => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, 'Direct refund'),
+                  pdf:       () => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, existingRefund.status),
                 })
               }
             }
@@ -552,7 +560,7 @@ export default function ReceiptPage() {
                           </button>
                         )}
                         {(ev.label === 'Refund Approved' || ev.label === 'Refund Denied' || ev.label === 'Direct Refund') && existingRefund && (
-                          <button onClick={() => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, ev.label)} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
+                          <button onClick={() => ev.pdf ? ev.pdf() : downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, existingRefund.status)} className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
                             🖨️ PDF
                           </button>
                         )}
@@ -589,14 +597,14 @@ export default function ReceiptPage() {
                   )}
                   {existingRefund && (existingRefund.status === 1 || existingRefund.status === 2) && (
                     <button
-                      onClick={() => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, existingRefund.status === 1 ? 'Approved' : 'Denied')}
+                      onClick={() => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, existingRefund.status)}
                       className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
                       🖨️ {existingRefund.status === 1 ? 'Refund Approved' : 'Refund Denied'} PDF
                     </button>
                   )}
                   {existingRefund && existingRefund.status === 3 && (
                     <button
-                      onClick={() => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, 'Direct refund')}
+                      onClick={() => downloadRefundProcessedPDF(receipt, existingRefund, refundProcessTx, existingRefund.status)}
                       className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px' }}>
                       🖨️ Direct Refund PDF
                     </button>

@@ -293,9 +293,11 @@ export function downloadRefundProcessedPDF(receipt, refund, txHash, status) {
   const addField = (key, value) => { doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(100,100,100); doc.text(key,margin,y); doc.setFont('helvetica','normal'); doc.setTextColor(17,17,17); const lines=doc.splitTextToSize(value||'—',130); doc.text(lines,70,y); y+=Math.max(lines.length*5,7) }
   const addDiv   = () => { doc.setDrawColor(220,220,220); doc.line(margin,y,210-margin,y); y+=5 }
 
-  const isApproved = status === 'Approved' || status === 1
-  const isDirect   = status === 'Direct refund' || status === 3
-  const label      = isDirect ? 'Direct Refund' : isApproved ? 'Refund Approved' : 'Refund Denied'
+  const statusText = String(status ?? '').toLowerCase()
+  const isApproved = status === 1 || statusText.includes('approved')
+  const isDirect   = status === 3 || statusText.includes('direct')
+  const isDenied   = status === 2 || statusText.includes('denied')
+  const label      = isDirect ? 'Direct Refund' : isApproved ? 'Refund Approved' : isDenied ? 'Refund Denied' : 'Refund Processed'
   const amtColor   = isDirect || isApproved ? [39,160,80] : [200,60,60]
 
   doc.setFillColor(17,17,17); doc.rect(0,0,210,25,'F')

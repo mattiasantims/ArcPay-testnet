@@ -8,7 +8,7 @@ import {
 import { getCachedTxHash, getPaymentRequests } from '../utils/paymentRequest.js'
 import { shortAddress, isValidAddress } from '../utils/wallet.js'
 import { ARCSCAN_BASE, isMerchantRegistryConfigured, isRefundContractConfigured, isCommitmentContractConfigured } from '../config.js'
-import { getMerchantIdByWallet, getMerchantWallets } from '../utils/merchant.js'
+import { getMerchantIdByWallet, getMerchantWallets, getMerchantByWallet } from '../utils/merchant.js'
 import { downloadCSV, downloadUnifiedCSV } from '../utils/csv.js'
 import { downloadReceiptPDF } from '../utils/pdf.js'
 import {
@@ -258,7 +258,7 @@ export default function DashboardPage({ account, onConnect, connecting }) {
           setRefunds(enriched)
           // Build lookup: proofRef -> most recent refund
           const byRef = {}
-          for (const r of enriched) { if (r.proofRef) byRef[r.proofRef] = r }
+          for (const r of enriched) { if (r.proofRef && !byRef[r.proofRef]) byRef[r.proofRef] = r }
           setRefundsByRef(byRef)
         } catch {}
       }
