@@ -227,6 +227,7 @@ ArcPay is a personal testnet MVP designed and developed by **Mattia Santi** to e
 
 The project is independent, experimental and not affiliated with any employer, regulated financial institution, payment institution or blockchain foundation.
 
+- Live demo: https://arc-pay-testnet.vercel.app
 - LinkedIn: https://www.linkedin.com/in/mattiasantims/
 - Repository: https://github.com/mattiasantims/ArcPay-testnet
 
